@@ -6,15 +6,19 @@
   "bin": "dist/server/main.js",
   "scripts": {
     "clean": "rimraf dist public/dist",
-    "build:server": "tsc -p src/server/tsconfig.server.json",
+    "build:audio-engine": "cd audio-engine && npm run build",
     "build:client": "webpack",
-    "build": "npm run clean && npm run build:server && npm run build:client",
+    "build:server": "tsc -p src/server/tsconfig.server.json",
+    "build": "npm run clean && npm run build:audio-engine && npm run build:client && npm run build:server",
     "watch:server-tsc": "tsc -p src/server/tsconfig.server.json --watch",
     "watch:client": "npx webpack --watch --mode development",
     "watch:server-node": "node --watch dist/server/main.js",
     "watch": "concurrently -n \"TS-S, WP-C, APP\" -c \"blue,green,magenta\" \"npm run watch:server-tsc\" \"npm run watch:client\" \"npm run watch:server-node\"",
     "start": "node dist/server/main.js"
   },
+  "workspaces": [
+    "audio-engine"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tommunno/intercom-app-ts.git"
