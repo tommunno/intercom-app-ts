@@ -1,32 +1,28 @@
-import {
-  type IWebServerManager,
-  type WebServerEvents,
-  type ILogger,
-  WebServerEvent,
+import type {
+  IWebServerManager,
+  WebServerHandlers,
+  ILogger,
 } from "../../contracts/index.js";
-import { TypedEmitter } from "tiny-typed-emitter";
 
-export class WebServerManager
-  extends TypedEmitter<WebServerEvents>
-  implements IWebServerManager
-{
-  constructor(private logger: ILogger) {
-    super();
-  }
+export class WebServerManager implements IWebServerManager {
+  private handlers: WebServerHandlers | null = null;
+
+  constructor(private logger: ILogger) {}
 
   init(): void {}
 
   start(): void {
-    const userLoginRequestResult = this.emit(
-      WebServerEvent.UserLoginRequest,
-      "abcdef"
-    );
+    let result: string | boolean = "";
+    if (this.handlers) result = this.handlers.onUserLoginRequest("abcdef");
+    console.log(result);
 
     setTimeout(() => {
-      const adminLoginRequestResult = this.emit(
-        WebServerEvent.AdminLoginRequest,
-        "ghijkl"
-      );
+      if (this.handlers) result = this.handlers.onAdminLoginRequest("wxyzaabb");
+      console.log(result);
     }, 2000);
+  }
+
+  setHandlers(handlers: WebServerHandlers) {
+    this.handlers = handlers;
   }
 }

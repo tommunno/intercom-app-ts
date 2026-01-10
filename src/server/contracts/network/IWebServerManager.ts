@@ -1,16 +1,10 @@
-import { TypedEmitter } from "tiny-typed-emitter";
-
-export const WebServerEvent = {
-  UserLoginRequest: "UserLoginRequest",
-  AdminLoginRequest: "AdminLoginRequest",
-} as const;
-
-export interface WebServerEvents {
-  [WebServerEvent.UserLoginRequest]: (sessionToken: string) => boolean;
-  [WebServerEvent.AdminLoginRequest]: (sessionToken: string) => string;
+export interface WebServerHandlers {
+  onUserLoginRequest: (sessionToken: string) => boolean;
+  onAdminLoginRequest: (sessionToken: string) => string;
 }
 
-export interface IWebServerManager extends TypedEmitter<WebServerEvents> {
+export interface IWebServerManager {
   init(): void;
   start(): void;
+  setHandlers(handlers: WebServerHandlers): void;
 }

@@ -1,11 +1,11 @@
-import {
-  type INetworkController,
-  type ILogger,
-  type IWebServerManager,
-  type IWssManager,
-  type IWebRTCManager,
-  type ITurnServerManager,
-  WebServerEvent,
+import type {
+  INetworkController,
+  ILogger,
+  IWebServerManager,
+  IWssManager,
+  IWebRTCManager,
+  ITurnServerManager,
+  WebServerHandlers,
 } from "../contracts/index.js";
 
 export class NetworkController implements INetworkController {
@@ -27,22 +27,20 @@ export class NetworkController implements INetworkController {
   }
 
   private bindListeners(): void {
-    this.webServerManager.on(WebServerEvent.UserLoginRequest, (sessionToken) =>
-      this.handleWebServerUserLoginRequest(sessionToken)
-    );
-    this.webServerManager.on(WebServerEvent.AdminLoginRequest, (sessionToken) =>
-      this.handleWebServerAdminLoginRequest(sessionToken)
-    );
+    this.webServerManager.setHandlers({
+      onUserLoginRequest: (s) => this.handleHTTPUserLoginRequest(s),
+      onAdminLoginRequest: (s) => this.handleHTTPAdminLoginRequest(s),
+    });
   }
 
-  private handleWebServerUserLoginRequest(sessionToken: string): boolean {
+  private handleHTTPUserLoginRequest(sessionToken: string): boolean {
     console.log(
       `Web server user login request for sessionToken ${sessionToken}`
     );
     return true;
   }
 
-  private handleWebServerAdminLoginRequest(sessionToken: string): string {
+  private handleHTTPAdminLoginRequest(sessionToken: string): string {
     console.log(
       `Web server admin login request for sessionToken ${sessionToken}`
     );
