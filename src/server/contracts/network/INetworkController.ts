@@ -1,1 +1,4 @@
-export interface INetworkController {}
+export interface INetworkController {
+  init(): void;
+  start(): void;
+}

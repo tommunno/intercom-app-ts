@@ -16,8 +16,10 @@ export class Controller implements IController {
 
   init(): void {
     console.log("Initializing Controller");
+    this.networkController.init();
   }
   start(): void {
     console.log("Starting Controller");
+    this.networkController.start();
   }
 }

@@ -10,6 +10,7 @@
     "build:client": "webpack",
     "build:server": "tsc -p src/server/tsconfig.server.json",
     "build": "npm run clean && npm run build:audio-engine && npm run build:client && npm run build:server",
+    "build-": "npm run clean && npm run build:client && npm run build:server",
     "watch:server-tsc": "tsc -p src/server/tsconfig.server.json --watch",
     "watch:client": "npx webpack --watch --mode development",
     "watch:server-node": "node --watch dist/server/main.js",
@@ -40,5 +41,8 @@
     "typescript": "^5.9.3",
     "webpack": "^5.104.1",
     "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "tiny-typed-emitter": "^2.1.0"
   }
 }
