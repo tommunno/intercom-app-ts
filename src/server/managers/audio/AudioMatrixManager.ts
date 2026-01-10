@@ -1,12 +1,12 @@
 import type {
   IAudioMatrixManager,
   ILogger,
-  IWebRTCMediaBridge,
+  IWebRtcMediaBridge,
 } from "../../contracts/index.js";
 
 export class AudioMatrixManager implements IAudioMatrixManager {
   constructor(
-    private webRTCMediaBridge: IWebRTCMediaBridge,
+    private webRTCMediaBridge: IWebRtcMediaBridge,
     private logger: ILogger
   ) {}
 }

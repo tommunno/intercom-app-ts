@@ -1,5 +1,5 @@
-import type { IWebRTCManager, ILogger } from "../../contracts/index.js";
+import type { IWebRtcManager, ILogger } from "../../contracts/index.js";
 
-export class WebRTCManager implements IWebRTCManager {
+export class WebRtcManager implements IWebRtcManager {
   constructor(private logger: ILogger) {}
 }

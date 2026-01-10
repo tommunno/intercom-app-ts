@@ -5,13 +5,13 @@ import type {
   // Audio
   IAudioController,
   IAudioMatrixManager,
-  IWebRTCMediaBridge,
+  IWebRtcMediaBridge,
   ITailManager,
   // Network
   INetworkController,
   IWebServerManager,
   IWssManager,
-  IWebRTCManager,
+  IWebRtcManager,
   ITurnServerManager,
   // Data
   IDataController,
@@ -31,12 +31,12 @@ import {
   Logger,
   // Audio
   AudioMatrixManager,
-  WebRTCMediaBridge,
+  WebRtcMediaBridge,
   TailManager,
   // Network
   WebServerManager,
   WssManager,
-  WebRTCManager,
+  WebRtcManager,
   TurnServerManager,
   // Data
   AccountManager,
@@ -44,11 +44,11 @@ import {
 } from "./managers/index.js";
 
 const logger: ILogger = new Logger();
-const webRTCMediaBridge: IWebRTCMediaBridge = new WebRTCMediaBridge(logger);
+const webRTCMediaBridge: IWebRtcMediaBridge = new WebRtcMediaBridge(logger);
 const tailManager: ITailManager = new TailManager(logger);
 const webServerManager: IWebServerManager = new WebServerManager(logger);
 const wssManager: IWssManager = new WssManager(logger);
-const webRTCManager: IWebRTCManager = new WebRTCManager(logger);
+const webRtcManager: IWebRtcManager = new WebRtcManager(logger);
 const turnServerManager: ITurnServerManager = new TurnServerManager(logger);
 const accountManager: IAccountManager = new AccountManager(logger);
 const dataManager: IDataManager = new DataManager(logger);
@@ -67,7 +67,7 @@ const audioController: IAudioController = new AudioController(
 const networkController: INetworkController = new NetworkController(
   webServerManager,
   wssManager,
-  webRTCManager,
+  webRtcManager,
   turnServerManager,
   logger
 );

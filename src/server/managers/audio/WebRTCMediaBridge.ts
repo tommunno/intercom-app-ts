@@ -1,5 +1,5 @@
-import type { ILogger, IWebRTCMediaBridge } from "../../contracts/index.js";
+import type { ILogger, IWebRtcMediaBridge } from "../../contracts/index.js";
 
-export class WebRTCMediaBridge implements IWebRTCMediaBridge {
+export class WebRtcMediaBridge implements IWebRtcMediaBridge {
   constructor(private logger: ILogger) {}
 }

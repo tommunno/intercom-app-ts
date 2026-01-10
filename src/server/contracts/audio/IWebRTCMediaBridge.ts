@@ -1,1 +1,1 @@
-export interface IWebRTCMediaBridge {}
+export interface IWebRtcMediaBridge {}

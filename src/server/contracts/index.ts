@@ -5,7 +5,7 @@ export * from "./base/ILogger.js";
 // --- Audio ---
 export * from "./audio/IAudioController.js";
 export * from "./audio/IAudioMatrixManager.js";
-export * from "./audio/IWebRTCMediaBridge.js";
+export * from "./audio/IWebRtcMediaBridge.js";
 export * from "./audio/IOutputPort.js";
 export * from "./audio/IPartyline.js";
 export * from "./audio/ITailManager.js";
@@ -14,7 +14,7 @@ export * from "./audio/ITailManager.js";
 export * from "./network/INetworkController.js";
 export * from "./network/IWebServerManager.js";
 export * from "./network/IWssManager.js";
-export * from "./network/IWebRTCManager.js";
+export * from "./network/IWebRtcManager.js";
 export * from "./network/ITurnServerManager.js";
 
 // --- Data ---

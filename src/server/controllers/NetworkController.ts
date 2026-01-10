@@ -1,21 +1,27 @@
+import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
 import type {
   INetworkController,
   ILogger,
   IWebServerManager,
   IWssManager,
-  IWebRTCManager,
+  IWebRtcManager,
   ITurnServerManager,
   WebServerHandlers,
+  NetworkHandlers,
 } from "../contracts/index.js";
 
 export class NetworkController implements INetworkController {
+  private handlers: NetworkHandlers | null = null;
+
   constructor(
     private webServerManager: IWebServerManager,
     private wssManager: IWssManager,
-    private webRTCManager: IWebRTCManager,
+    private webRTCManager: IWebRtcManager,
     private turnServerManager: ITurnServerManager,
     private logger: ILogger
-  ) {}
+  ) {
+    this.logger = this.logger.child({ context: "NetworkController" });
+  }
 
   init(): void {
     this.bindListeners();
@@ -23,27 +29,35 @@ export class NetworkController implements INetworkController {
   }
 
   start(): void {
+    // Trigger the check to ensure we are ready to roll
+    const ready = this.activeHandlers;
     this.webServerManager.start();
+  }
+
+  setHandlers(handlers: NetworkHandlers): void {
+    this.handlers = handlers;
+  }
+
+  private get activeHandlers() {
+    if (!this.handlers)
+      throw new Error("NetworkController handlers not initialized!");
+    return this.handlers;
   }
 
   private bindListeners(): void {
     this.webServerManager.setHandlers({
-      onUserLoginRequest: (s) => this.handleHTTPUserLoginRequest(s),
-      onAdminLoginRequest: (s) => this.handleHTTPAdminLoginRequest(s),
+      onUserLoginRequest: (s, l) => this.handleHttpUserLoginRequest(s, l),
     });
   }
 
-  private handleHTTPUserLoginRequest(sessionToken: string): boolean {
-    console.log(
-      `Web server user login request for sessionToken ${sessionToken}`
+  private async handleHttpUserLoginRequest(
+    sessionToken: string | null,
+    loginCredentials: LoginCredentials
+  ): Promise<AuthResult> {
+    const authResult = await this.activeHandlers.onHttpUserLoginRequest(
+      sessionToken,
+      loginCredentials
     );
-    return true;
-  }
-
-  private handleHTTPAdminLoginRequest(sessionToken: string): string {
-    console.log(
-      `Web server admin login request for sessionToken ${sessionToken}`
-    );
-    return "cow";
+    return authResult;
   }
 }
