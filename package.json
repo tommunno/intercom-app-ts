@@ -1,0 +1,40 @@
+{
+  "name": "intercom-app-ts",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/server/main.js",
+  "bin": "dist/server/main.js",
+  "scripts": {
+    "clean": "rimraf dist public/dist",
+    "build:server": "tsc -p src/server/tsconfig.server.json",
+    "build:client": "tsc -p src/client/tsconfig.client.json",
+    "build": "npm run clean && npm run build:server && npm run build:client",
+    "dev:client": "live-server public",
+    "watch:server": "tsc -p src/server/tsconfig.server.json --watch",
+    "watch:client": "tsc -p src/client/tsconfig.client.json --watch",
+    "watch": "concurrently -n \"TS-S,TS-C\" -c \"blue,green\" \"npm run watch:server\" \"npm run watch:client\"",
+    "start": "node dist/server/main.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tommunno/intercom-app-ts.git"
+  },
+  "keywords": [],
+  "author": "Tom Munno",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/tommunno/intercom-app-ts/issues"
+  },
+  "homepage": "https://github.com/tommunno/intercom-app-ts#readme",
+  "devDependencies": {
+    "@types/node": "^25.0.5",
+    "concurrently": "^9.2.1",
+    "live-server": "^1.2.2",
+    "rimraf": "^6.1.2",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1"
+  }
+}
