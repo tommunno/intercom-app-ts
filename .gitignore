@@ -1,6 +1,7 @@
 node_modules/
 build/
 dist/
+public/assets
 .env
 .env.local
 .vscode/

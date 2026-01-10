@@ -7,12 +7,12 @@
   "scripts": {
     "clean": "rimraf dist public/dist",
     "build:server": "tsc -p src/server/tsconfig.server.json",
-    "build:client": "tsc -p src/client/tsconfig.client.json",
+    "build:client": "webpack",
     "build": "npm run clean && npm run build:server && npm run build:client",
-    "dev:client": "live-server public",
-    "watch:server": "tsc -p src/server/tsconfig.server.json --watch",
-    "watch:client": "tsc -p src/client/tsconfig.client.json --watch",
-    "watch": "concurrently -n \"TS-S,TS-C\" -c \"blue,green\" \"npm run watch:server\" \"npm run watch:client\"",
+    "watch:server-tsc": "tsc -p src/server/tsconfig.server.json --watch",
+    "watch:client": "npx webpack --watch --mode development",
+    "watch:server-node": "node --watch dist/server/main.js",
+    "watch": "concurrently -n \"TS-S, WP-C, APP\" -c \"blue,green,magenta\" \"npm run watch:server-tsc\" \"npm run watch:client\" \"npm run watch:server-node\"",
     "start": "node dist/server/main.js"
   },
   "repository": {
