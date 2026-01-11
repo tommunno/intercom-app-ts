@@ -12,15 +12,21 @@ export class Logger implements ILogger {
     console.log(`${this.prefix}SUCCESS: ${message}`);
   }
   warn(message: string): void {
-    console.log(`${this.prefix}WARN: ${message}`);
+    console.warn(`${this.prefix}WARN: ${message}`);
   }
-  error(message: string): void {
-    console.log(`${this.prefix}ERROR: ${message}`);
+  error(message: string, error?: unknown): void {
+    const errorMessage = error ? ": " + this.getErrorMessage(error) : "";
+    console.error(`${this.prefix}ERROR: ${message}${errorMessage}`);
   }
   info(message: string): void {
     console.log(`${this.prefix}INFO: ${message}`);
   }
   child(options: ChildLoggerOptions): ILogger {
     return new Logger(options);
+  }
+
+  getErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return String(error);
   }
 }

@@ -1,8 +1,29 @@
+//Types:
 import type {
   IWebServerManager,
   WebServerHandlers,
   ILogger,
 } from "../../contracts/index.js";
+import type {
+  LoginCredentials,
+  HttpLoginResponse,
+  HttpLoginRequest,
+} from "../../../shared/types/index.js";
+
+//Helpers:
+import { isStringAndNotEmpty, validatePort } from "../../../shared/helpers.js";
+
+//Constants:
+import {
+  HTTP_PORT,
+  HTTPS_PORT,
+  CERT_DIR,
+  KEY_FILE,
+  CERT_FILE,
+  WEB_SERVER_DIR,
+} from "../../constants/serverConstants.js";
+
+//External Libraries:
 import express, {
   type Express,
   type Request,
@@ -11,18 +32,17 @@ import express, {
 } from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
-import type {
-  LoginCredentials,
-  HttpLoginResponse,
-  HttpLoginRequest,
-} from "../../../shared/types/index.js";
-import { isStringAndNotEmpty, validatePort } from "../../../shared/helpers.js";
+import https from "https";
+import fs from "fs";
 
 export class WebServerManager implements IWebServerManager {
   private handlers: WebServerHandlers | null = null;
   private app: Express = express();
-  private httpPort: number = 80;
-  private httpsPort: number = 443;
+  private httpPort: number = HTTP_PORT;
+  private httpsPort: number = HTTPS_PORT;
+
+  private httpsServer: https.Server | null = null;
+  private readonly certPath: string = path.join(process.cwd(), CERT_DIR);
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "WebServerManager" });
@@ -30,7 +50,7 @@ export class WebServerManager implements IWebServerManager {
 
   init(): void {
     // Serve static files from the 'public' folder
-    this.app.use(express.static(path.join(process.cwd(), "public")));
+    this.app.use(express.static(path.join(process.cwd(), WEB_SERVER_DIR)));
     this.app.use(cookieParser());
     this.app.use(express.json());
 
@@ -54,8 +74,40 @@ export class WebServerManager implements IWebServerManager {
     const ready = this.activeHandlers;
 
     this.app.listen(this.httpPort, () => {
-      this.logger.info(`Server running at http://localhost:${this.httpPort}`);
+      this.logger.info(
+        `HTTP Server running at http://localhost:${this.httpPort}`
+      );
     });
+
+    this.attemptHttpsStart();
+  }
+
+  private attemptHttpsStart(): void {
+    try {
+      const keyPath = path.join(this.certPath, KEY_FILE);
+      const certPath = path.join(this.certPath, CERT_FILE);
+
+      if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+        const options = {
+          key: fs.readFileSync(keyPath),
+          cert: fs.readFileSync(certPath),
+        };
+
+        this.httpsServer = https.createServer(options, this.app);
+
+        this.httpsServer.listen(this.httpsPort, () => {
+          this.logger.info(
+            `HTTPS Server running at https://localhost:${this.httpsPort}`
+          );
+        });
+      } else {
+        this.logger.warn(
+          `HTTPS skipped: Certificates not found in ${CERT_DIR} folder: ${this.certPath}`
+        );
+      }
+    } catch (error) {
+      this.logger.error("Failed to start HTTPS server", error);
+    }
   }
 
   async handleUserLoginRequest(
