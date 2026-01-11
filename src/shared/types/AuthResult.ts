@@ -1,5 +1,9 @@
 export interface AuthResult {
   success: boolean;
   message: string;
-  userUid: number;
+  statusCode: number;
+  userId: number | null;
+  newSessionToken: string | null;
+  loginTakeover: boolean;
+  clientId: string | null;
 }

@@ -21,6 +21,7 @@ import {
   KEY_FILE,
   CERT_FILE,
   WEB_SERVER_DIR,
+  SESSION_DURATION_MS,
 } from "../../constants/serverConstants.js";
 
 //External Libraries:
@@ -178,11 +179,21 @@ export class WebServerManager implements IWebServerManager {
       return;
     }
 
-    const { success, message } = await this.activeHandlers.onUserLoginRequest(
-      userSessionToken,
-      loginCredentials
-    );
-    res.status(success ? 200 : 401).json({ success, message });
+    const { success, message, statusCode, newSessionToken } =
+      await this.activeHandlers.onUserLoginRequest(
+        userSessionToken,
+        loginCredentials
+      );
+    if (newSessionToken) {
+      res.cookie("userSessionToken", newSessionToken, {
+        httpOnly: true,
+        secure: req.socket instanceof TLSSocket && req.socket.encrypted,
+        sameSite: "strict",
+        maxAge: SESSION_DURATION_MS,
+      });
+    }
+
+    res.status(statusCode).json({ success, message });
   }
 
   handleErrors(err: any, req: Request, res: Response, next: NextFunction) {

@@ -1,1 +1,28 @@
-export interface IAccountManager {}
+import type {
+  AuthResult,
+  BaseUser,
+  LoginCredentials,
+  User,
+} from "../../../shared/types/index.js";
+import type {
+  AccountManagerState,
+  AccountManagerConfig,
+} from "../../types/index.js";
+
+export interface IAccountManager {
+  init(config: AccountManagerConfig): void;
+  start(): void;
+
+  softLoginUser(
+    sessionToken: string | null,
+    loginCredentials: LoginCredentials
+  ): Promise<AuthResult>;
+
+  logoutUser(params: {
+    userId?: number;
+    user?: User;
+    loginTakeover: boolean;
+  }): boolean;
+
+  updateUsers(users: BaseUser[]): Promise<void>;
+}

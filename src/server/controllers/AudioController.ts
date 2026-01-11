@@ -19,7 +19,13 @@ export class AudioController implements IAudioController {
 
   init(): void {}
 
-  connectUser(authResult: AuthResult): void {
-    this.logger.info(`Connected user with userUid of ${authResult.userUid}`);
+  connectUser(userId: number, clientId: string): void {
+    this.logger.info(
+      `Connected user with userId of ${userId} and clientId of ${clientId}`
+    );
+  }
+
+  disconnectUser(userId: number): void {
+    this.logger.info(`Disconnected user with userId of ${userId}`);
   }
 }

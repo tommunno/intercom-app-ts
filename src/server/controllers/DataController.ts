@@ -15,19 +15,71 @@ export class DataController implements IDataController {
     this.logger = this.logger.child({ context: "DataController" });
   }
 
-  init() {}
+  init() {
+    //Test data:
+    this.accountManager.init({
+      numUsers: 3,
+      loadedUsers: [
+        {
+          id: 0,
+          loggedIn: false,
+          username: "tom",
+          password: null,
+          clientId: null,
+          sessionTokenInUse: null,
+          sessionTokens: ["afjodij", "jafodisjoidfj"],
+        },
+        {
+          id: 1,
+          loggedIn: false,
+          username: "ben",
+          password: null,
+          clientId: null,
+          sessionTokenInUse: null,
+          sessionTokens: ["fadf", "jafodisjfadsdf"],
+        },
+        {
+          id: 2,
+          loggedIn: false,
+          username: "mark",
+          password: null,
+          clientId: null,
+          sessionTokenInUse: null,
+          sessionTokens: ["dd", "fss"],
+        },
+      ],
+    });
+    //End test data
+  }
 
-  start() {}
+  start() {
+    this.accountManager.start();
+    //Test:
+    this.accountManager.updateUsers([
+      {
+        id: 0,
+        username: "TOM",
+        password: null,
+      },
+      {
+        id: 1,
+        username: "BEN",
+        password: "ben123",
+      },
+      {
+        id: 2,
+        username: "MARK",
+        password: null,
+      },
+    ]);
+    //End test
+  }
 
-  async softLoginUser(
+  softLoginUser(
     sessionToken: string | null,
     loginCredentials: LoginCredentials
   ): Promise<AuthResult> {
-    return {
-      success: true,
-      message: "Test message in softLoginUser",
-      userUid: 23,
-    };
+    return this.accountManager.softLoginUser(sessionToken, loginCredentials);
   }
 
   async loginUser(
@@ -37,7 +89,11 @@ export class DataController implements IDataController {
     return {
       success: true,
       message: "Test message in loginUser",
-      userUid: 27,
+      statusCode: 200,
+      userId: null,
+      newSessionToken: null,
+      loginTakeover: false,
+      clientId: null,
     };
   }
 }

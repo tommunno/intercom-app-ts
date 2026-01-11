@@ -2,7 +2,7 @@ export default async function httpLoginRequestTest(
   username?: string,
   password?: string
 ) {
-  console.log("🚀 Starting login test...");
+  console.log("Starting login test...");
 
   try {
     const response = await fetch("/login", {
