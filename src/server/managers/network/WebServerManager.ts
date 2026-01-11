@@ -3,14 +3,24 @@ import type {
   WebServerHandlers,
   ILogger,
 } from "../../contracts/index.js";
-import express, { raw } from "express";
+import express, {
+  type Express,
+  type Request,
+  type Response,
+  type NextFunction,
+} from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
-import type { LoginCredentials } from "../../../shared/types/index.js";
+import type {
+  LoginCredentials,
+  HttpLoginResponse,
+  HttpLoginRequest,
+} from "../../../shared/types/index.js";
+import { isStringAndNotEmpty, validatePort } from "../../../shared/helpers.js";
 
 export class WebServerManager implements IWebServerManager {
   private handlers: WebServerHandlers | null = null;
-  private app = express();
+  private app: Express = express();
   private httpPort: number = 80;
   private httpsPort: number = 443;
 
@@ -24,67 +34,19 @@ export class WebServerManager implements IWebServerManager {
     this.app.use(cookieParser());
     this.app.use(express.json());
 
-    this.app.post("/login", async (req, res) => {
-      const rawToken = req.cookies.userSessionToken;
-      let userSessionToken: string | null = null;
-      if (typeof rawToken === "string" && rawToken.trim() !== "") {
-        userSessionToken = rawToken;
-      } else {
-        this.logger.warn(
-          "Received a login request with an invalid or missing token."
-        );
+    this.app.post(
+      "/login",
+      async (
+        rq: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+        rs: Response<HttpLoginResponse>
+      ) => {
+        await this.handleUserLoginRequest(rq, rs);
       }
+    );
 
-      let loginCredentials: LoginCredentials = {
-        username: null,
-        password: null,
-      };
-
-      // Check username
-      if (
-        typeof req.body.username === "string" &&
-        req.body.username.trim() !== ""
-      ) {
-        loginCredentials.username = req.body.username;
-      }
-
-      // Check password
-      if (
-        typeof req.body.password === "string" &&
-        req.body.password.trim() !== ""
-      ) {
-        loginCredentials.password = req.body.password;
-      }
-
-      // Final Verification before calling the Handler
-      if (
-        (!loginCredentials.username || !loginCredentials.password) &&
-        !userSessionToken
-      ) {
-        this.logger.warn(
-          "Login attempt blocked: Missing username or password, and no valid sessionToken."
-        );
-        return res
-          .status(400)
-          .json({ success: false, message: "Missing credentials" });
-      }
-
-      const { success, message } = await this.activeHandlers.onUserLoginRequest(
-        userSessionToken,
-        loginCredentials
-      );
-      res.status(success ? 200 : 401).json({ success, message });
-    });
-
-    this.app.use((err: any, req: any, res: any, next: any) => {
-      if (err instanceof SyntaxError && "body" in err) {
-        this.logger.error("Bad JSON received");
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid JSON format" });
-      }
-      next(err);
-    });
+    this.app.use((e: any, rq: Request, rs: Response, n: NextFunction) =>
+      this.handleErrors(e, rq, rs, n)
+    );
   }
 
   start(): void {
@@ -94,6 +56,64 @@ export class WebServerManager implements IWebServerManager {
     this.app.listen(this.httpPort, () => {
       this.logger.info(`Server running at http://localhost:${this.httpPort}`);
     });
+  }
+
+  async handleUserLoginRequest(
+    req: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+    res: Response<HttpLoginResponse>
+  ) {
+    const rawToken = req.cookies.userSessionToken;
+    let userSessionToken: string | null = null;
+    if (isStringAndNotEmpty(rawToken)) userSessionToken = rawToken;
+    else {
+      this.logger.warn(
+        "Received a login request with an invalid or missing token."
+      );
+    }
+
+    const loginCredentials: LoginCredentials = {
+      username: isStringAndNotEmpty(req.body.username)
+        ? req.body.username
+        : null,
+      password: isStringAndNotEmpty(req.body.password)
+        ? req.body.password
+        : null,
+    };
+
+    if (
+      (!loginCredentials.username || !loginCredentials.password) &&
+      !userSessionToken
+    ) {
+      this.logger.warn(
+        "Login attempt blocked: Missing username or password, and no valid sessionToken."
+      );
+      res.status(400).json({ success: false, message: "Missing credentials" });
+      return;
+    }
+
+    const { success, message } = await this.activeHandlers.onUserLoginRequest(
+      userSessionToken,
+      loginCredentials
+    );
+    res.status(success ? 200 : 401).json({ success, message });
+  }
+
+  handleErrors(err: any, req: Request, res: Response, next: NextFunction) {
+    if (err instanceof SyntaxError && "body" in err) {
+      this.logger.error(`Bad JSON received from ${req.ip}`);
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid JSON format" });
+    }
+
+    if (err.type === "entity.too.large" || err.status === 413) {
+      this.logger.warn(`Payload too large attempt from ${req.ip}`);
+      return res.status(413).json({
+        success: false,
+        message: "The request body is too large.",
+      });
+    }
+    next(err);
   }
 
   setHandlers(handlers: WebServerHandlers) {
@@ -107,8 +127,8 @@ export class WebServerManager implements IWebServerManager {
       );
       return false;
     }
-    const httpPortValid = this.validatePort(httpPort);
-    const httpsPortValid = this.validatePort(httpsPort);
+    const httpPortValid = validatePort(httpPort);
+    const httpsPortValid = validatePort(httpsPort);
     if (!httpPortValid)
       this.logger.warn(`Invalid httpPort number of ${httpPort}`);
     if (!httpsPortValid)
@@ -119,14 +139,6 @@ export class WebServerManager implements IWebServerManager {
       return true;
     }
     return false;
-  }
-
-  private validatePort(port: number) {
-    return (
-      Number.isInteger(port) &&
-      (port >= 1025 || port === 80 || port === 443) &&
-      port <= 65535
-    );
   }
 
   private get activeHandlers() {
