@@ -38,6 +38,10 @@ export class NetworkController implements INetworkController {
     this.handlers = handlers;
   }
 
+  setWebServerPorts(httpPort: number, httpsPort: number) {
+    return this.webServerManager.setPorts(httpPort, httpsPort);
+  }
+
   private get activeHandlers() {
     if (!this.handlers)
       throw new Error("NetworkController handlers not initialized!");

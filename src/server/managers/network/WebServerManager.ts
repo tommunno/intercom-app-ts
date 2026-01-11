@@ -34,12 +34,14 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import https from "https";
 import fs from "fs";
+import { TLSSocket } from "tls";
 
 export class WebServerManager implements IWebServerManager {
   private handlers: WebServerHandlers | null = null;
   private app: Express = express();
   private httpPort: number = HTTP_PORT;
   private httpsPort: number = HTTPS_PORT;
+  private isRunning: boolean = false;
 
   private httpsServer: https.Server | null = null;
   private readonly certPath: string = path.join(process.cwd(), CERT_DIR);
@@ -49,6 +51,11 @@ export class WebServerManager implements IWebServerManager {
   }
 
   init(): void {
+    // Guard: Only allow external traffic if it's secure
+    this.app.use((rq: Request, rs: Response, n: NextFunction) => {
+      this.restrictToLocalhost(rq, rs, n);
+    });
+
     // Serve static files from the 'public' folder
     this.app.use(express.static(path.join(process.cwd(), WEB_SERVER_DIR)));
     this.app.use(cookieParser());
@@ -80,6 +87,7 @@ export class WebServerManager implements IWebServerManager {
     });
 
     this.attemptHttpsStart();
+    this.isRunning = true;
   }
 
   private attemptHttpsStart(): void {
@@ -110,12 +118,39 @@ export class WebServerManager implements IWebServerManager {
     }
   }
 
+  private restrictToLocalhost(req: Request, res: Response, next: NextFunction) {
+    const isHttps = req.socket instanceof TLSSocket && req.socket.encrypted;
+    const remoteAddress = req.socket.remoteAddress;
+    const isLocalhost =
+      remoteAddress === "127.0.0.1" ||
+      remoteAddress === "::1" ||
+      remoteAddress === "::ffff:127.0.0.1";
+
+    if (!isLocalhost && !isHttps) {
+      this.logger.warn(
+        `Blocked external HTTP access attempt from ${remoteAddress}`
+      );
+      if (!this.httpsServer) {
+        return res
+          .status(403)
+          .send("HTTPS required, but HTTPS is not available.");
+      }
+      console.log("Got to here");
+      return res.redirect(
+        308,
+        `https://${req.hostname}:${this.httpsPort}${req.originalUrl}`
+      );
+    }
+    next();
+  }
+
   async handleUserLoginRequest(
     req: Request<{}, HttpLoginResponse, HttpLoginRequest>,
     res: Response<HttpLoginResponse>
   ) {
     const rawToken = req.cookies.userSessionToken;
     let userSessionToken: string | null = null;
+
     if (isStringAndNotEmpty(rawToken)) userSessionToken = rawToken;
     else {
       this.logger.warn(
@@ -173,6 +208,12 @@ export class WebServerManager implements IWebServerManager {
   }
 
   setPorts(httpPort: number, httpsPort: number): boolean {
+    if (this.isRunning) {
+      this.logger.warn(
+        `Cannot set http and https ports, because the server is running`
+      );
+      return false;
+    }
     if (httpPort === httpsPort) {
       this.logger.error(
         `HTTP and HTTPS ports cannot be the same (${httpPort})`

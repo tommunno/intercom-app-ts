@@ -18,4 +18,5 @@ export interface INetworkController {
   init(): void;
   start(): void;
   setHandlers(handlers: NetworkHandlers): void;
+  setWebServerPorts(httpPort: number, httpsPort: number): boolean;
 }
