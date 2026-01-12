@@ -1,10 +1,11 @@
 //Client/Server shared Types:
-import type {
-  LoginCredentials,
-  User,
-  ManagerState,
-  AuthResult,
-  BaseUser,
+import {
+  type LoginCredentials,
+  type User,
+  type ManagerState,
+  type AuthResult,
+  type BaseUser,
+  dataIsUser,
 } from "../../../shared/types/index.js";
 //Server Types:
 import type { AccountManagerConfig } from "../../types/index.js";
@@ -75,12 +76,12 @@ export class AccountManager implements IAccountManager {
         continue;
       }
       const data = loadedUsers[i];
-      if (this.dataIsUser(data) && this.validateUser(data))
+      if (dataIsUser(data) && this.validateUser(data))
         this.users.push({
           id: i,
-          loggedIn: false,
           username: data.username,
           password: data.password,
+          loggedIn: false,
           clientId: null,
           sessionTokenInUse: null,
           sessionTokens: [...data.sessionTokens],
@@ -113,85 +114,13 @@ export class AccountManager implements IAccountManager {
   private returnEmptyUser(id: number): User {
     return {
       id,
-      loggedIn: false,
       username: `user-${id}`,
       password: null,
+      loggedIn: false,
       clientId: null,
       sessionTokenInUse: null,
       sessionTokens: [],
     };
-  }
-
-  //Checks types:
-  private dataIsUser(data: unknown): data is User {
-    if (!data || typeof data !== "object") return false;
-
-    const d = data as Record<string, unknown>;
-
-    if (!Array.isArray(d.sessionTokens)) return false;
-    const everyElIsString = d.sessionTokens.every(
-      (el) => typeof el === "string"
-    );
-    if (!everyElIsString) return false;
-
-    return (
-      typeof d.id === "number" &&
-      typeof d.loggedIn === "boolean" &&
-      typeof d.username === "string" &&
-      (typeof d.password === "string" || d.password === null) &&
-      (typeof d.clientId === "string" || d.clientId === null) &&
-      (typeof d.sessionTokenInUse === "string" || d.sessionTokenInUse === null)
-    );
-  }
-
-  //Checks logic:
-  private validateUser(user: User, textPassword = false): boolean {
-    if (user.clientId !== null && user.clientId.trim() === "") {
-      this.logger.warn(`User ${user.username} has an invalid clientId`);
-      return false;
-    }
-    if (
-      user.sessionTokenInUse !== null &&
-      user.sessionTokenInUse.trim() === ""
-    ) {
-      this.logger.warn(
-        `User ${user.username} has an invalid sessionTokenInUse`
-      );
-      return false;
-    }
-    const someElsEmpty = user.sessionTokens.some((el) => el.trim() === "");
-    if (someElsEmpty) {
-      this.logger.warn(
-        `User ${user.username} has an invalid sessionTokens array`
-      );
-      return false;
-    }
-
-    return this.validateBaseUser(user, textPassword);
-  }
-
-  private validateBaseUser(user: BaseUser, textPassword = false): boolean {
-    if (!Number.isInteger(user.id) || user.id < 0) {
-      this.logger.warn(`User id ${user.id} for ${user.username} is invalid`);
-      return false;
-    }
-    if (
-      user.username.length > MAX_USERNAME_LENGTH ||
-      user.username.trim() === ""
-    ) {
-      this.logger.warn(`Username ${user.username} is invalid`);
-      return false;
-    }
-    if (textPassword && user.password !== null) {
-      if (
-        user.password.length < MIN_PASSWORD_LENGTH ||
-        user.password.length > MAX_PASSWORD_LENGTH
-      ) {
-        this.logger.warn(`User ${user.username} has an invalid password`);
-        return false;
-      }
-    }
-    return true;
   }
 
   private async authenticateUserWithCredentials({
@@ -211,8 +140,10 @@ export class AccountManager implements IAccountManager {
     if (username === null || password === null) {
       return { ...baseResult, message: "Missing credentials", statusCode: 400 };
     }
-    //If no found user, or if the password for the found user hasn't been set yet
+
     const foundUser = this.users.find((user) => user.username === username);
+
+    //If no found user, or if the password for the found user hasn't been set yet
     if (!foundUser || foundUser.password === null) {
       return { ...baseResult, message: "Incorrect username or password" };
     }
@@ -241,6 +172,7 @@ export class AccountManager implements IAccountManager {
       success: true,
       message: "Login approved with credentials",
       statusCode: 200,
+      userId: foundUser.id,
       newSessionToken,
     };
   }
@@ -305,6 +237,7 @@ export class AccountManager implements IAccountManager {
       success: true,
       message: "Login approved with session token",
       statusCode: 200,
+      userId: foundUser.id,
     };
   }
 
@@ -313,6 +246,7 @@ export class AccountManager implements IAccountManager {
   }
 
   //If the user is getting logged out as part of a loginTakeover, then we keep the sessionToken in the sessionTokens array
+  //A userId or a user should be passed in. User is prioritised if both passed in
   logoutUser({
     userId,
     user,
@@ -380,6 +314,7 @@ export class AccountManager implements IAccountManager {
     return this.authenticateUserWithToken(sessionToken);
   }
 
+  //For eg admins updating info about users. Passwords will be updated if they are not null. Of course, passwords are expected as plain text here.
   async updateUsers(users: BaseUser[]) {
     if (this.state !== "RUNNING") {
       this.logger.error(
@@ -403,5 +338,57 @@ export class AccountManager implements IAccountManager {
         }
       }
     }
+  }
+
+  //VALIDATION:
+  private validateUser(user: User, textPassword = false): boolean {
+    if (user.clientId !== null && user.clientId.trim() === "") {
+      this.logger.warn(`User ${user.username} has an invalid clientId`);
+      return false;
+    }
+    if (
+      user.sessionTokenInUse !== null &&
+      user.sessionTokenInUse.trim() === ""
+    ) {
+      this.logger.warn(
+        `User ${user.username} has an invalid sessionTokenInUse`
+      );
+      return false;
+    }
+    const someElsEmpty = user.sessionTokens.some((el) => el.trim() === "");
+    if (someElsEmpty) {
+      this.logger.warn(
+        `User ${user.username} has an invalid sessionTokens array`
+      );
+      return false;
+    }
+
+    return this.validateBaseUser(user, textPassword);
+  }
+
+  //If textPassword is true, that means password is not encrypted yet (ie sent from client)
+  //If false, the password is already a hash, hence validation needs to be different
+  private validateBaseUser(user: BaseUser, textPassword = false): boolean {
+    if (!Number.isInteger(user.id) || user.id < 0 || user.id >= this.numUsers) {
+      this.logger.warn(`User id ${user.id} for ${user.username} is invalid`);
+      return false;
+    }
+    if (
+      user.username.length > MAX_USERNAME_LENGTH ||
+      user.username.trim() === ""
+    ) {
+      this.logger.warn(`Username ${user.username} is invalid`);
+      return false;
+    }
+    if (textPassword && user.password !== null) {
+      if (
+        user.password.length < MIN_PASSWORD_LENGTH ||
+        user.password.length > MAX_PASSWORD_LENGTH
+      ) {
+        this.logger.warn(`User ${user.username} has an invalid password`);
+        return false;
+      }
+    }
+    return true;
   }
 }

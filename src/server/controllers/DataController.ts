@@ -86,6 +86,7 @@ export class DataController implements IDataController {
     sessionToken: string,
     clientUid: string
   ): Promise<AuthResult> {
+    //Test
     return {
       success: true,
       message: "Test message in loginUser",
@@ -95,5 +96,6 @@ export class DataController implements IDataController {
       loginTakeover: false,
       clientId: null,
     };
+    //End test
   }
 }

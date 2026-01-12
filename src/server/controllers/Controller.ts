@@ -49,8 +49,9 @@ export class Controller implements IController {
       loginCredentials
     );
     //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
-    if (result.loginTakeover && result.userId !== null)
+    if (result.loginTakeover && result.userId !== null) {
       this.audioController.disconnectUser(result.userId);
+    }
     return result;
   }
 

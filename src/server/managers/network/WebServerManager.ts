@@ -8,6 +8,7 @@ import type {
   LoginCredentials,
   HttpLoginResponse,
   HttpLoginRequest,
+  ManagerState,
 } from "../../../shared/types/index.js";
 
 //Helpers:
@@ -38,6 +39,7 @@ import fs from "fs";
 import { TLSSocket } from "tls";
 
 export class WebServerManager implements IWebServerManager {
+  private state: ManagerState = "IDLE";
   private handlers: WebServerHandlers | null = null;
   private app: Express = express();
   private httpPort: number = HTTP_PORT;
@@ -52,6 +54,11 @@ export class WebServerManager implements IWebServerManager {
   }
 
   init(): void {
+    if (this.state !== "IDLE")
+      throw new Error(
+        `Cannot initialize the WebServerManager whilst its state is ${this.state}`
+      );
+
     // Guard: Only allow external traffic if it's secure
     this.app.use((rq: Request, rs: Response, n: NextFunction) => {
       this.restrictToLocalhost(rq, rs, n);
@@ -78,6 +85,10 @@ export class WebServerManager implements IWebServerManager {
   }
 
   start(): void {
+    if (this.state !== "INITIALIZED")
+      throw new Error(
+        `Cannot start the WebServerManager whilst its state is ${this.state}`
+      );
     // Trigger the check to ensure we are ready to roll
     const ready = this.activeHandlers;
 
