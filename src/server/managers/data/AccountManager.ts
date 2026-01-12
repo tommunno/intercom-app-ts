@@ -32,20 +32,22 @@ export class AccountManager implements IAccountManager {
   }
 
   init({ numUsers, loadedUsers }: AccountManagerConfig): void {
-    if (this.state !== "IDLE")
+    if (this.state !== "IDLE") {
       throw new Error(
         `Cannot initialize the AccountManager whilst its state is ${this.state}`
       );
+    }
     this.numUsers = numUsers;
     this.createUsers(loadedUsers);
     this.state = "INITIALIZED";
   }
 
   start(): void {
-    if (this.state !== "INITIALIZED")
+    if (this.state !== "INITIALIZED") {
       throw new Error(
         `Cannot start the AccountManager whilst its state is ${this.state}`
       );
+    }
     this.state = "RUNNING";
   }
 

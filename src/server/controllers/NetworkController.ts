@@ -25,13 +25,15 @@ export class NetworkController implements INetworkController {
 
   init(): void {
     this.bindListeners();
-    this.webServerManager.init();
+    const servers = this.webServerManager.init();
+    this.wssManager.init(servers);
   }
 
   start(): void {
     // Trigger the check to ensure we are ready to roll
     const ready = this.activeHandlers;
     this.webServerManager.start();
+    this.wssManager.start();
   }
 
   setHandlers(handlers: NetworkHandlers): void {

@@ -34,9 +34,11 @@ import express, {
 } from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
+import http from "http";
 import https from "https";
 import fs from "fs";
 import { TLSSocket } from "tls";
+import type { Servers } from "../../types/index.js";
 
 export class WebServerManager implements IWebServerManager {
   private state: ManagerState = "IDLE";
@@ -46,6 +48,7 @@ export class WebServerManager implements IWebServerManager {
   private httpsPort: number = HTTPS_PORT;
   private isRunning: boolean = false;
 
+  private httpServer: http.Server | null = null;
   private httpsServer: https.Server | null = null;
   private readonly certPath: string = path.join(process.cwd(), CERT_DIR);
 
@@ -53,11 +56,12 @@ export class WebServerManager implements IWebServerManager {
     this.logger = this.logger.child({ context: "WebServerManager" });
   }
 
-  init(): void {
-    if (this.state !== "IDLE")
+  init(): Servers {
+    if (this.state !== "IDLE") {
       throw new Error(
         `Cannot initialize the WebServerManager whilst its state is ${this.state}`
       );
+    }
 
     // Guard: Only allow external traffic if it's secure
     this.app.use((rq: Request, rs: Response, n: NextFunction) => {
@@ -82,27 +86,40 @@ export class WebServerManager implements IWebServerManager {
     this.app.use((e: any, rq: Request, rs: Response, n: NextFunction) =>
       this.handleErrors(e, rq, rs, n)
     );
+
+    this.httpServer = http.createServer(this.app);
+    this.attemptHttpsInit();
+    this.state = "INITIALIZED";
+    return this.getServers();
   }
 
   start(): void {
-    if (this.state !== "INITIALIZED")
+    if (this.state !== "INITIALIZED") {
       throw new Error(
         `Cannot start the WebServerManager whilst its state is ${this.state}`
       );
+    }
+    this.state = "RUNNING";
     // Trigger the check to ensure we are ready to roll
     const ready = this.activeHandlers;
 
-    this.app.listen(this.httpPort, () => {
-      this.logger.info(
-        `HTTP Server running at http://localhost:${this.httpPort}`
-      );
-    });
-
-    this.attemptHttpsStart();
-    this.isRunning = true;
+    if (this.httpServer) {
+      this.httpServer.listen(this.httpPort, () => {
+        this.logger.info(
+          `HTTP Server running at http://localhost:${this.httpPort}`
+        );
+      });
+    }
+    if (this.httpsServer) {
+      this.httpsServer.listen(this.httpsPort, () => {
+        this.logger.info(
+          `HTTPS Server running at https://localhost:${this.httpsPort}`
+        );
+      });
+    }
   }
 
-  private attemptHttpsStart(): void {
+  private attemptHttpsInit(): void {
     try {
       const keyPath = path.join(this.certPath, KEY_FILE);
       const certPath = path.join(this.certPath, CERT_FILE);
@@ -114,19 +131,13 @@ export class WebServerManager implements IWebServerManager {
         };
 
         this.httpsServer = https.createServer(options, this.app);
-
-        this.httpsServer.listen(this.httpsPort, () => {
-          this.logger.info(
-            `HTTPS Server running at https://localhost:${this.httpsPort}`
-          );
-        });
       } else {
         this.logger.warn(
           `HTTPS skipped: Certificates not found in ${CERT_DIR} folder: ${this.certPath}`
         );
       }
     } catch (error) {
-      this.logger.error("Failed to start HTTPS server", error);
+      this.logger.error("Failed to initialize HTTPS server", error);
     }
   }
 
@@ -147,7 +158,6 @@ export class WebServerManager implements IWebServerManager {
           .status(403)
           .send("HTTPS required, but HTTPS is not available.");
       }
-      console.log("Got to here");
       return res.redirect(
         308,
         `https://${req.hostname}:${this.httpsPort}${req.originalUrl}`
@@ -156,7 +166,7 @@ export class WebServerManager implements IWebServerManager {
     next();
   }
 
-  async handleUserLoginRequest(
+  private async handleUserLoginRequest(
     req: Request<{}, HttpLoginResponse, HttpLoginRequest>,
     res: Response<HttpLoginResponse>
   ) {
@@ -207,7 +217,12 @@ export class WebServerManager implements IWebServerManager {
     res.status(statusCode).json({ success, message });
   }
 
-  handleErrors(err: any, req: Request, res: Response, next: NextFunction) {
+  private handleErrors(
+    err: any,
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ) {
     if (err instanceof SyntaxError && "body" in err) {
       this.logger.error(`Bad JSON received from ${req.ip}`);
       return res
@@ -225,15 +240,9 @@ export class WebServerManager implements IWebServerManager {
     next(err);
   }
 
-  setHandlers(handlers: WebServerHandlers) {
-    this.handlers = handlers;
-  }
-
   setPorts(httpPort: number, httpsPort: number): boolean {
-    if (this.isRunning) {
-      this.logger.warn(
-        `Cannot set http and https ports, because the server is running`
-      );
+    if (this.state === "RUNNING") {
+      this.logger.error(`Cannot set ports whilst state is ${this.state}`);
       return false;
     }
     if (httpPort === httpsPort) {
@@ -260,5 +269,16 @@ export class WebServerManager implements IWebServerManager {
     if (!this.handlers)
       throw new Error("WebServerManager handlers not initialized!");
     return this.handlers;
+  }
+
+  setHandlers(handlers: WebServerHandlers) {
+    this.handlers = handlers;
+  }
+
+  getServers(): Servers {
+    return {
+      http: this.httpServer,
+      https: this.httpsServer,
+    };
   }
 }

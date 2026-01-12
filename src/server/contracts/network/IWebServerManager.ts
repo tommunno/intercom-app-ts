@@ -2,6 +2,7 @@ import type {
   AuthResult,
   LoginCredentials,
 } from "../../../shared/types/index.js";
+import type { Servers } from "../../types/index.js";
 
 export interface WebServerHandlers {
   onUserLoginRequest: (
@@ -11,8 +12,9 @@ export interface WebServerHandlers {
 }
 
 export interface IWebServerManager {
-  init(): void;
+  init(): Servers;
   start(): void;
   setHandlers(handlers: WebServerHandlers): void;
   setPorts(httpPort: number, httpsPort: number): boolean;
+  getServers(): Servers;
 }
