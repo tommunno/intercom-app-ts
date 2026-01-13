@@ -1,3 +1,4 @@
+import type { WssPayloads } from "../../shared/protocols/index.js";
 import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
 import type {
   INetworkController,
@@ -54,6 +55,10 @@ export class NetworkController implements INetworkController {
     this.webServerManager.setHandlers({
       onUserLoginRequest: (s, l) => this.handleHttpUserLoginRequest(s, l),
     });
+
+    this.wssManager.setHandlers({
+      onMessage: this.handleWssMessage.bind(this),
+    });
   }
 
   private async handleHttpUserLoginRequest(
@@ -65,5 +70,13 @@ export class NetworkController implements INetworkController {
       loginCredentials
     );
     return authResult;
+  }
+
+  private handleWssMessage<K extends keyof WssPayloads>(
+    type: K,
+    payload: WssPayloads[K],
+    clientId: string
+  ): void {
+    this.activeHandlers.onWssMessage(type, payload, clientId);
   }
 }

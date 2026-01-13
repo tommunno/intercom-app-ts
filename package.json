@@ -37,6 +37,7 @@
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.5",
+    "@types/ws": "^8.18.1",
     "concurrently": "^9.2.1",
     "live-server": "^1.2.2",
     "rimraf": "^6.1.2",
@@ -49,6 +50,7 @@
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
-    "tiny-typed-emitter": "^2.1.0"
+    "tiny-typed-emitter": "^2.1.0",
+    "ws": "^8.19.0"
   }
 }

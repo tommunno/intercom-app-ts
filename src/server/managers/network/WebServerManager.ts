@@ -43,6 +43,7 @@ import type { Servers } from "../../types/index.js";
 export class WebServerManager implements IWebServerManager {
   private state: ManagerState = "IDLE";
   private handlers: WebServerHandlers | null = null;
+
   private app: Express = express();
   private httpPort: number = HTTP_PORT;
   private httpsPort: number = HTTPS_PORT;
@@ -99,9 +100,9 @@ export class WebServerManager implements IWebServerManager {
         `Cannot start the WebServerManager whilst its state is ${this.state}`
       );
     }
-    this.state = "RUNNING";
     // Trigger the check to ensure we are ready to roll
     const ready = this.activeHandlers;
+    this.state = "RUNNING";
 
     if (this.httpServer) {
       this.httpServer.listen(this.httpPort, () => {
@@ -265,13 +266,13 @@ export class WebServerManager implements IWebServerManager {
     return false;
   }
 
-  private get activeHandlers() {
+  private get activeHandlers(): WebServerHandlers {
     if (!this.handlers)
       throw new Error("WebServerManager handlers not initialized!");
     return this.handlers;
   }
 
-  setHandlers(handlers: WebServerHandlers) {
+  setHandlers(handlers: WebServerHandlers): void {
     this.handlers = handlers;
   }
 

@@ -2,16 +2,14 @@ import type {
   AuthResult,
   LoginCredentials,
 } from "../../../shared/types/index.js";
+import type { WssMessageHandler } from "./IWssManager.js";
 
 export interface NetworkHandlers {
   onHttpUserLoginRequest: (
     sessionToken: string | null,
     loginCredentials: LoginCredentials
   ) => Promise<AuthResult>;
-  onWsUserLoginRequest: (
-    sessionToken: string,
-    clientUid: string
-  ) => Promise<AuthResult>;
+  onWssMessage: WssMessageHandler;
 }
 
 export interface INetworkController {

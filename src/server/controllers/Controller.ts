@@ -6,8 +6,17 @@ import type {
   INetworkController,
 } from "../contracts/index.js";
 import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
+import {
+  type WssCommandMap,
+  type WssPayloads,
+  WSS_TYPE,
+} from "../../shared/protocols/index.js";
 
 export class Controller implements IController {
+  private readonly wssCommands: WssCommandMap = {
+    [WSS_TYPE.USER_LOGIN]: this.handleUserLogin.bind(this),
+    [WSS_TYPE.ADMIN_LOGIN]: this.handleAdminLogin.bind(this),
+  };
   constructor(
     private audioController: IAudioController,
     private networkController: INetworkController,
@@ -32,7 +41,7 @@ export class Controller implements IController {
   private bindListeners(): void {
     this.networkController.setHandlers({
       onHttpUserLoginRequest: (s, l) => this.handleHttpUserLoginRequest(s, l),
-      onWsUserLoginRequest: (s, c) => this.handleWsUserLoginRequest(s, c),
+      onWssMessage: this.handleWssMessage.bind(this),
     });
   }
 
@@ -58,17 +67,43 @@ export class Controller implements IController {
   //Client can then try to connect via Ws
   //If sessionToken is valid, success
   //User is then connected to the audioMatrix
-  private async handleWsUserLoginRequest(
-    sessionToken: string,
-    clientUid: string
-  ): Promise<AuthResult> {
-    const result: AuthResult = await this.dataController.loginUser(
-      sessionToken,
-      clientUid
-    );
-    if (result.success && result.userId !== null && result.clientId !== null) {
-      this.audioController.connectUser(result.userId, result.clientId);
-    }
-    return result;
+  // private async handleWsUserLoginRequest(
+  //   sessionToken: string,
+  //   clientUid: string
+  // ): Promise<AuthResult> {
+  //   const result: AuthResult = await this.dataController.loginUser(
+  //     sessionToken,
+  //     clientUid
+  //   );
+  //   if (result.success && result.userId !== null && result.clientId !== null) {
+  //     this.audioController.connectUser(result.userId, result.clientId);
+  //   }
+  //   return result;
+  // }
+
+  handleWssMessage<K extends keyof WssPayloads>(
+    type: K,
+    payload: WssPayloads[K],
+    clientId: string
+  ): void {
+    const command = this.wssCommands[type];
+    command(payload, clientId);
+  }
+
+  //Proven the theory, still need the proper logic
+  async handleUserLogin(
+    { myNumber }: WssPayloads[typeof WSS_TYPE.USER_LOGIN],
+    clientId: string
+  ): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    this.logger.info(`myNumber is ${myNumber}, and clientId ${clientId}`);
+  }
+
+  //Proven the theory, still need the proper logic
+  handleAdminLogin(
+    { myString }: WssPayloads[typeof WSS_TYPE.ADMIN_LOGIN],
+    clientId: string
+  ) {
+    this.logger.info(`myString is ${myString}, and clientId ${clientId}`);
   }
 }
