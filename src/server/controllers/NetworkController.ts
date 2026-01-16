@@ -1,4 +1,4 @@
-import type { WssPayloads } from "../../shared/protocols/index.js";
+import type { WssPayloads, WssType } from "../../shared/protocols/index.js";
 import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
 import type {
   INetworkController,
@@ -10,6 +10,7 @@ import type {
   WebServerHandlers,
   NetworkHandlers,
 } from "../contracts/index.js";
+import type { WssMessageInfo } from "../types/WssMessageInfo.js";
 
 export class NetworkController implements INetworkController {
   private handlers: NetworkHandlers | null = null;
@@ -72,11 +73,9 @@ export class NetworkController implements INetworkController {
     return authResult;
   }
 
-  private handleWssMessage<K extends keyof WssPayloads>(
-    type: K,
-    payload: WssPayloads[K],
-    clientId: string
+  private handleWssMessage<K extends WssType>(
+    messageInfo: WssMessageInfo<K>
   ): void {
-    this.activeHandlers.onWssMessage(type, payload, clientId);
+    this.activeHandlers.onWssMessage(messageInfo);
   }
 }

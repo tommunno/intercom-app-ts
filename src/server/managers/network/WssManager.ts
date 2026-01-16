@@ -1,12 +1,27 @@
-import { WSS_TYPE } from "../../../shared/protocols/index.js";
+//Types:
 import type { ManagerState } from "../../../shared/types/index.js";
 import type {
   IWssManager,
   ILogger,
   WssHandlers,
 } from "../../contracts/index.js";
-import type { Servers } from "../../types/index.js";
-import { WebSocketServer, WebSocket } from "ws";
+import type { Servers, WssMessageInfo, WssRequest } from "../../types/index.js";
+
+//Helpers:
+import { isAddressLocalhost } from "../../../shared/helpers.js";
+
+//External Libraries:
+import { WebSocketServer, WebSocket, type RawData } from "ws";
+import { IncomingMessage } from "http";
+import { TLSSocket } from "tls";
+import * as cookie from "cookie";
+import {
+  dataIsWssUserLogin,
+  WSS_PAYLOAD_VALIDATORS,
+  WSS_TYPES,
+  type WssType,
+} from "../../../shared/protocols/wssProtocol.js";
+import { dataIsWssRequest } from "../../types/index.js";
 
 export class WssManager implements IWssManager {
   private state: ManagerState = "IDLE";
@@ -14,6 +29,7 @@ export class WssManager implements IWssManager {
 
   private ws: WebSocketServer | null = null;
   private wss: WebSocketServer | null = null;
+  private clients = new Map<string, WebSocket>();
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "WssManager" });
@@ -53,20 +69,11 @@ export class WssManager implements IWssManager {
     }
     // Trigger the check to ensure we are ready to roll
     const ready = this.activeHandlers;
-    this.state = "RUNNING";
 
-    //Test:
-    this.activeHandlers.onMessage(
-      WSS_TYPE.USER_LOGIN,
-      { myNumber: 345 },
-      "jaoifjdfoia"
-    );
-    this.activeHandlers.onMessage(
-      WSS_TYPE.ADMIN_LOGIN,
-      { myString: "test string" },
-      "jaoifjdffasfdoia"
-    );
-    //End test
+    if (this.ws) this.attachWebSocketHandlers(this.ws);
+    if (this.wss) this.attachWebSocketHandlers(this.wss);
+
+    this.state = "RUNNING";
   }
 
   setHandlers(handlers: WssHandlers): void {
@@ -76,5 +83,148 @@ export class WssManager implements IWssManager {
   private get activeHandlers(): WssHandlers {
     if (!this.handlers) throw new Error("WssManager handlers not initialized!");
     return this.handlers;
+  }
+
+  attachWebSocketHandlers(wsServer: WebSocketServer) {
+    wsServer.on("connection", (ws: WebSocket, req: IncomingMessage) => {
+      const clientInfo = this.getRequestInfo(req);
+
+      // 1. Security Guard
+      if (!clientInfo.isSecure && !clientInfo.isLocalhost) {
+        this.logger.warn(
+          `Rejected insecure connection from ${clientInfo.remoteAddress}`
+        );
+        ws.close(1008, "Insecure connections only allowed from localhost");
+        return;
+      }
+
+      // 2. Identification (cookies and sessionToken)
+      const cookies = this.parseCookies(req.headers.cookie);
+      const sessionToken = cookies["userSessionToken"];
+      const clientId = this.generateClientId();
+
+      this.logger.info(`New connection: ${clientId}`);
+
+      // 3. Attach listeners to THIS socket
+      ws.on("message", (rawData) =>
+        this.handleRawMessage({
+          clientId,
+          rawData,
+          sessionToken: sessionToken ? sessionToken : null,
+        })
+      );
+
+      ws.on("close", () => this.handleClientDisconnection(clientId));
+
+      ws.on("error", (err) => this.handleClientError(clientId, err));
+
+      // Track this client in a Map
+      this.clients.set(clientId, ws);
+
+      this.logger.success(`Client ${clientId} has connected`);
+    });
+  }
+
+  private handleRawMessage({
+    clientId,
+    rawData,
+    sessionToken,
+  }: {
+    clientId: string;
+    rawData: RawData;
+    sessionToken: string | null;
+  }): void {
+    try {
+      const json: unknown = JSON.parse(rawData.toString());
+
+      // 1. Check the 'universal' type
+      if (!dataIsWssRequest(json)) {
+        this.logger.warn("Malformed message structure");
+        return;
+      }
+
+      //Now we can safely destructure these
+      const { type, payload } = json;
+
+      this.handleMessage({ type, payload, clientId, sessionToken });
+    } catch (e) {
+      this.logger.error("JSON Parse Error");
+    }
+  }
+
+  private handleMessage<K extends WssType>({
+    type,
+    payload,
+    clientId,
+    sessionToken,
+  }: {
+    type: K;
+    payload: Record<string, unknown>;
+    clientId: string;
+    sessionToken: string | null;
+  }) {
+    const validator = WSS_PAYLOAD_VALIDATORS[type];
+    const valid = validator(payload);
+    if (valid) {
+      payload;
+      this.activeHandlers.onMessage({ type, payload, clientId, sessionToken });
+    }
+  }
+
+  private handleClientDisconnection(clientId: string) {
+    this.logger.warn(`Client ${clientId} has disconnected`);
+  }
+
+  private handleClientError(clientId: string, err: Error) {
+    this.logger.error(`Client ${clientId} error`, err);
+  }
+
+  // Helper to check if it's even an object with a 'type'
+  private isBaseMessage(
+    msg: unknown
+  ): msg is { type: string; payload: Record<string, unknown> } {
+    return (
+      typeof msg === "object" &&
+      msg !== null &&
+      "type" in msg &&
+      typeof msg.type === "string" &&
+      "payload" in msg &&
+      typeof msg.payload === "object" &&
+      msg.payload !== null
+    );
+  }
+
+  private getRequestInfo(req: IncomingMessage) {
+    const socket = req.socket;
+
+    // Check for TLS (HTTPS/WSS)
+    const isSecure = socket instanceof TLSSocket && socket.encrypted;
+
+    const remoteAddress = socket.remoteAddress || "";
+
+    // The "Triple Check" for localhost (IPv4, IPv6, and IPv4-mapped IPv6)
+    const isLocalhost = isAddressLocalhost(remoteAddress);
+
+    return { isLocalhost, isSecure, remoteAddress };
+  }
+
+  //Parses the raw cookie header into a key-value object.
+  //Returns an empty object if no cookies are present.
+  private parseCookies(
+    cookieHeader: string | undefined
+  ): Record<string, string | undefined> {
+    if (!cookieHeader) {
+      return {};
+    }
+    try {
+      return cookie.parse(cookieHeader);
+    } catch (error) {
+      this.logger.error("Failed to parse cookies:", error);
+      return {};
+    }
+  }
+
+  private generateClientId(): string {
+    return crypto.randomUUID();
   }
 }

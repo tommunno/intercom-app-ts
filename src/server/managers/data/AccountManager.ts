@@ -136,7 +136,6 @@ export class AccountManager implements IAccountManager {
       userId: null,
       newSessionToken: null,
       loginTakeover: false,
-      clientId: null,
     };
 
     if (username === null || password === null) {
@@ -187,7 +186,6 @@ export class AccountManager implements IAccountManager {
       userId: null,
       newSessionToken: null,
       loginTakeover: false,
-      clientId: null,
     };
 
     if (sessionToken === null) {
@@ -305,7 +303,6 @@ export class AccountManager implements IAccountManager {
         userId: null,
         newSessionToken: null,
         loginTakeover: false,
-        clientId: null,
       };
     }
     //If a username or password has been provided, use these credentials instead of the existing sessionToken, and issue a new sessionToken if authenticated

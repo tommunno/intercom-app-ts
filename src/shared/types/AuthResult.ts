@@ -5,5 +5,4 @@ export interface AuthResult {
   userId: number | null;
   newSessionToken: string | null;
   loginTakeover: boolean;
-  clientId: string | null;
 }

@@ -9,3 +9,11 @@ export function validatePort(port: number) {
     port <= 65535
   );
 }
+
+export function isAddressLocalhost(address: string | undefined) {
+  return (
+    address === "127.0.0.1" ||
+    address === "::1" ||
+    address === "::ffff:127.0.0.1"
+  );
+}

@@ -34,6 +34,7 @@
   "homepage": "https://github.com/tommunno/intercom-app-ts#readme",
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
+    "@types/cookie": "^0.6.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.6",
     "@types/node": "^25.0.5",
@@ -48,6 +49,7 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
+    "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "express": "^5.2.1",
     "tiny-typed-emitter": "^2.1.0",

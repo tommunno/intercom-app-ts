@@ -12,7 +12,11 @@ import type {
 } from "../../../shared/types/index.js";
 
 //Helpers:
-import { isStringAndNotEmpty, validatePort } from "../../../shared/helpers.js";
+import {
+  isAddressLocalhost,
+  isStringAndNotEmpty,
+  validatePort,
+} from "../../../shared/helpers.js";
 
 //Constants:
 import {
@@ -145,10 +149,7 @@ export class WebServerManager implements IWebServerManager {
   private restrictToLocalhost(req: Request, res: Response, next: NextFunction) {
     const isHttps = req.socket instanceof TLSSocket && req.socket.encrypted;
     const remoteAddress = req.socket.remoteAddress;
-    const isLocalhost =
-      remoteAddress === "127.0.0.1" ||
-      remoteAddress === "::1" ||
-      remoteAddress === "::ffff:127.0.0.1";
+    const isLocalhost = isAddressLocalhost(remoteAddress);
 
     if (!isLocalhost && !isHttps) {
       this.logger.warn(

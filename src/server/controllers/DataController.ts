@@ -82,10 +82,7 @@ export class DataController implements IDataController {
     return this.accountManager.softLoginUser(sessionToken, loginCredentials);
   }
 
-  async loginUser(
-    sessionToken: string,
-    clientUid: string
-  ): Promise<AuthResult> {
+  async loginUser(sessionToken: string, clientId: string): Promise<AuthResult> {
     //Test
     return {
       success: true,
@@ -94,8 +91,10 @@ export class DataController implements IDataController {
       userId: null,
       newSessionToken: null,
       loginTakeover: false,
-      clientId: null,
     };
     //End test
   }
+
+  //Wss messages > client:
+  sendLoginResponse(result: AuthResult, clientId: string): void {}
 }

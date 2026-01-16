@@ -11,5 +11,7 @@ export interface IDataController {
     sessionToken: string | null,
     loginCredentials: LoginCredentials
   ): Promise<AuthResult>;
-  loginUser(sessionToken: string, clientUid: string): Promise<AuthResult>;
+  loginUser(sessionToken: string, clientId: string): Promise<AuthResult>;
+  //Wss messages > client:
+  sendLoginResponse(result: AuthResult, clientId: string): void;
 }

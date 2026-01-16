@@ -9,13 +9,15 @@ import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
 import {
   type WssCommandMap,
   type WssPayloads,
-  WSS_TYPE,
+  type WssType,
+  WSS_TYPES,
 } from "../../shared/protocols/index.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
-    [WSS_TYPE.USER_LOGIN]: this.handleUserLogin.bind(this),
-    [WSS_TYPE.ADMIN_LOGIN]: this.handleAdminLogin.bind(this),
+    [WSS_TYPES.USER_LOGIN]: this.handleUserLogin.bind(this),
+    [WSS_TYPES.ADMIN_LOGIN]: this.handleAdminLogin.bind(this),
+    [WSS_TYPES.USER_LOGOUT]: this.handleUserLogout.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -45,7 +47,7 @@ export class Controller implements IController {
     });
   }
 
-  //Client first makes Http request
+  //Client first makes Http request for a 'soft' login
   //If there is a valid sessionToken, success
   //If no valid sessionToken, but credentials are valid, success and a sessionToken is sent
   //No user is connected to audio matrix yet!
@@ -64,46 +66,56 @@ export class Controller implements IController {
     return result;
   }
 
-  //Client can then try to connect via Ws
-  //If sessionToken is valid, success
-  //User is then connected to the audioMatrix
-  // private async handleWsUserLoginRequest(
-  //   sessionToken: string,
-  //   clientUid: string
-  // ): Promise<AuthResult> {
-  //   const result: AuthResult = await this.dataController.loginUser(
-  //     sessionToken,
-  //     clientUid
-  //   );
-  //   if (result.success && result.userId !== null && result.clientId !== null) {
-  //     this.audioController.connectUser(result.userId, result.clientId);
-  //   }
-  //   return result;
-  // }
-
-  handleWssMessage<K extends keyof WssPayloads>(
-    type: K,
-    payload: WssPayloads[K],
-    clientId: string
-  ): void {
+  private handleWssMessage<K extends WssType>({
+    type,
+    payload,
+    clientId,
+    sessionToken,
+  }: {
+    type: K;
+    payload: WssPayloads[K];
+    clientId: string;
+    sessionToken: string | null;
+  }): void {
     const command = this.wssCommands[type];
-    command(payload, clientId);
+    command(payload, clientId, sessionToken);
   }
 
+  //Handle Wss messages:
+
   //Proven the theory, still need the proper logic
+  //User requests 'hard' login via WS. The sessionToken is used for validation here.
   async handleUserLogin(
-    { myNumber }: WssPayloads[typeof WSS_TYPE.USER_LOGIN],
-    clientId: string
+    { myNumber }: WssPayloads[typeof WSS_TYPES.USER_LOGIN],
+    clientId: string,
+    sessionToken: string | null
   ): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    this.logger.info(`myNumber is ${myNumber}, and clientId ${clientId}`);
+    this.logger.info(
+      `Handling user login for clientId ${clientId}, with myNumber being ${myNumber}, and a sessionToken of ${sessionToken}`
+    );
+    // const result: AuthResult = await this.dataController.loginUser(
+    //   sessionToken,
+    //   clientId
+    // );
+    // if (result.success && result.userId !== null) {
+    //   this.audioController.connectUser(result.userId, clientId);
+    // }
+    // this.dataController.sendLoginResponse(result, clientId);
   }
 
   //Proven the theory, still need the proper logic
   handleAdminLogin(
-    { myString }: WssPayloads[typeof WSS_TYPE.ADMIN_LOGIN],
+    { myString }: WssPayloads[typeof WSS_TYPES.ADMIN_LOGIN],
     clientId: string
   ) {
     this.logger.info(`myString is ${myString}, and clientId ${clientId}`);
+  }
+
+  //Proven the theory, still need the proper logic
+  handleUserLogout(
+    { myBoolean }: WssPayloads[typeof WSS_TYPES.USER_LOGOUT],
+    clientId: string
+  ) {
+    this.logger.info(`myBoolean is ${myBoolean}, and clientId ${clientId}`);
   }
 }
