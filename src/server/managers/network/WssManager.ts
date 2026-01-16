@@ -179,21 +179,6 @@ export class WssManager implements IWssManager {
     this.logger.error(`Client ${clientId} error`, err);
   }
 
-  // Helper to check if it's even an object with a 'type'
-  private isBaseMessage(
-    msg: unknown
-  ): msg is { type: string; payload: Record<string, unknown> } {
-    return (
-      typeof msg === "object" &&
-      msg !== null &&
-      "type" in msg &&
-      typeof msg.type === "string" &&
-      "payload" in msg &&
-      typeof msg.payload === "object" &&
-      msg.payload !== null
-    );
-  }
-
   private getRequestInfo(req: IncomingMessage) {
     const socket = req.socket;
 
