@@ -5,7 +5,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export default {
-  entry: "./src/client/index.ts",
+  mode: "development",
+  entry: "./src/client/panel.ts",
   module: {
     rules: [
       {
@@ -23,7 +24,7 @@ export default {
     },
   },
   output: {
-    filename: "bundle.js",
-    path: path.resolve(__dirname, "public/assets"),
+    filename: "panel.bundle.js",
+    path: path.resolve(__dirname, "public/assets/js"),
   },
 };

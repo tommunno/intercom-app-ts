@@ -2,7 +2,7 @@ node_modules/
 build/
 dist/
 certs/
-public/assets
+public/assets/js
 .env
 .env.local
 .vscode/

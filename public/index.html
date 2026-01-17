@@ -1,12 +1,190 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
     <link rel="stylesheet" href="/styles/style.css" />
-    <title>Intercom-app-ts</title>
+    <title>WebCom</title>
   </head>
-  <body>
-    <script type="module" src="/assets/bundle.js"></script>
+  <body class="no-scroll">
+    <div class="main-space">
+      <div class="option-bar">
+        <p class="user-info-text">
+          You are logged in as <span class="username"></span>
+        </p>
+        <div class="button-bar">
+          <button class="btn button-bar-btn mute-mic-btn" data-muted="false">
+            Mute Mic
+          </button>
+          <button class="btn button-bar-btn logout-btn">Logout</button>
+        </div>
+      </div>
+      <div class="pl-section">
+        <h2 class="pl-section-title">Partylines:</h2>
+        <div class="pls">
+          <ul class="pls-list">
+            <li class="pl">
+              <button class="btn talk-btn">Talk</button>
+              <div class="pl-info">
+                <h2 class="pl-name">Vision</h2>
+              </div>
+              <button class="btn listen-btn">Listen</button>
+            </li>
+            <li class="pl">
+              <button class="btn talk-btn talk-btn-active">Talk</button>
+              <div class="pl-info">
+                <h2 class="pl-name">Sound</h2>
+              </div>
+              <button class="btn listen-btn">Listen</button>
+            </li>
+            <li class="pl">
+              <button class="btn talk-btn">Talk</button>
+              <div class="pl-info">
+                <h2 class="pl-name">Prod</h2>
+              </div>
+              <button class="btn listen-btn">Listen</button>
+            </li>
+            <li class="pl">
+              <button class="btn talk-btn">Talk</button>
+              <div class="pl-info">
+                <h2 class="pl-name">Lighting</h2>
+              </div>
+              <button class="btn listen-btn">Listen</button>
+            </li>
+            <li class="pl">
+              <button class="btn talk-btn">Talk</button>
+              <div class="pl-info">
+                <h2 class="pl-name">Eng</h2>
+              </div>
+              <button class="btn listen-btn">Listen</button>
+            </li>
+            <li class="pl">
+              <button class="btn talk-btn">Talk</button>
+              <div class="pl-info">
+                <h2 class="pl-name">Production 2</h2>
+              </div>
+              <button class="btn listen-btn">Listen</button>
+            </li>
+            <li class="pl">
+              <button class="btn talk-btn">Talk</button>
+              <div class="pl-info">
+                <h2 class="pl-name">Floor Prod 2</h2>
+              </div>
+              <button class="btn listen-btn">Listen</button>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay-login-form">
+      <div class="login-window-wrapper">
+        <div class="login-window">
+          <form class="login-form" method="post">
+            <h2 class="login-form-title">User login</h2>
+            <div class="username-input-group input-group">
+              <label for="username">Username</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                autocomplete="username"
+              />
+            </div>
+            <div class="password-input-group input-group">
+              <label for="password">Password</label>
+              <div class="password-input-wrapper">
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  autocomplete="current-password"
+                />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="toggle-password closed-eye lucide lucide-eye-off-icon lucide-eye-off"
+                >
+                  <path
+                    d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"
+                  />
+                  <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+                  <path
+                    d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"
+                  />
+                  <path d="m2 2 20 20" />
+                </svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="toggle-password open-eye lucide-eye-icon lucide-eye"
+                >
+                  <path
+                    d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"
+                  />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </div>
+            </div>
+            <p class="login-error-message">Incorrect password</p>
+            <button type="submit" class="btn login-btn">Login</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay-error">
+      <div class="modal-error">
+        <p class="modal-error-text">Lost connection. Trying to reconnect...</p>
+      </div>
+    </div>
+
+    <div class="popup audio">
+      <div class="popup-error-icon icon">🚫</div>
+      <div class="popup-success-icon icon">✅</div>
+      <div class="popup-warning-icon icon">⚠️</div>
+      <div class="popup-info-icon icon">ℹ️</div>
+      <div class="popup-audio-icon icon">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="lucide lucide-audio-lines-icon lucide-audio-lines"
+        >
+          <path d="M2 10v3" />
+          <path d="M6 6v11" />
+          <path d="M10 3v18" />
+          <path d="M14 8v7" />
+          <path d="M18 5v13" />
+          <path d="M22 10v3" />
+        </svg>
+      </div>
+      <div class="popup-text">
+        <p class="popup-title">Connecting Audio...</p>
+        <p class="popup-message">Please wait.</p>
+      </div>
+    </div>
+    <script type="module" src="/assets/js/panel.bundle.js"></script>
   </body>
 </html>
