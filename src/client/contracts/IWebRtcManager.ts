@@ -1,1 +1,4 @@
-export interface IWebRtcManager {}
+export interface IWebRtcManager {
+  init: () => void;
+  start: () => void;
+}

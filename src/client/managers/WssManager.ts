@@ -1,3 +1,6 @@
 import type { IWssManager } from "../contracts/index.js";
 
-export class WssManager implements IWssManager {}
+export class WssManager implements IWssManager {
+  init(): void {}
+  start(): void {}
+}

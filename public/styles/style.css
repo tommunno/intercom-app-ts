@@ -697,6 +697,7 @@ input {
 .login-btn.disabled {
   background-color: #a8a8a9;
   cursor: default;
+  color: #a8a8a9;
 }
 
 .login-error-message {

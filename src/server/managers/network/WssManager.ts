@@ -18,8 +18,8 @@ import * as cookie from "cookie";
 import {
   dataIsWssUserLogin,
   WSS_PAYLOAD_VALIDATORS,
-  WSS_TYPES,
   type WssType,
+  type WssUpstream,
 } from "../../../shared/protocols/wssProtocol.js";
 import { dataIsWssRequest } from "../../types/index.js";
 
@@ -154,7 +154,7 @@ export class WssManager implements IWssManager {
     }
   }
 
-  private handleMessage<K extends WssType>({
+  private handleMessage<K extends WssUpstream>({
     type,
     payload,
     clientId,

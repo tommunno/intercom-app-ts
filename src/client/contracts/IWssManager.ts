@@ -1,1 +1,4 @@
-export interface IWssManager {}
+export interface IWssManager {
+  init: () => void;
+  start: () => void;
+}

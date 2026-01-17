@@ -4,10 +4,7 @@ import type {
   LoginCredentials,
   User,
 } from "../../../shared/types/index.js";
-import type {
-  AccountManagerState,
-  AccountManagerConfig,
-} from "../../types/index.js";
+import type { AccountManagerConfig } from "../../types/index.js";
 
 export interface IAccountManager {
   init: (config: AccountManagerConfig) => void;

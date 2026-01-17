@@ -1,10 +1,10 @@
 import {
-  WSS_TYPES,
-  type WssPayloads,
+  WSS_UPSTREAM,
+  type WssUpstream,
 } from "../../shared/protocols/wssProtocol.js";
 
 export interface WssRequest {
-  type: keyof WssPayloads;
+  type: WssUpstream;
   payload: Record<string, unknown>;
 }
 export function dataIsWssRequest(data: unknown): data is WssRequest {
@@ -13,7 +13,9 @@ export function dataIsWssRequest(data: unknown): data is WssRequest {
   const d = data as Record<string, unknown>;
 
   if (typeof d.type !== "string") return false;
-  const typeExists = Object.values(WSS_TYPES).some((type) => d.type === type);
+  const typeExists = Object.values(WSS_UPSTREAM).some(
+    (type) => d.type === type,
+  );
   if (!typeExists) return false;
 
   return (

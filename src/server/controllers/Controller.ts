@@ -9,13 +9,13 @@ import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
 import {
   type WssCommandMap,
   type WssPayloads,
-  type WssType,
-  WSS_TYPES,
+  type WssUpstream,
+  WSS_UPSTREAM,
 } from "../../shared/protocols/index.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
-    [WSS_TYPES.USER_LOGIN]: this.handleUserLogin.bind(this),
+    [WSS_UPSTREAM.USER_LOGIN]: this.handleUserLogin.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -72,7 +72,7 @@ export class Controller implements IController {
     return result;
   }
 
-  private handleWssMessage<K extends WssType>({
+  private handleWssMessage<K extends WssUpstream>({
     type,
     payload,
     clientId,
@@ -99,7 +99,7 @@ export class Controller implements IController {
 
   //User requests 'hard' login via WS. The sessionToken is used for validation here.
   handleUserLogin(
-    {}: WssPayloads[typeof WSS_TYPES.USER_LOGIN],
+    {}: WssPayloads[typeof WSS_UPSTREAM.USER_LOGIN],
     clientId: string,
     sessionToken: string | null,
   ): void {

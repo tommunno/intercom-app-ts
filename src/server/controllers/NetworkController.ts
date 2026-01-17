@@ -1,4 +1,8 @@
-import type { WssPayloads, WssType } from "../../shared/protocols/index.js";
+import type {
+  WssPayloads,
+  WssType,
+  WssUpstream,
+} from "../../shared/protocols/index.js";
 import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
 import type {
   INetworkController,
@@ -75,7 +79,7 @@ export class NetworkController implements INetworkController {
     return authResult;
   }
 
-  private handleWssMessage<K extends WssType>(
+  private handleWssMessage<K extends WssUpstream>(
     messageInfo: WssMessageInfo<K>,
   ): void {
     this.activeHandlers.onMessage(messageInfo);

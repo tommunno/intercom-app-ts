@@ -1,17 +1,27 @@
 import type { MaybePromise } from "../types/MaybePromise.js";
 
-export const WSS_TYPES = {
+export const WSS_UPSTREAM = {
   USER_LOGIN: "USER_LOGIN",
 } as const;
 
-export const WSS_PAYLOAD_VALIDATORS: WssPayloadValidators = {
-  [WSS_TYPES.USER_LOGIN]: dataIsWssUserLogin,
-};
+export const WSS_DOWNSTREAM = {
+  USER_LOGIN_RESPONSE: "USER_LOGIN_RESPONSE",
+} as const;
 
-export type WssType = (typeof WSS_TYPES)[keyof typeof WSS_TYPES];
+export const WSS_PAYLOAD_VALIDATORS = {
+  [WSS_UPSTREAM.USER_LOGIN]: dataIsWssUserLogin,
+  [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
+} satisfies WssPayloadValidators;
+
+export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
+export type WssDownstream =
+  (typeof WSS_DOWNSTREAM)[keyof typeof WSS_DOWNSTREAM];
+
+export type WssType = WssUpstream | WssDownstream;
 
 type PayloadMap = {
-  [WSS_TYPES.USER_LOGIN]: {};
+  [WSS_UPSTREAM.USER_LOGIN]: Record<string, unknown>;
+  [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: { myTest: string };
 };
 
 export type WssPayloads = {
@@ -19,11 +29,15 @@ export type WssPayloads = {
 };
 
 export type WssCommandMap = {
-  [K in WssType]: (
+  [K in WssUpstream]: (
     data: WssPayloads[K],
     clientId: string,
     sessionToken: string | null,
   ) => MaybePromise<void>;
+};
+
+export type WssClientCommandMap = {
+  [K in WssDownstream]: (data: WssPayloads[K]) => void;
 };
 
 type WssPayloadValidators = {
@@ -32,6 +46,13 @@ type WssPayloadValidators = {
 
 export function dataIsWssUserLogin(
   data: Record<string, unknown>,
-): data is WssPayloads[typeof WSS_TYPES.USER_LOGIN] {
+): data is WssPayloads[typeof WSS_UPSTREAM.USER_LOGIN] {
+  return data !== null && typeof data === "object";
+}
+
+//Still need to add in validation here
+export function dataIsWssUserLoginResponse(
+  data: Record<string, unknown>,
+): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE] {
   return data !== null && typeof data === "object";
 }

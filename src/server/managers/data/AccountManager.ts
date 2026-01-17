@@ -12,12 +12,12 @@ import type { AccountManagerConfig } from "../../types/index.js";
 //Contracts:
 import type { IAccountManager, ILogger } from "../../contracts/index.js";
 //Constants:
+import { SALT_ROUNDS } from "../../constants/serverConstants.js";
 import {
   MAX_PASSWORD_LENGTH,
   MAX_USERNAME_LENGTH,
   MIN_PASSWORD_LENGTH,
-  SALT_ROUNDS,
-} from "../../constants/serverConstants.js";
+} from "../../../shared/constants/sharedConstants.js";
 //External Libraries:
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
