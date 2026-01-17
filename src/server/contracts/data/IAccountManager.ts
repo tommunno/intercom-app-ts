@@ -10,19 +10,21 @@ import type {
 } from "../../types/index.js";
 
 export interface IAccountManager {
-  init(config: AccountManagerConfig): void;
-  start(): void;
+  init: (config: AccountManagerConfig) => void;
+  start: () => void;
 
-  softLoginUser(
+  softLoginUser: (
     sessionToken: string | null,
-    loginCredentials: LoginCredentials
-  ): Promise<AuthResult>;
+    loginCredentials: LoginCredentials,
+  ) => Promise<AuthResult>;
 
-  logoutUser(params: {
+  loginUser: (sessionToken: string | null, clientId: string) => AuthResult;
+
+  logoutUser: (params: {
     userId?: number;
     user?: User;
-    loginTakeover: boolean;
-  }): boolean;
+    hardLogout?: boolean;
+  }) => number | null;
 
-  updateUsers(users: BaseUser[]): Promise<void>;
+  updateUsers: (users: BaseUser[]) => Promise<void>;
 }

@@ -10,7 +10,7 @@ export class DataController implements IDataController {
   constructor(
     private accountManager: IAccountManager,
     private dataManager: IDataManager,
-    private logger: ILogger
+    private logger: ILogger,
   ) {
     this.logger = this.logger.child({ context: "DataController" });
   }
@@ -59,7 +59,7 @@ export class DataController implements IDataController {
       {
         id: 0,
         username: "TOM",
-        password: null,
+        password: "tom123",
       },
       {
         id: 1,
@@ -69,7 +69,7 @@ export class DataController implements IDataController {
       {
         id: 2,
         username: "MARK",
-        password: null,
+        password: "mark123",
       },
     ]);
     //End test
@@ -77,24 +77,24 @@ export class DataController implements IDataController {
 
   softLoginUser(
     sessionToken: string | null,
-    loginCredentials: LoginCredentials
+    loginCredentials: LoginCredentials,
   ): Promise<AuthResult> {
     return this.accountManager.softLoginUser(sessionToken, loginCredentials);
   }
 
-  async loginUser(sessionToken: string, clientId: string): Promise<AuthResult> {
-    //Test
-    return {
-      success: true,
-      message: "Test message in loginUser",
-      statusCode: 200,
-      userId: null,
-      newSessionToken: null,
-      loginTakeover: false,
-    };
-    //End test
+  loginUser(sessionToken: string | null, clientId: string): AuthResult {
+    return this.accountManager.loginUser(sessionToken, clientId);
+  }
+
+  logoutUser(ids: { clientId?: string; userId?: number }): number | null {
+    return this.accountManager.logoutUser(ids);
   }
 
   //Wss messages > client:
-  sendLoginResponse(result: AuthResult, clientId: string): void {}
+  sendLoginResponse(result: AuthResult, clientId: string): void {
+    this.logger.info(
+      `Sending login response for clientId ${clientId} and a result of:`,
+      result,
+    );
+  }
 }

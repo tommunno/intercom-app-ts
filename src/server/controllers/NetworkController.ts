@@ -20,7 +20,7 @@ export class NetworkController implements INetworkController {
     private wssManager: IWssManager,
     private webRTCManager: IWebRtcManager,
     private turnServerManager: ITurnServerManager,
-    private logger: ILogger
+    private logger: ILogger,
   ) {
     this.logger = this.logger.child({ context: "NetworkController" });
   }
@@ -54,28 +54,38 @@ export class NetworkController implements INetworkController {
 
   private bindListeners(): void {
     this.webServerManager.setHandlers({
-      onUserLoginRequest: (s, l) => this.handleHttpUserLoginRequest(s, l),
+      onUserSoftLoginRequest: (s, l) => this.handleUserSoftLoginRequest(s, l),
     });
 
     this.wssManager.setHandlers({
       onMessage: this.handleWssMessage.bind(this),
+      onClientDisconnect: (c) => this.handleClientDisconnect(c),
+      onClientError: (c) => this.handleClientError(c),
     });
   }
 
-  private async handleHttpUserLoginRequest(
+  private async handleUserSoftLoginRequest(
     sessionToken: string | null,
-    loginCredentials: LoginCredentials
+    loginCredentials: LoginCredentials,
   ): Promise<AuthResult> {
-    const authResult = await this.activeHandlers.onHttpUserLoginRequest(
+    const authResult = await this.activeHandlers.onUserSoftLoginRequest(
       sessionToken,
-      loginCredentials
+      loginCredentials,
     );
     return authResult;
   }
 
   private handleWssMessage<K extends WssType>(
-    messageInfo: WssMessageInfo<K>
+    messageInfo: WssMessageInfo<K>,
   ): void {
-    this.activeHandlers.onWssMessage(messageInfo);
+    this.activeHandlers.onMessage(messageInfo);
+  }
+
+  handleClientDisconnect(clientId: string) {
+    this.activeHandlers.onClientDisconnect(clientId);
+  }
+
+  handleClientError(clientId: string) {
+    this.activeHandlers.onClientError(clientId);
   }
 }

@@ -3,9 +3,9 @@ export interface ChildLoggerOptions {
 }
 
 export interface ILogger {
-  success(message: string): void;
-  warn(message: string): void;
-  error(message: string, error?: unknown): void;
-  info(message: string): void;
-  child(options: ChildLoggerOptions): ILogger;
+  success: (message: string, data?: any) => void;
+  warn: (message: string, data?: any) => void;
+  error: (message: string, error?: unknown) => void;
+  info: (message: string, data?: any) => void;
+  child: (options: ChildLoggerOptions) => ILogger;
 }

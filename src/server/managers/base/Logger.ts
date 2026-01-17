@@ -8,18 +8,21 @@ export class Logger implements ILogger {
       : "";
   }
 
-  success(message: string): void {
+  success(message: string, data?: any): void {
     console.log(`${this.prefix}SUCCESS: ${message}`);
+    if (data) console.log(data);
   }
-  warn(message: string): void {
+  warn(message: string, data?: any): void {
     console.warn(`${this.prefix}WARN: ${message}`);
+    if (data) console.log(data);
   }
   error(message: string, error?: unknown): void {
     const errorMessage = error ? ": " + this.getErrorMessage(error) : "";
     console.error(`${this.prefix}ERROR: ${message}${errorMessage}`);
   }
-  info(message: string): void {
+  info(message: string, data?: any): void {
     console.log(`${this.prefix}INFO: ${message}`);
+    if (data) console.log(data);
   }
   child(options: ChildLoggerOptions): ILogger {
     return new Logger(options);

@@ -3,7 +3,7 @@ import { createWssClient } from "./server-tests/wssTest.js";
 
 //HTTP Test:
 (window as any).httpLoginRequestTest = httpLoginRequestTest;
-httpLoginRequestTest("admin", "password123");
+await httpLoginRequestTest("BEN", "ben123");
 
 //WSS TEST:
 const { ws, send } = createWssClient("/");
@@ -11,6 +11,6 @@ const { ws, send } = createWssClient("/");
 // expose for DevTools
 Object.assign(window as any, { ws, wsSend: send });
 
-ws.addEventListener("open", () => {
-  send("USER_LOGIN", { myNumber: 457 });
-});
+// ws.addEventListener("open", () => {
+//   send("USER_LOGIN", { myNumber: 457 });
+// });

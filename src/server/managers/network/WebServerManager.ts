@@ -64,7 +64,7 @@ export class WebServerManager implements IWebServerManager {
   init(): Servers {
     if (this.state !== "IDLE") {
       throw new Error(
-        `Cannot initialize the WebServerManager whilst its state is ${this.state}`
+        `Cannot initialize the WebServerManager whilst its state is ${this.state}`,
       );
     }
 
@@ -82,14 +82,14 @@ export class WebServerManager implements IWebServerManager {
       "/login",
       async (
         rq: Request<{}, HttpLoginResponse, HttpLoginRequest>,
-        rs: Response<HttpLoginResponse>
+        rs: Response<HttpLoginResponse>,
       ) => {
         await this.handleUserLoginRequest(rq, rs);
-      }
+      },
     );
 
     this.app.use((e: any, rq: Request, rs: Response, n: NextFunction) =>
-      this.handleErrors(e, rq, rs, n)
+      this.handleErrors(e, rq, rs, n),
     );
 
     this.httpServer = http.createServer(this.app);
@@ -101,7 +101,7 @@ export class WebServerManager implements IWebServerManager {
   start(): void {
     if (this.state !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the WebServerManager whilst its state is ${this.state}`
+        `Cannot start the WebServerManager whilst its state is ${this.state}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
@@ -111,14 +111,14 @@ export class WebServerManager implements IWebServerManager {
     if (this.httpServer) {
       this.httpServer.listen(this.httpPort, () => {
         this.logger.info(
-          `HTTP Server running at http://localhost:${this.httpPort}`
+          `HTTP Server running at http://localhost:${this.httpPort}`,
         );
       });
     }
     if (this.httpsServer) {
       this.httpsServer.listen(this.httpsPort, () => {
         this.logger.info(
-          `HTTPS Server running at https://localhost:${this.httpsPort}`
+          `HTTPS Server running at https://localhost:${this.httpsPort}`,
         );
       });
     }
@@ -138,7 +138,7 @@ export class WebServerManager implements IWebServerManager {
         this.httpsServer = https.createServer(options, this.app);
       } else {
         this.logger.warn(
-          `HTTPS skipped: Certificates not found in ${CERT_DIR} folder: ${this.certPath}`
+          `HTTPS skipped: Certificates not found in ${CERT_DIR} folder: ${this.certPath}`,
         );
       }
     } catch (error) {
@@ -153,7 +153,7 @@ export class WebServerManager implements IWebServerManager {
 
     if (!isLocalhost && !isHttps) {
       this.logger.warn(
-        `Blocked external HTTP access attempt from ${remoteAddress}`
+        `Blocked external HTTP access attempt from ${remoteAddress}`,
       );
       if (!this.httpsServer) {
         return res
@@ -162,7 +162,7 @@ export class WebServerManager implements IWebServerManager {
       }
       return res.redirect(
         308,
-        `https://${req.hostname}:${this.httpsPort}${req.originalUrl}`
+        `https://${req.hostname}:${this.httpsPort}${req.originalUrl}`,
       );
     }
     next();
@@ -170,17 +170,12 @@ export class WebServerManager implements IWebServerManager {
 
   private async handleUserLoginRequest(
     req: Request<{}, HttpLoginResponse, HttpLoginRequest>,
-    res: Response<HttpLoginResponse>
+    res: Response<HttpLoginResponse>,
   ) {
     const rawToken = req.cookies.userSessionToken;
     let userSessionToken: string | null = null;
 
     if (isStringAndNotEmpty(rawToken)) userSessionToken = rawToken;
-    else {
-      this.logger.warn(
-        "Received a login request with an invalid or missing token."
-      );
-    }
 
     const loginCredentials: LoginCredentials = {
       username: isStringAndNotEmpty(req.body.username)
@@ -196,16 +191,16 @@ export class WebServerManager implements IWebServerManager {
       !userSessionToken
     ) {
       this.logger.warn(
-        "Login attempt blocked: Missing username or password, and no valid sessionToken."
+        "Login attempt blocked: Missing username or password, and no valid sessionToken.",
       );
       res.status(400).json({ success: false, message: "Missing credentials" });
       return;
     }
 
     const { success, message, statusCode, newSessionToken } =
-      await this.activeHandlers.onUserLoginRequest(
+      await this.activeHandlers.onUserSoftLoginRequest(
         userSessionToken,
-        loginCredentials
+        loginCredentials,
       );
     if (newSessionToken) {
       res.cookie("userSessionToken", newSessionToken, {
@@ -223,7 +218,7 @@ export class WebServerManager implements IWebServerManager {
     err: any,
     req: Request,
     res: Response,
-    next: NextFunction
+    next: NextFunction,
   ) {
     if (err instanceof SyntaxError && "body" in err) {
       this.logger.error(`Bad JSON received from ${req.ip}`);
@@ -249,7 +244,7 @@ export class WebServerManager implements IWebServerManager {
     }
     if (httpPort === httpsPort) {
       this.logger.error(
-        `HTTP and HTTPS ports cannot be the same (${httpPort})`
+        `HTTP and HTTPS ports cannot be the same (${httpPort})`,
       );
       return false;
     }

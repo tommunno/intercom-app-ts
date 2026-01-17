@@ -34,7 +34,7 @@ export class AccountManager implements IAccountManager {
   init({ numUsers, loadedUsers }: AccountManagerConfig): void {
     if (this.state !== "IDLE") {
       throw new Error(
-        `Cannot initialize the AccountManager whilst its state is ${this.state}`
+        `Cannot initialize the AccountManager whilst its state is ${this.state}`,
       );
     }
     this.numUsers = numUsers;
@@ -45,7 +45,7 @@ export class AccountManager implements IAccountManager {
   start(): void {
     if (this.state !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the AccountManager whilst its state is ${this.state}`
+        `Cannot start the AccountManager whilst its state is ${this.state}`,
       );
     }
     this.state = "RUNNING";
@@ -54,7 +54,7 @@ export class AccountManager implements IAccountManager {
   stop(): void {
     if (this.state !== "RUNNING") {
       this.logger.warn(
-        `Cannot stop the AccountManager whilst its state is ${this.state}`
+        `Cannot stop the AccountManager whilst its state is ${this.state}`,
       );
       return;
     }
@@ -66,7 +66,7 @@ export class AccountManager implements IAccountManager {
   private createUsers(loadedUsers: unknown): void {
     if (!Array.isArray(loadedUsers)) {
       this.logger.warn(
-        `User data could not be loaded correctly. Starting with an empty user list.`
+        `User data could not be loaded correctly. Starting with an empty user list.`,
       );
       this.createEmptyUsers();
       return;
@@ -90,7 +90,7 @@ export class AccountManager implements IAccountManager {
         });
       else {
         this.logger.warn(
-          `User data could not be loaded correctly. Invalid user at index ${i}. Starting with an empty user list`
+          `User data could not be loaded correctly. Invalid user at index ${i}. Starting with an empty user list`,
         );
         this.createEmptyUsers();
         return;
@@ -98,11 +98,11 @@ export class AccountManager implements IAccountManager {
     }
     if (this.numUsers > loadedUsers.length)
       this.logger.warn(
-        `The user list was incomplete and has been automatically filled in`
+        `The user list was incomplete and has been automatically filled in`,
       );
     else if (this.numUsers < loadedUsers.length)
       this.logger.warn(
-        `The user list was longer than expected, so extra entries were removed`
+        `The user list was longer than expected, so extra entries were removed`,
       );
   }
 
@@ -166,7 +166,7 @@ export class AccountManager implements IAccountManager {
 
     //foundUser is not logged in, and credentials match. Client has been succesfully authenticated, and a new sessionToken will be handed out. But the client will not be logged in until it is 'hard' logged in via WS!
     const newSessionToken = this.generateSessionToken();
-    foundUser.sessionTokens.push(newSessionToken);
+    this.addUniqueSessionToken(foundUser, newSessionToken);
 
     return {
       ...baseResult,
@@ -178,7 +178,15 @@ export class AccountManager implements IAccountManager {
     };
   }
 
-  private authenticateUserWithToken(sessionToken: string | null): AuthResult {
+  private authenticateUserWithToken({
+    sessionToken,
+    softLogin,
+    clientId,
+  }: {
+    sessionToken: string | null;
+    softLogin: boolean;
+    clientId: string | null;
+  }): AuthResult {
     const baseResult: AuthResult = {
       success: false,
       message: "",
@@ -196,7 +204,7 @@ export class AccountManager implements IAccountManager {
     }
 
     const foundUser = this.users.find((user) =>
-      user.sessionTokens.includes(sessionToken)
+      user.sessionTokens.includes(sessionToken),
     );
 
     if (!foundUser) {
@@ -218,10 +226,20 @@ export class AccountManager implements IAccountManager {
         statusCode: 409,
       };
     }
-    //If user is logged in and there is a sessionToken match, then we can do a login takeover (logging out the old client, and doing a soft login for the new one). The new client will not be 'hard' logged in until they login via WS!
+    //If user is logged in and there is a sessionToken match, then we can do a login takeover. This will logout the old client, and soft/hard login the new user
     if (foundUser.loggedIn && sessionTokenMatch) {
-      this.logoutUser({ user: foundUser, loginTakeover: true });
+      this.logoutUser({ user: foundUser, hardLogout: false });
 
+      //Hard login:
+      if (!softLogin) {
+        return this.hardLoginUser({
+          user: foundUser,
+          loginTakeover: true,
+          clientId,
+          sessionToken,
+        });
+      }
+      //Soft login:
       return {
         ...baseResult,
         success: true,
@@ -231,7 +249,17 @@ export class AccountManager implements IAccountManager {
         userId: foundUser.id,
       };
     }
-    //foundUser is not logged in. Client has been succesfully authenticated, but will not be logged in until the client is 'hard' logged in via WS!
+    //foundUser is not logged in. Client has been succesfully authenticated, and will be soft/hard logged in
+    //Hard login:
+    if (!softLogin) {
+      return this.hardLoginUser({
+        user: foundUser,
+        loginTakeover: false,
+        clientId,
+        sessionToken,
+      });
+    }
+    //Soft login:
     return {
       ...baseResult,
       success: true,
@@ -241,93 +269,147 @@ export class AccountManager implements IAccountManager {
     };
   }
 
-  private generateSessionToken() {
+  private hardLoginUser({
+    user,
+    loginTakeover,
+    clientId,
+    sessionToken,
+  }: {
+    user: User;
+    loginTakeover: boolean;
+    clientId: string | null;
+    sessionToken: string;
+  }): AuthResult {
+    const baseResult: AuthResult = {
+      success: false,
+      message: "Unable to login user",
+      statusCode: 500,
+      userId: user.id,
+      newSessionToken: null,
+      loginTakeover,
+    };
+
+    if (clientId === null) {
+      this.logger.error(`No clientId provided in hardLoginUser`);
+      return baseResult;
+    }
+    if (user.loggedIn) {
+      this.logger.error(
+        `Unable to login user: user ${user.id} is already logged in`,
+      );
+      return baseResult;
+    }
+    user.loggedIn = true;
+    user.clientId = clientId;
+    user.sessionTokenInUse = sessionToken;
+    this.addUniqueSessionToken(user, sessionToken);
+
+    return {
+      ...baseResult,
+      success: true,
+      message: "User logged in",
+      statusCode: 200,
+    };
+  }
+
+  private generateSessionToken(): string {
     return crypto.randomUUID();
   }
 
-  //If the user is getting logged out as part of a loginTakeover, then we keep the sessionToken in the sessionTokens array
-  //A userId or a user should be passed in. User is prioritised if both passed in
+  //If hardLogout is true, the sessionToken is removed from the sessionTokens array.
+  //A userId, a user, or a clientId, should be passed in. Priority if multiple are passed in is user > userId > clientId
+  //Returns the userId if successful, or null if not
   logoutUser({
     userId,
     user,
-    loginTakeover = false,
+    clientId,
+    hardLogout = false,
   }: {
     userId?: number;
     user?: User;
-    loginTakeover?: boolean;
-  }): boolean {
-    if (this.state !== "RUNNING") {
-      this.logger.error(
-        `Unable to logout user because the state is ${this.state}`
-      );
-      return false;
-    }
-    if (userId === undefined && user === undefined) {
+    clientId?: string;
+    hardLogout?: boolean;
+  }): number | null {
+    const result = this.checkAndWarnIfNotRunning("logout user");
+    if (result) return null;
+
+    if (clientId === undefined && userId === undefined && user === undefined) {
       this.logger.warn(
-        `No userId and no user was passed into logoutUser. Will not logout any user`
+        `No userId, user, or clientId was passed. Will not logout any user`,
       );
-      return false;
+      return null;
     }
-    if (!user) user = this.users.find((u) => u.id === userId);
-    if (!user) {
-      this.logger.warn(
-        `Cannot logout user with id ${userId}, because the user doesn't exist`
-      );
-      return false;
+    if (user === undefined && userId === undefined) {
+      user = this.users.find((usr) => usr.clientId === clientId);
+      if (!user) {
+        return null;
+      }
+    } else {
+      if (!user) user = this.users.find((u) => u.id === userId);
+      if (!user) {
+        this.logger.warn(
+          `Cannot logout user with id ${userId}, because the user doesn't exist`,
+        );
+        return null;
+      }
     }
     user.loggedIn = false;
+    user.clientId = null;
 
-    if (!loginTakeover && user.sessionTokenInUse) {
+    if (hardLogout && user.sessionTokenInUse) {
       user.sessionTokens = user.sessionTokens.filter(
-        (t) => t !== user.sessionTokenInUse
+        (t) => t !== user.sessionTokenInUse,
       );
     }
 
     user.sessionTokenInUse = null;
 
-    return true;
+    this.logger.info(`Loggged out user with clientId ${clientId}`);
+
+    return user.id;
   }
 
   async softLoginUser(
     sessionToken: string | null,
-    logCred: LoginCredentials
+    logCred: LoginCredentials,
   ): Promise<AuthResult> {
-    if (this.state !== "RUNNING") {
-      this.logger.error(
-        `Unable to soft login user because the state is ${this.state}`
-      );
-      return {
-        success: false,
-        message: "Internal server error: AccountManager not running",
-        statusCode: 500,
-        userId: null,
-        newSessionToken: null,
-        loginTakeover: false,
-      };
-    }
+    const result = this.checkAndWarnIfNotRunning("soft login user");
+    if (result) return result;
     //If a username or password has been provided, use these credentials instead of the existing sessionToken, and issue a new sessionToken if authenticated
     if (logCred.username !== null || logCred.password !== null) {
       return this.authenticateUserWithCredentials(logCred);
     }
     //Otherwise, we try to use the existing sessionToken to authenticate:
-    return this.authenticateUserWithToken(sessionToken);
+    return this.authenticateUserWithToken({
+      sessionToken,
+      softLogin: true,
+      clientId: null,
+    });
   }
 
-  //For eg admins updating info about users. Passwords will be updated if they are not null. Of course, passwords are expected as plain text here.
+  loginUser(sessionToken: string | null, clientId: string): AuthResult {
+    const result = this.checkAndWarnIfNotRunning("login user");
+    if (result) return result;
+
+    return this.authenticateUserWithToken({
+      sessionToken,
+      softLogin: false,
+      clientId,
+    });
+  }
+
+  //For eg admins updating info about users. Passwords will be updated if they are not null. Passwords are expected as plain text here.
   async updateUsers(users: BaseUser[]) {
-    if (this.state !== "RUNNING") {
-      this.logger.error(
-        `Unable to update users because the state is ${this.state}`
-      );
-      return;
-    }
+    const result = this.checkAndWarnIfNotRunning("update users");
+    if (result) return;
+
     for (let user of users) {
       const success = this.validateBaseUser(user, true);
       if (!success) continue;
       const foundUser = this.users.find((u) => u.id === user.id);
       if (!foundUser) {
         this.logger.warn(
-          `Unable to find user with ID of ${user.id} in updateUsers`
+          `Unable to find user with ID of ${user.id} in updateUsers`,
         );
       } else {
         foundUser.username = user.username;
@@ -350,14 +432,19 @@ export class AccountManager implements IAccountManager {
       user.sessionTokenInUse.trim() === ""
     ) {
       this.logger.warn(
-        `User ${user.username} has an invalid sessionTokenInUse`
+        `User ${user.username} has an invalid sessionTokenInUse`,
       );
       return false;
     }
-    const someElsEmpty = user.sessionTokens.some((el) => el.trim() === "");
-    if (someElsEmpty) {
+    const tokens = user.sessionTokens.map((t) => t.trim());
+    const someElsEmpty = tokens.some((t) => t === "");
+    const hasDuplicates = new Set(tokens).size !== tokens.length;
+
+    if (someElsEmpty || hasDuplicates) {
       this.logger.warn(
-        `User ${user.username} has an invalid sessionTokens array`
+        `User ${user.username} has an invalid sessionTokens array` +
+          (someElsEmpty ? " (empty token)" : "") +
+          (hasDuplicates ? " (duplicate token)" : ""),
       );
       return false;
     }
@@ -389,5 +476,26 @@ export class AccountManager implements IAccountManager {
       }
     }
     return true;
+  }
+
+  private checkAndWarnIfNotRunning(action: string): AuthResult | null {
+    if (this.state !== "RUNNING") {
+      this.logger.error(
+        `Unable to ${action} because the state is ${this.state}`,
+      );
+      return {
+        success: false,
+        message: "Internal server error: AccountManager not running",
+        statusCode: 500,
+        userId: null,
+        newSessionToken: null,
+        loginTakeover: false,
+      };
+    }
+    return null;
+  }
+
+  private addUniqueSessionToken(user: User, token: string): void {
+    if (!user.sessionTokens.includes(token)) user.sessionTokens.push(token);
   }
 }

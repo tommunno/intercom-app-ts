@@ -5,16 +5,16 @@ import type {
 import type { Servers } from "../../types/index.js";
 
 export interface WebServerHandlers {
-  onUserLoginRequest: (
+  onUserSoftLoginRequest: (
     sessionToken: string | null,
-    loginCredentials: LoginCredentials
+    loginCredentials: LoginCredentials,
   ) => Promise<AuthResult>;
 }
 
 export interface IWebServerManager {
-  init(): Servers;
-  start(): void;
-  setHandlers(handlers: WebServerHandlers): void;
-  setPorts(httpPort: number, httpsPort: number): boolean;
-  getServers(): Servers;
+  init: () => Servers;
+  start: () => void;
+  setHandlers: (handlers: WebServerHandlers) => void;
+  setPorts: (httpPort: number, httpsPort: number) => boolean;
+  getServers: () => Servers;
 }

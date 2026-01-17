@@ -38,21 +38,21 @@ export class WssManager implements IWssManager {
   init(servers: Servers): void {
     if (this.state !== "IDLE") {
       throw new Error(
-        `Cannot initialize the WssManager whilst its state is ${this.state}`
+        `Cannot initialize the WssManager whilst its state is ${this.state}`,
       );
     }
     if (!servers.http && !servers.https) {
       throw new Error(
-        `No servers were passed into the WssManager during initialization`
+        `No servers were passed into the WssManager during initialization`,
       );
     }
     if (!servers.http) {
       this.logger.warn(
-        `No HTTP server was passed into the WssManager during initialization.`
+        `No HTTP server was passed into the WssManager during initialization.`,
       );
     } else if (!servers.https) {
       this.logger.warn(
-        `No HTTPS server was passed into the WssManager during initialization.`
+        `No HTTPS server was passed into the WssManager during initialization.`,
       );
     }
     if (servers.http) this.ws = new WebSocketServer({ server: servers.http });
@@ -64,7 +64,7 @@ export class WssManager implements IWssManager {
   start(): void {
     if (this.state !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the WssManager whilst its state is ${this.state}`
+        `Cannot start the WssManager whilst its state is ${this.state}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
@@ -89,38 +89,37 @@ export class WssManager implements IWssManager {
     wsServer.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       const clientInfo = this.getRequestInfo(req);
 
-      // 1. Security Guard
+      //Security Guard
       if (!clientInfo.isSecure && !clientInfo.isLocalhost) {
         this.logger.warn(
-          `Rejected insecure connection from ${clientInfo.remoteAddress}`
+          `Rejected insecure connection from ${clientInfo.remoteAddress}`,
         );
         ws.close(1008, "Insecure connections only allowed from localhost");
         return;
       }
 
-      // 2. Identification (cookies and sessionToken)
+      //Identification (cookies and sessionToken)
       const cookies = this.parseCookies(req.headers.cookie);
       const sessionToken = cookies["userSessionToken"];
+      this.logger.info(`New wss client sessionToken: ${sessionToken}`);
       const clientId = this.generateClientId();
 
       this.logger.info(`New connection: ${clientId}`);
 
-      // 3. Attach listeners to THIS socket
+      //Attach listeners to THIS socket
       ws.on("message", (rawData) =>
         this.handleRawMessage({
           clientId,
           rawData,
           sessionToken: sessionToken ? sessionToken : null,
-        })
+        }),
       );
 
       ws.on("close", () => this.handleClientDisconnection(clientId));
 
       ws.on("error", (err) => this.handleClientError(clientId, err));
 
-      // Track this client in a Map
       this.clients.set(clientId, ws);
-
       this.logger.success(`Client ${clientId} has connected`);
     });
   }
@@ -135,9 +134,10 @@ export class WssManager implements IWssManager {
     sessionToken: string | null;
   }): void {
     try {
+      this.logger.info(`New Wss message received`);
       const json: unknown = JSON.parse(rawData.toString());
 
-      // 1. Check the 'universal' type
+      //Check the 'universal' type
       if (!dataIsWssRequest(json)) {
         this.logger.warn("Malformed message structure");
         return;
@@ -145,6 +145,8 @@ export class WssManager implements IWssManager {
 
       //Now we can safely destructure these
       const { type, payload } = json;
+
+      this.logger.info(`Message type: ${type}`);
 
       this.handleMessage({ type, payload, clientId, sessionToken });
     } catch (e) {
@@ -165,29 +167,38 @@ export class WssManager implements IWssManager {
   }) {
     const validator = WSS_PAYLOAD_VALIDATORS[type];
     const valid = validator(payload);
-    if (valid) {
-      payload;
-      this.activeHandlers.onMessage({ type, payload, clientId, sessionToken });
+    if (!valid) {
+      this.logger.warn(`Payload not valid for message of type ${type}`);
+      return;
     }
+    this.logger.info(`Message payload valid for type: ${type}`);
+    this.activeHandlers.onMessage({ type, payload, clientId, sessionToken });
   }
 
   private handleClientDisconnection(clientId: string) {
     this.logger.warn(`Client ${clientId} has disconnected`);
+    this.removeClient(clientId);
+    this.activeHandlers.onClientDisconnect(clientId);
   }
 
   private handleClientError(clientId: string, err: Error) {
     this.logger.error(`Client ${clientId} error`, err);
+    this.removeClient(clientId);
+    this.activeHandlers.onClientError(clientId);
+  }
+
+  private removeClient(clientId: string) {
+    const success = this.clients.delete(clientId);
+    if (!success)
+      this.logger.warn(
+        `Failed to remove client: ID ${clientId} not found in active clients map`,
+      );
   }
 
   private getRequestInfo(req: IncomingMessage) {
     const socket = req.socket;
-
-    // Check for TLS (HTTPS/WSS)
     const isSecure = socket instanceof TLSSocket && socket.encrypted;
-
     const remoteAddress = socket.remoteAddress || "";
-
-    // The "Triple Check" for localhost (IPv4, IPv6, and IPv4-mapped IPv6)
     const isLocalhost = isAddressLocalhost(remoteAddress);
 
     return { isLocalhost, isSecure, remoteAddress };
@@ -196,7 +207,7 @@ export class WssManager implements IWssManager {
   //Parses the raw cookie header into a key-value object.
   //Returns an empty object if no cookies are present.
   private parseCookies(
-    cookieHeader: string | undefined
+    cookieHeader: string | undefined,
   ): Record<string, string | undefined> {
     if (!cookieHeader) {
       return {};

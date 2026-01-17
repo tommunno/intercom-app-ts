@@ -1,4 +1,4 @@
 export interface IController {
-  init(): void;
-  start(): void;
+  init: () => void;
+  start: () => void;
 }
