@@ -39,7 +39,7 @@ export class HttpManager implements IHttpManager {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(request),
-      credentials: "include", // Essential for your session cookies
+      credentials: "include", // Essential for the session cookies
     });
 
     return response.json();

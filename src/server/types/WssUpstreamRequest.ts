@@ -3,11 +3,19 @@ import {
   type WssUpstream,
 } from "../../shared/protocols/wssProtocol.js";
 
-export interface WssRequest {
+// export interface WssUpstreamRequest {
+//   type: WssUpstream;
+//   payload: Record<string, unknown>;
+// }
+export interface WssUpstreamRequest {
   type: WssUpstream;
-  payload: Record<string, unknown>;
+  payload: unknown;
 }
-export function dataIsWssRequest(data: unknown): data is WssRequest {
+
+//Still need to check/add validation here
+export function dataIsWssUpstreamRequest(
+  data: unknown,
+): data is WssUpstreamRequest {
   if (!data || typeof data !== "object") return false;
 
   const d = data as Record<string, unknown>;

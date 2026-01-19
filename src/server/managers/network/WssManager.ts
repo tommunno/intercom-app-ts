@@ -5,7 +5,7 @@ import type {
   ILogger,
   WssHandlers,
 } from "../../contracts/index.js";
-import type { Servers, WssMessageInfo, WssRequest } from "../../types/index.js";
+import type { Servers } from "../../types/index.js";
 
 //Helpers:
 import { isAddressLocalhost } from "../../../shared/helpers.js";
@@ -16,12 +16,12 @@ import { IncomingMessage } from "http";
 import { TLSSocket } from "tls";
 import * as cookie from "cookie";
 import {
-  dataIsWssUserLogin,
-  WSS_PAYLOAD_VALIDATORS,
-  type WssType,
+  payloadIsValidForType,
+  type WssDownstream,
+  type WssPayloads,
   type WssUpstream,
-} from "../../../shared/protocols/wssProtocol.js";
-import { dataIsWssRequest } from "../../types/index.js";
+} from "../../../shared/protocols/index.js";
+import { dataIsWssUpstreamRequest } from "../../types/index.js";
 
 export class WssManager implements IWssManager {
   private state: ManagerState = "IDLE";
@@ -124,6 +124,40 @@ export class WssManager implements IWssManager {
     });
   }
 
+  sendMessage<K extends WssDownstream>(
+    type: K,
+    payload: WssPayloads[K],
+    clientIds: string[],
+  ): void {
+    let data: string;
+    try {
+      data = JSON.stringify({ type, payload });
+    } catch (err) {
+      this.logger.error(`Serialization failed for ${type}:`, err);
+      return;
+    }
+    clientIds.forEach((id) => {
+      const ws = this.clients.get(id);
+      if (!ws) {
+        this.logger.error(
+          `Message delivery failed: No active session found for clientId ${id}`,
+        );
+        return;
+      }
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data, (err) => {
+          if (err) {
+            this.logger.warn(`Send failed to client ${id} for ${type}:`, err);
+          }
+        });
+      } else {
+        this.logger.warn(
+          `Delivery skipped: Client ${id} connection state is ${ws.readyState}`,
+        );
+      }
+    });
+  }
+
   private handleRawMessage({
     clientId,
     rawData,
@@ -138,7 +172,7 @@ export class WssManager implements IWssManager {
       const json: unknown = JSON.parse(rawData.toString());
 
       //Check the 'universal' type
-      if (!dataIsWssRequest(json)) {
+      if (!dataIsWssUpstreamRequest(json)) {
         this.logger.warn("Malformed message structure");
         return;
       }
@@ -161,13 +195,11 @@ export class WssManager implements IWssManager {
     sessionToken,
   }: {
     type: K;
-    payload: Record<string, unknown>;
+    payload: unknown;
     clientId: string;
     sessionToken: string | null;
-  }) {
-    const validator = WSS_PAYLOAD_VALIDATORS[type];
-    const valid = validator(payload);
-    if (!valid) {
+  }): void {
+    if (!payloadIsValidForType(type, payload)) {
       this.logger.warn(`Payload not valid for message of type ${type}`);
       return;
     }

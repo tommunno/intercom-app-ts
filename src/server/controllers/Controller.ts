@@ -10,12 +10,14 @@ import {
   type WssCommandMap,
   type WssPayloads,
   type WssUpstream,
+  WSS_DOWNSTREAM,
   WSS_UPSTREAM,
 } from "../../shared/protocols/index.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
-    [WSS_UPSTREAM.USER_LOGIN]: this.handleUserLogin.bind(this),
+    USER_LOGIN: this.handleUserLogin.bind(this),
+    USER_LOGOUT: this.handleUserLogout.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -115,6 +117,18 @@ export class Controller implements IController {
     if (result.success && result.userId !== null) {
       this.audioController.connectUser(result.userId, clientId);
     }
-    this.dataController.sendLoginResponse(result, clientId);
+    this.networkController.sendWssMessage(
+      "USER_LOGIN_RESPONSE",
+      { myTest: "test string" },
+      [clientId],
+    );
+  }
+
+  handleUserLogout(
+    { myLogoutTest }: WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT],
+    clientId: string,
+    sessionToken: string | null,
+  ): void {
+    this.logger.info(`User logout request:`, myLogoutTest);
   }
 }

@@ -1,3 +1,7 @@
+import type {
+  WssDownstream,
+  WssPayloads,
+} from "../../shared/protocols/index.js";
 import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
 import type {
   IAccountManager,
@@ -88,13 +92,5 @@ export class DataController implements IDataController {
 
   logoutUser(ids: { clientId?: string; userId?: number }): number | null {
     return this.accountManager.logoutUser(ids);
-  }
-
-  //Wss messages > client:
-  sendLoginResponse(result: AuthResult, clientId: string): void {
-    this.logger.info(
-      `Sending login response for clientId ${clientId} and a result of:`,
-      result,
-    );
   }
 }

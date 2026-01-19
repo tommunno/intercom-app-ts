@@ -76,6 +76,12 @@ export class PanelGuiManager implements IPanelGuiManager {
     loginBtn.classList.toggle("disabled", isLoading);
   }
 
+  //More to implement in here, eg focus trapping
+  setLoginVisible(isVisible: boolean) {
+    document.body.classList.toggle("hide-login", !isVisible);
+    document.body.classList.toggle("no-scroll", isVisible);
+  }
+
   private setupListeners() {
     this.setupLoginListeners();
   }

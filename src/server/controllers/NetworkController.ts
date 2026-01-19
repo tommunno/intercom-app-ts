@@ -1,6 +1,6 @@
 import type {
+  WssDownstream,
   WssPayloads,
-  WssType,
   WssUpstream,
 } from "../../shared/protocols/index.js";
 import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
@@ -50,6 +50,14 @@ export class NetworkController implements INetworkController {
     return this.webServerManager.setPorts(httpPort, httpsPort);
   }
 
+  sendWssMessage<K extends WssDownstream>(
+    type: K,
+    payload: WssPayloads[K],
+    clientIds: string[],
+  ): void {
+    this.wssManager.sendMessage(type, payload, clientIds);
+  }
+
   private get activeHandlers() {
     if (!this.handlers)
       throw new Error("NetworkController handlers not initialized!");
@@ -85,11 +93,11 @@ export class NetworkController implements INetworkController {
     this.activeHandlers.onMessage(messageInfo);
   }
 
-  handleClientDisconnect(clientId: string) {
+  private handleClientDisconnect(clientId: string) {
     this.activeHandlers.onClientDisconnect(clientId);
   }
 
-  handleClientError(clientId: string) {
+  private handleClientError(clientId: string) {
     this.activeHandlers.onClientError(clientId);
   }
 }

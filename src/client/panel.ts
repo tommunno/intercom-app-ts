@@ -3,18 +3,18 @@ import type {
   IPanelController,
   IPanelGuiManager,
   IWebRtcManager,
-  IWssManager,
+  IPanelWssManager,
 } from "./contracts/index.js";
 import {
   HttpManager,
   PanelGuiManager,
   WebRtcManager,
-  WssManager,
+  PanelWssManager,
 } from "./managers/index.js";
 import { PanelController } from "./controllers/index.js";
 
 const guiManager: IPanelGuiManager = new PanelGuiManager();
-const wssManager: IWssManager = new WssManager();
+const wssManager: IPanelWssManager = new PanelWssManager();
 const httpManager: IHttpManager = new HttpManager();
 const webRtcManager: IWebRtcManager = new WebRtcManager();
 

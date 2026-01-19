@@ -8,4 +8,5 @@ export interface IPanelGuiManager {
   setHandlers: (handlers: PanelGuiManagerHandlers) => void;
   setLoginError: (errMessage: string | null) => void;
   setLoginLoading: (isLoading: boolean) => void;
+  setLoginVisible: (isVisible: boolean) => void;
 }

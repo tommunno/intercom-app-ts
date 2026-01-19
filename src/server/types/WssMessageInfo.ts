@@ -1,9 +1,6 @@
-import type {
-  WssPayloads,
-  WssType,
-} from "../../shared/protocols/wssProtocol.js";
+import type { WssPayloads, WssUpstream } from "../../shared/protocols/index.js";
 
-export interface WssMessageInfo<K extends WssType> {
+export interface WssMessageInfo<K extends WssUpstream> {
   type: K;
   payload: WssPayloads[K];
   clientId: string;

@@ -2,6 +2,7 @@ import type {
   AuthResult,
   LoginCredentials,
 } from "../../../shared/types/index.js";
+import type { WssSendMessage } from "../../types/WssSendMessage.js";
 
 export interface IDataController {
   init: () => void;
@@ -21,7 +22,4 @@ export interface IDataController {
     clientId?: string;
     userId?: number;
   }) => number | null;
-
-  //Wss messages > client:
-  sendLoginResponse: (result: AuthResult, clientId: string) => void;
 }
