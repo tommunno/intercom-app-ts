@@ -1,4 +1,9 @@
-import type { MaybePromise } from "../types/MaybePromise.js";
+//Helpers:
+import { dataIsArrayOfType, dataIsObject, dataIsType } from "../helpers.js";
+//Types:
+import { dataIsUserInfo, type UserInfo } from "../types/UserInfo.js";
+
+//UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
 
 export const WSS_UPSTREAM = {
   USER_LOGIN: "USER_LOGIN",
@@ -10,6 +15,14 @@ export const WSS_DOWNSTREAM = {
   USER_TEST_RESPONSE: "USER_TEST_RESPONSE",
 } as const;
 
+export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
+export type WssDownstream =
+  (typeof WSS_DOWNSTREAM)[keyof typeof WSS_DOWNSTREAM];
+
+export type WssType = WssUpstream | WssDownstream;
+
+//PAYLOAD VALIDATION:
+
 export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.USER_LOGIN]: dataIsWssUserLogin,
   [WSS_UPSTREAM.USER_LOGOUT]: dataIsWssUserLogout,
@@ -17,16 +30,18 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_DOWNSTREAM.USER_TEST_RESPONSE]: dataIsWssUserTestResponse,
 } satisfies WssPayloadValidators;
 
-export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
-export type WssDownstream =
-  (typeof WSS_DOWNSTREAM)[keyof typeof WSS_DOWNSTREAM];
-
-export type WssType = WssUpstream | WssDownstream;
+type WssPayloadValidators = {
+  [K in WssType]: (data: unknown) => data is WssPayloads[K];
+};
 
 type PayloadMap = {
-  [WSS_UPSTREAM.USER_LOGIN]: { cow: 2 };
+  [WSS_UPSTREAM.USER_LOGIN]: null;
   [WSS_UPSTREAM.USER_LOGOUT]: { myLogoutTest: number };
-  [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: { myTest: string };
+  [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: {
+    success: boolean;
+    message: string;
+    userInfo: UserInfo | null;
+  };
   [WSS_DOWNSTREAM.USER_TEST_RESPONSE]: { myTest2: string[] };
 };
 
@@ -34,21 +49,7 @@ export type WssPayloads = {
   [K in WssType]: PayloadMap[K];
 };
 
-export type WssCommandMap = {
-  [K in WssUpstream]: (
-    data: WssPayloads[K],
-    clientId: string,
-    sessionToken: string | null,
-  ) => MaybePromise<void>;
-};
-
-export type WssClientCommandMap = {
-  [K in WssDownstream]: (data: WssPayloads[K]) => void;
-};
-
-type WssPayloadValidators = {
-  [K in WssType]: (data: unknown) => data is WssPayloads[K];
-};
+//PAYLOAD VALIDATOR TYPE GUARDS:
 
 export function payloadIsValidForType<K extends WssType>(
   type: K,
@@ -57,30 +58,35 @@ export function payloadIsValidForType<K extends WssType>(
   return WSS_PAYLOAD_VALIDATORS[type](payload);
 }
 
-//Still need to add in validation here
+//UPSTREAM:
+
 export function dataIsWssUserLogin(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.USER_LOGIN] {
-  return data !== null && typeof data === "object";
+  return dataIsType("null", data);
 }
 
-//Still need to add in validation here
 export function dataIsWssUserLogout(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT] {
-  return data !== null && typeof data === "object";
+  return dataIsObject(data) && dataIsType("number", data.myLogoutTest);
 }
 
-//Still need to add in validation here
 export function dataIsWssUserLoginResponse(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE] {
-  return data !== null && typeof data === "object";
+  return (
+    dataIsObject(data) &&
+    dataIsType("boolean", data.success) &&
+    dataIsType("string", data.message) &&
+    (dataIsUserInfo(data.userInfo) || data.userInfo === null)
+  );
 }
 
-//Still need to add in validation here
+//DOWNSTREAM:
+
 export function dataIsWssUserTestResponse(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_TEST_RESPONSE] {
-  return data !== null && typeof data === "object";
+  return dataIsObject(data) && dataIsArrayOfType("string", data.myTest2);
 }

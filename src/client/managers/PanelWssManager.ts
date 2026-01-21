@@ -29,7 +29,6 @@ export class PanelWssManager implements IPanelWssManager {
         `Cannot start the WssManager whilst its state is ${this.state}`,
       );
     }
-    console.log("In start");
 
     this.ws = new WebSocket(this.wsUrl);
     this.handleWebSocketEvents();
@@ -46,6 +45,8 @@ export class PanelWssManager implements IPanelWssManager {
   }
 
   sendMessage<K extends WssUpstream>(type: K, payload: WssPayloads[K]): void {
+    if (this.checkAndWarnIfNotRunning("send message")) return;
+
     if (!this.ws) {
       console.error(
         `Cannot send WebSocket message: WebSocket instance is null`,

@@ -1,7 +1,6 @@
 //Types:
 import {
   WSS_DOWNSTREAM,
-  type WssClientCommandMap,
   type WssDownstream,
   type WssPayloads,
 } from "../../shared/protocols/wssProtocol.js";
@@ -14,6 +13,7 @@ import type {
   IPanelWssManager,
 } from "../contracts/index.js";
 import type { PanelState } from "../types/PanelState.js";
+import type { WssClientCommandMap } from "../types/index.js";
 
 export class PanelController implements IPanelController {
   private state: PanelState = {
@@ -91,13 +91,12 @@ export class PanelController implements IPanelController {
 
   private attemptHardLogin(): void {
     console.log("Attempting hard login");
-    console.log("this.wssManager.isRunning:", this.wssManager.isRunning);
     if (!this.wssManager.isRunning) this.wssManager.start();
   }
 
   private handleWssOpen() {
     console.log("WebSocket connection open");
-    this.wssManager.sendMessage("USER_LOGIN", { cow: 2 });
+    this.wssManager.sendMessage("USER_LOGIN", null);
   }
 
   private handleWssClose() {
@@ -117,10 +116,19 @@ export class PanelController implements IPanelController {
   }
 
   private handleLoginResponse({
-    myTest,
+    success,
+    message,
+    userInfo,
   }: WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]) {
-    console.log(myTest);
     this.guiManager.setLoginLoading(false);
+
+    console.log(success, message, userInfo);
+
+    if (!success) {
+      this.guiManager.setLoginError(message);
+      return;
+    }
+
     this.guiManager.setLoginVisible(false);
   }
 

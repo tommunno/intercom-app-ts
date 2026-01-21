@@ -169,16 +169,16 @@ export class WssManager implements IWssManager {
   }): void {
     try {
       this.logger.info(`New Wss message received`);
-      const json: unknown = JSON.parse(rawData.toString());
+      const data: unknown = JSON.parse(rawData.toString());
 
       //Check the 'universal' type
-      if (!dataIsWssUpstreamRequest(json)) {
+      if (!dataIsWssUpstreamRequest(data)) {
         this.logger.warn("Malformed message structure");
         return;
       }
 
       //Now we can safely destructure these
-      const { type, payload } = json;
+      const { type, payload } = data;
 
       this.logger.info(`Message type: ${type}`);
 

@@ -7,12 +7,11 @@ import type {
 } from "../contracts/index.js";
 import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
 import {
-  type WssCommandMap,
   type WssPayloads,
   type WssUpstream,
-  WSS_DOWNSTREAM,
   WSS_UPSTREAM,
 } from "../../shared/protocols/index.js";
+import type { WssCommandMap } from "../types/index.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
@@ -101,25 +100,31 @@ export class Controller implements IController {
 
   //User requests 'hard' login via WS. The sessionToken is used for validation here.
   handleUserLogin(
-    {}: WssPayloads[typeof WSS_UPSTREAM.USER_LOGIN],
+    _payload: WssPayloads[typeof WSS_UPSTREAM.USER_LOGIN],
     clientId: string,
     sessionToken: string | null,
   ): void {
-    const result: AuthResult = this.dataController.loginUser(
-      sessionToken,
-      clientId,
-    );
+    const { success, message, userId, loginTakeover }: AuthResult =
+      this.dataController.loginUser(sessionToken, clientId);
     //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
-    if (result.loginTakeover && result.userId !== null) {
-      this.audioController.disconnectUser(result.userId);
+    if (loginTakeover && userId !== null) {
+      this.audioController.disconnectUser(userId);
     }
     //If login success, connect user
-    if (result.success && result.userId !== null) {
-      this.audioController.connectUser(result.userId, clientId);
+    if (success && userId !== null) {
+      this.audioController.connectUser(userId, clientId);
     }
+
+    //Temporary. Get this from dataController
+    const userInfo = {
+      loggedIn: true,
+      username: "tom",
+      allowedPartylines: [0, 4, 7],
+    };
+
     this.networkController.sendWssMessage(
       "USER_LOGIN_RESPONSE",
-      { myTest: "test string" },
+      { success, message, userInfo },
       [clientId],
     );
   }
