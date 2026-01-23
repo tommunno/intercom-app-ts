@@ -58,6 +58,21 @@ export class NetworkController implements INetworkController {
     this.wssManager.sendMessage(type, payload, clientIds);
   }
 
+  //Helpers:
+  sendLoginFailureMessage(clientId: string, message?: string): void {
+    this.sendWssMessage(
+      "USER_LOGIN_RESPONSE",
+      {
+        success: false,
+        message: message ?? "Internal server error",
+        userInfo: null,
+        audioInfo: null,
+      },
+      [clientId],
+    );
+  }
+
+  //Private methods:
   private get activeHandlers() {
     if (!this.handlers)
       throw new Error("NetworkController handlers not initialized!");

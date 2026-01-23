@@ -11,3 +11,8 @@ export const SESSION_DURATION_MS = 604800000; //7 * 24 * 60 * 60 * 1000 = 7 days
 
 //BCrypt:
 export const SALT_ROUNDS = 10;
+
+//Audio Matrix:
+export const MAX_NUM_USERS = 64;
+export const MAX_NUM_SOUNDCARD_CHANNELS = 64;
+export const MAX_NUM_PARTYLINES = 64;

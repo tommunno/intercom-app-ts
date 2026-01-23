@@ -1,6 +1,7 @@
 import type {
   AuthResult,
   LoginCredentials,
+  UserInfo,
 } from "../../../shared/types/index.js";
 import type { WssSendMessage } from "../../types/WssSendMessage.js";
 
@@ -22,4 +23,6 @@ export interface IDataController {
     clientId?: string;
     userId?: number;
   }) => number | null;
+
+  getUserInfo(userId: number): UserInfo | null;
 }

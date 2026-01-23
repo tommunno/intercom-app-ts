@@ -5,7 +5,11 @@ import type {
   ILogger,
   INetworkController,
 } from "../contracts/index.js";
-import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
+import type {
+  AuthResult,
+  LoginCredentials,
+  UserInfo,
+} from "../../shared/types/index.js";
 import {
   type WssPayloads,
   type WssUpstream,
@@ -32,11 +36,13 @@ export class Controller implements IController {
     this.bindListeners();
     this.networkController.init();
     this.dataController.init();
+    this.audioController.init();
   }
   start(): void {
     this.logger.info("Starting");
     this.networkController.start();
     this.dataController.start();
+    this.audioController.start();
   }
 
   private bindListeners(): void {
@@ -67,7 +73,7 @@ export class Controller implements IController {
       loginCredentials,
     );
     //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
-    if (result.loginTakeover && result.userId !== null) {
+    if (result.success && result.loginTakeover) {
       this.audioController.disconnectUser(result.userId);
     }
     return result;
@@ -88,43 +94,59 @@ export class Controller implements IController {
     command(payload, clientId, sessionToken);
   }
 
-  handleClientDisconnect(clientId: string) {
+  private handleClientDisconnect(clientId: string) {
     this.closeClient(clientId);
   }
 
-  handleClientError(clientId: string) {
+  private handleClientError(clientId: string) {
     this.closeClient(clientId);
   }
 
   //Handle Wss messages:
 
   //User requests 'hard' login via WS. The sessionToken is used for validation here.
-  handleUserLogin(
+  private handleUserLogin(
     _payload: WssPayloads[typeof WSS_UPSTREAM.USER_LOGIN],
     clientId: string,
     sessionToken: string | null,
   ): void {
-    const { success, message, userId, loginTakeover }: AuthResult =
-      this.dataController.loginUser(sessionToken, clientId);
-    //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
-    if (loginTakeover && userId !== null) {
-      this.audioController.disconnectUser(userId);
-    }
-    //If login success, connect user
-    if (success && userId !== null) {
-      this.audioController.connectUser(userId, clientId);
+    const result = this.dataController.loginUser(sessionToken, clientId);
+
+    if (!result.success) {
+      this.networkController.sendLoginFailureMessage(clientId, result.message);
+      return;
     }
 
-    //Temporary. Get this from dataController
-    const userInfo = {
-      loggedIn: true,
-      username: "tom",
-      allowedPartylines: [0, 4, 7],
-    };
+    //Login Success:
+
+    const { message, userId, loginTakeover } = result;
+
+    const userInfo = this.dataController.getUserInfo(userId);
+    const audioInfo = this.audioController.getAudioInfo(userId);
+
+    if (!userInfo || !audioInfo) {
+      this.networkController.sendLoginFailureMessage(clientId);
+      return;
+    }
+
+    //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
+    if (loginTakeover) {
+      const disconnectSuccess = this.audioController.disconnectUser(userId);
+      if (!disconnectSuccess) {
+        this.networkController.sendLoginFailureMessage(clientId);
+        return;
+      }
+    }
+    //Connect new client:
+    const connectSuccess = this.audioController.connectUser(userId, clientId);
+    if (!connectSuccess) {
+      this.networkController.sendLoginFailureMessage(clientId);
+      return;
+    }
 
     this.networkController.sendWssMessage(
       "USER_LOGIN_RESPONSE",
-      { success, message, userInfo },
+      { success: true, message, userInfo, audioInfo },
       [clientId],
     );
   }

@@ -1,29 +1,29 @@
 import type {
   HttpLoginRequest,
   HttpLoginResponse,
-  ManagerState,
+  ManagerStatus,
 } from "../../shared/types/index.js";
 import type { IHttpManager } from "../contracts/index.js";
 
 export class HttpManager implements IHttpManager {
-  private state: ManagerState = "IDLE";
+  private status: ManagerStatus = "IDLE";
 
   start(): void {
-    if (this.state !== "INITIALIZED") {
+    if (this.status !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the HttpManager whilst its state is ${this.state}`,
+        `Cannot start the HttpManager whilst its status is ${this.status}`,
       );
     }
-    this.state = "RUNNING";
+    this.status = "RUNNING";
   }
 
   init(): void {
-    if (this.state !== "IDLE") {
+    if (this.status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the HttpManager whilst its state is ${this.state}`,
+        `Cannot initialize the HttpManager whilst its status is ${this.status}`,
       );
     }
-    this.state = "INITIALIZED";
+    this.status = "INITIALIZED";
   }
 
   async softLogin(request: HttpLoginRequest): Promise<HttpLoginResponse> {
@@ -46,8 +46,8 @@ export class HttpManager implements IHttpManager {
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {
-    if (this.state !== "RUNNING") {
-      console.error(`Unable to ${action} because the state is ${this.state}`);
+    if (this.status !== "RUNNING") {
+      console.error(`Unable to ${action} because the status is ${this.status}`);
       return true;
     }
     return false;

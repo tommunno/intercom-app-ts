@@ -4,7 +4,11 @@ import {
   type WssDownstream,
   type WssPayloads,
 } from "../../shared/protocols/wssProtocol.js";
-import type { HttpLoginResponse } from "../../shared/types/index.js";
+import type {
+  AudioInfo,
+  HttpLoginResponse,
+  UserInfo,
+} from "../../shared/types/index.js";
 import type {
   IHttpManager,
   IPanelController,
@@ -17,8 +21,9 @@ import type { WssClientCommandMap } from "../types/index.js";
 
 export class PanelController implements IPanelController {
   private state: PanelState = {
-    connection: { status: "IDLE" },
-    user: { loggedIn: false, username: "" },
+    audioConnection: { status: "IDLE" },
+    userInfo: { loggedIn: false, username: "" },
+    audioInfo: { partylines: [] },
   };
   private readonly wssCommands: WssClientCommandMap = {
     USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
@@ -100,7 +105,7 @@ export class PanelController implements IPanelController {
   }
 
   private handleWssClose() {
-    console.log("WebSocket connection close");
+    console.log("WebSocket connection closed");
   }
 
   private handleWssError() {
@@ -119,19 +124,36 @@ export class PanelController implements IPanelController {
     success,
     message,
     userInfo,
+    audioInfo,
   }: WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]) {
     this.guiManager.setLoginLoading(false);
 
-    console.log(success, message, userInfo);
+    console.log(
+      `Login Response: success: ${success}, message: ${message}, userInfo:`,
+      userInfo,
+      "audioInfo:",
+      audioInfo,
+    );
 
     if (!success) {
       this.guiManager.setLoginError(message);
       return;
     }
+    if (!userInfo || !audioInfo) {
+      this.guiManager.setLoginError("Error retrieving user information");
+      console.error(
+        `Login state violation: Server returned success: true, but userInfo or audioInfo is missing from the payload`,
+      );
+      return;
+    }
 
+    this.state.userInfo = userInfo;
+    this.state.audioInfo = audioInfo;
+    this.guiManager.displayState(this.state);
     this.guiManager.setLoginVisible(false);
   }
 
+  //For testing, will be removed
   private handleTestResponse({
     myTest2,
   }: WssPayloads[typeof WSS_DOWNSTREAM.USER_TEST_RESPONSE]) {

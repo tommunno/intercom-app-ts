@@ -1,6 +1,8 @@
 import type { PanelConnectionStatus } from "./PanelConnectionStatus.js";
+import type { UserInfo, AudioInfo } from "../../shared/types/index.js";
 
 export interface PanelState {
-  connection: { status: PanelConnectionStatus };
-  user: { loggedIn: boolean; username: string };
+  audioConnection: { status: PanelConnectionStatus };
+  userInfo: UserInfo;
+  audioInfo: AudioInfo;
 }

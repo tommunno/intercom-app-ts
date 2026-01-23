@@ -8,7 +8,7 @@ import type {
   LoginCredentials,
   HttpLoginResponse,
   HttpLoginRequest,
-  ManagerState,
+  ManagerStatus,
 } from "../../../shared/types/index.js";
 
 //Helpers:
@@ -45,7 +45,7 @@ import { TLSSocket } from "tls";
 import type { Servers } from "../../types/index.js";
 
 export class WebServerManager implements IWebServerManager {
-  private state: ManagerState = "IDLE";
+  private status: ManagerStatus = "IDLE";
   private handlers: WebServerHandlers | null = null;
 
   private app: Express = express();
@@ -62,9 +62,9 @@ export class WebServerManager implements IWebServerManager {
   }
 
   init(): Servers {
-    if (this.state !== "IDLE") {
+    if (this.status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the WebServerManager whilst its state is ${this.state}`,
+        `Cannot initialize the WebServerManager whilst its status is ${this.status}`,
       );
     }
 
@@ -94,19 +94,19 @@ export class WebServerManager implements IWebServerManager {
 
     this.httpServer = http.createServer(this.app);
     this.attemptHttpsInit();
-    this.state = "INITIALIZED";
+    this.status = "INITIALIZED";
     return this.getServers();
   }
 
   start(): void {
-    if (this.state !== "INITIALIZED") {
+    if (this.status !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the WebServerManager whilst its state is ${this.state}`,
+        `Cannot start the WebServerManager whilst its status is ${this.status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
     const ready = this.activeHandlers;
-    this.state = "RUNNING";
+    this.status = "RUNNING";
 
     if (this.httpServer) {
       this.httpServer.listen(this.httpPort, () => {
@@ -197,13 +197,14 @@ export class WebServerManager implements IWebServerManager {
       return;
     }
 
-    const { success, message, statusCode, newSessionToken } =
-      await this.activeHandlers.onUserSoftLoginRequest(
-        userSessionToken,
-        loginCredentials,
-      );
-    if (newSessionToken) {
-      res.cookie("userSessionToken", newSessionToken, {
+    const result = await this.activeHandlers.onUserSoftLoginRequest(
+      userSessionToken,
+      loginCredentials,
+    );
+    const { success, message, statusCode } = result;
+
+    if (success && result.newSessionToken) {
+      res.cookie("userSessionToken", result.newSessionToken, {
         httpOnly: true,
         secure: req.socket instanceof TLSSocket && req.socket.encrypted,
         sameSite: "strict",
@@ -238,8 +239,8 @@ export class WebServerManager implements IWebServerManager {
   }
 
   setPorts(httpPort: number, httpsPort: number): boolean {
-    if (this.state === "RUNNING") {
-      this.logger.error(`Cannot set ports whilst state is ${this.state}`);
+    if (this.status === "RUNNING") {
+      this.logger.error(`Cannot set ports whilst status is ${this.status}`);
       return false;
     }
     if (httpPort === httpsPort) {

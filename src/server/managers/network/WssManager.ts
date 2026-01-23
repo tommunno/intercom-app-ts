@@ -1,5 +1,5 @@
 //Types:
-import type { ManagerState } from "../../../shared/types/index.js";
+import type { ManagerStatus } from "../../../shared/types/index.js";
 import type {
   IWssManager,
   ILogger,
@@ -24,7 +24,7 @@ import {
 import { dataIsWssUpstreamRequest } from "../../types/index.js";
 
 export class WssManager implements IWssManager {
-  private state: ManagerState = "IDLE";
+  private status: ManagerStatus = "IDLE";
   private handlers: WssHandlers | null = null;
 
   private ws: WebSocketServer | null = null;
@@ -36,15 +36,16 @@ export class WssManager implements IWssManager {
   }
 
   init(servers: Servers): void {
-    if (this.state !== "IDLE") {
+    if (this.status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the WssManager whilst its state is ${this.state}`,
+        `Cannot initialize the WssManager whilst its status is ${this.status}`,
       );
     }
     if (!servers.http && !servers.https) {
       throw new Error(
         `No servers were passed into the WssManager during initialization`,
       );
+      status;
     }
     if (!servers.http) {
       this.logger.warn(
@@ -58,13 +59,13 @@ export class WssManager implements IWssManager {
     if (servers.http) this.ws = new WebSocketServer({ server: servers.http });
     if (servers.https)
       this.wss = new WebSocketServer({ server: servers.https });
-    this.state = "INITIALIZED";
+    this.status = "INITIALIZED";
   }
 
   start(): void {
-    if (this.state !== "INITIALIZED") {
+    if (this.status !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the WssManager whilst its state is ${this.state}`,
+        `Cannot start the WssManager whilst its status is ${this.status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
@@ -73,7 +74,7 @@ export class WssManager implements IWssManager {
     if (this.ws) this.attachWebSocketHandlers(this.ws);
     if (this.wss) this.attachWebSocketHandlers(this.wss);
 
-    this.state = "RUNNING";
+    this.status = "RUNNING";
   }
 
   setHandlers(handlers: WssHandlers): void {

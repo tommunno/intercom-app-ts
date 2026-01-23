@@ -2,10 +2,11 @@
 import {
   type LoginCredentials,
   type User,
-  type ManagerState,
+  type ManagerStatus,
   type AuthResult,
   type BaseUser,
   dataIsUser,
+  type UserInfo,
 } from "../../../shared/types/index.js";
 //Server Types:
 import type { AccountManagerConfig } from "../../types/index.js";
@@ -23,7 +24,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 
 export class AccountManager implements IAccountManager {
-  private state: ManagerState = "IDLE";
+  private status: ManagerStatus = "IDLE";
   private numUsers: number = 0;
   private users: User[] = [];
 
@@ -32,35 +33,35 @@ export class AccountManager implements IAccountManager {
   }
 
   init({ numUsers, loadedUsers }: AccountManagerConfig): void {
-    if (this.state !== "IDLE") {
+    if (this.status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the AccountManager whilst its state is ${this.state}`,
+        `Cannot initialize the AccountManager whilst its status is ${this.status}`,
       );
     }
     this.numUsers = numUsers;
     this.createUsers(loadedUsers);
-    this.state = "INITIALIZED";
+    this.status = "INITIALIZED";
   }
 
   start(): void {
-    if (this.state !== "INITIALIZED") {
+    if (this.status !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the AccountManager whilst its state is ${this.state}`,
+        `Cannot start the AccountManager whilst its status is ${this.status}`,
       );
     }
-    this.state = "RUNNING";
+    this.status = "RUNNING";
   }
 
   stop(): void {
-    if (this.state !== "RUNNING") {
+    if (this.status !== "RUNNING") {
       this.logger.warn(
-        `Cannot stop the AccountManager whilst its state is ${this.state}`,
+        `Cannot stop the AccountManager whilst its status is ${this.status}`,
       );
       return;
     }
     this.numUsers = 0;
     this.users = [];
-    this.state = "IDLE";
+    this.status = "IDLE";
   }
 
   private createUsers(loadedUsers: unknown): void {
@@ -133,9 +134,6 @@ export class AccountManager implements IAccountManager {
       success: false,
       message: "",
       statusCode: 401,
-      userId: null,
-      newSessionToken: null,
-      loginTakeover: false,
     };
 
     if (username === null || password === null) {
@@ -175,6 +173,7 @@ export class AccountManager implements IAccountManager {
       statusCode: 200,
       userId: foundUser.id,
       newSessionToken,
+      loginTakeover: false,
     };
   }
 
@@ -191,9 +190,6 @@ export class AccountManager implements IAccountManager {
       success: false,
       message: "",
       statusCode: 400,
-      userId: null,
-      newSessionToken: null,
-      loginTakeover: false,
     };
 
     if (sessionToken === null) {
@@ -245,8 +241,9 @@ export class AccountManager implements IAccountManager {
         success: true,
         message: "Login takeover with session token",
         statusCode: 200,
-        loginTakeover: true,
         userId: foundUser.id,
+        newSessionToken: null,
+        loginTakeover: true,
       };
     }
     //foundUser is not logged in. Client has been succesfully authenticated, and will be soft/hard logged in
@@ -266,6 +263,8 @@ export class AccountManager implements IAccountManager {
       message: "Login approved with session token",
       statusCode: 200,
       userId: foundUser.id,
+      newSessionToken: null,
+      loginTakeover: false,
     };
   }
 
@@ -284,9 +283,6 @@ export class AccountManager implements IAccountManager {
       success: false,
       message: "Unable to login user",
       statusCode: 500,
-      userId: user.id,
-      newSessionToken: null,
-      loginTakeover,
     };
 
     if (clientId === null) {
@@ -309,6 +305,9 @@ export class AccountManager implements IAccountManager {
       success: true,
       message: "User logged in",
       statusCode: 200,
+      userId: user.id,
+      newSessionToken: null,
+      loginTakeover: false,
     };
   }
 
@@ -421,6 +420,17 @@ export class AccountManager implements IAccountManager {
     }
   }
 
+  getUserInfo(userId: number): UserInfo | null {
+    const user = this.users.find((usr) => usr.id === userId);
+    if (!user) {
+      this.logger.error(
+        `Unable to get UserInfo for user with id ${userId}: no user with that id exists`,
+      );
+      return null;
+    }
+    return { loggedIn: user.loggedIn, username: user.username };
+  }
+
   //VALIDATION:
   private validateUser(user: User, textPassword = false): boolean {
     if (user.clientId !== null && user.clientId.trim() === "") {
@@ -479,17 +489,14 @@ export class AccountManager implements IAccountManager {
   }
 
   private checkAndWarnIfNotRunning(action: string): AuthResult | null {
-    if (this.state !== "RUNNING") {
+    if (this.status !== "RUNNING") {
       this.logger.error(
-        `Unable to ${action} because the state is ${this.state}`,
+        `Unable to ${action} because the status is ${this.status}`,
       );
       return {
         success: false,
         message: "Internal server error: AccountManager not running",
         statusCode: 500,
-        userId: null,
-        newSessionToken: null,
-        loginTakeover: false,
       };
     }
     return null;

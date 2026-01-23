@@ -10,4 +10,6 @@ export interface INetworkController {
   setHandlers: (handlers: NetworkHandlers) => void;
   setWebServerPorts: (httpPort: number, httpsPort: number) => boolean;
   sendWssMessage: WssSendMessage;
+  //Helpers:
+  sendLoginFailureMessage: (clientId: string, message?: string) => void;
 }

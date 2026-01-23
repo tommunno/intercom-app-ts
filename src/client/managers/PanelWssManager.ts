@@ -1,5 +1,5 @@
 import type { IPanelWssManager, PanelWssHandlers } from "../contracts/index.js";
-import type { ManagerState } from "../../shared/types/index.js";
+import type { ManagerStatus } from "../../shared/types/index.js";
 import {
   payloadIsValidForType,
   type WssDownstream,
@@ -7,37 +7,37 @@ import {
   type WssUpstream,
 } from "../../shared/protocols/index.js";
 import { dataIsWssDownstreamResponse } from "../types/WssDownstreamResponse.js";
-
+status;
 export class PanelWssManager implements IPanelWssManager {
-  private state: ManagerState = "IDLE";
+  private status: ManagerStatus = "IDLE";
   private handlers: PanelWssHandlers | null = null;
   private protocol = window.location.protocol === "https:" ? "wss" : "ws";
   private wsUrl = `${this.protocol}://${window.location.host}/`;
   private ws: WebSocket | null = null;
 
   init(): void {
-    if (this.state !== "IDLE") {
+    if (this.status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the WssManager whilst its state is ${this.state}`,
+        `Cannot initialize the WssManager whilst its status is ${this.status}`,
       );
     }
-    this.state = "INITIALIZED";
+    this.status = "INITIALIZED";
   }
   start(): void {
-    if (this.state !== "INITIALIZED") {
+    if (this.status !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the WssManager whilst its state is ${this.state}`,
+        `Cannot start the WssManager whilst its status is ${this.status}`,
       );
     }
 
     this.ws = new WebSocket(this.wsUrl);
     this.handleWebSocketEvents();
     this.handleMessages();
-    this.state = "RUNNING";
+    this.status = "RUNNING";
   }
 
   get isRunning(): boolean {
-    return this.state === "RUNNING";
+    return this.status === "RUNNING";
   }
 
   setHandlers(handlers: PanelWssHandlers): void {
@@ -122,8 +122,8 @@ export class PanelWssManager implements IPanelWssManager {
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {
-    if (this.state !== "RUNNING") {
-      console.error(`Unable to ${action} because the state is ${this.state}`);
+    if (this.status !== "RUNNING") {
+      console.error(`Unable to ${action} because the status is ${this.status}`);
       return true;
     }
     return false;

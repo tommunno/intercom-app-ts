@@ -4,3 +4,4 @@ export * from "./WssMessageInfo.js";
 export * from "./WssUpstreamRequest.js";
 export * from "./WssSendMessage.js";
 export * from "./WssCommandMap.js";
+export * from "./AudioConfig.js";

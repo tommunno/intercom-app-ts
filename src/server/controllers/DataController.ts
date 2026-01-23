@@ -1,8 +1,8 @@
 import type {
-  WssDownstream,
-  WssPayloads,
-} from "../../shared/protocols/index.js";
-import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
+  AuthResult,
+  LoginCredentials,
+  UserInfo,
+} from "../../shared/types/index.js";
 import type {
   IAccountManager,
   IDataController,
@@ -62,17 +62,17 @@ export class DataController implements IDataController {
     this.accountManager.updateUsers([
       {
         id: 0,
-        username: "TOM",
+        username: "tom",
         password: "tom123",
       },
       {
         id: 1,
-        username: "BEN",
+        username: "ben",
         password: "ben123",
       },
       {
         id: 2,
-        username: "MARK",
+        username: "mark",
         password: "mark123",
       },
     ]);
@@ -92,5 +92,9 @@ export class DataController implements IDataController {
 
   logoutUser(ids: { clientId?: string; userId?: number }): number | null {
     return this.accountManager.logoutUser(ids);
+  }
+
+  getUserInfo(userId: number): UserInfo | null {
+    return this.accountManager.getUserInfo(userId);
   }
 }

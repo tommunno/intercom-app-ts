@@ -1,7 +1,12 @@
 //Helpers:
 import { dataIsArrayOfType, dataIsObject, dataIsType } from "../helpers.js";
 //Types:
-import { dataIsUserInfo, type UserInfo } from "../types/UserInfo.js";
+import {
+  dataIsUserInfo,
+  type UserInfo,
+  dataIsAudioInfo,
+  type AudioInfo,
+} from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
 
@@ -41,6 +46,7 @@ type PayloadMap = {
     success: boolean;
     message: string;
     userInfo: UserInfo | null;
+    audioInfo: AudioInfo | null;
   };
   [WSS_DOWNSTREAM.USER_TEST_RESPONSE]: { myTest2: string[] };
 };
@@ -79,7 +85,8 @@ export function dataIsWssUserLoginResponse(
     dataIsObject(data) &&
     dataIsType("boolean", data.success) &&
     dataIsType("string", data.message) &&
-    (dataIsUserInfo(data.userInfo) || data.userInfo === null)
+    (dataIsUserInfo(data.userInfo) || data.userInfo === null) &&
+    (dataIsAudioInfo(data.audioInfo) || data.audioInfo === null)
   );
 }
 
