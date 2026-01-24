@@ -1,8 +1,24 @@
-import type { AudioInfo, UserInfo } from "../../shared/types/index.js";
-import type { PanelState } from "../types/index.js";
+import type {
+  AudioInfo,
+  KEY_TYPE,
+  KeyState,
+  TailState,
+  UserInfo,
+} from "../../shared/types/index.js";
+import { type PanelState } from "../types/index.js";
+
+export type KeyPressParams =
+  | {
+      type: typeof KEY_TYPE.TALK;
+      id: number;
+      currState: KeyState;
+      tailState: TailState;
+    }
+  | { type: typeof KEY_TYPE.LISTEN; id: number; currState: KeyState };
 
 export interface PanelGuiManagerHandlers {
   onLoginAttempt(username: string, password: string): void;
+  onKeyPress(params: KeyPressParams): void;
 }
 
 export interface IPanelGuiManager {

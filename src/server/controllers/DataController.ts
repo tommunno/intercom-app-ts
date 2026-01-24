@@ -94,6 +94,10 @@ export class DataController implements IDataController {
     return this.accountManager.logoutUser(ids);
   }
 
+  isClientIdLoggedIn(clientId: string): number | null {
+    return this.accountManager.isClientIdLoggedIn(clientId);
+  }
+
   getUserInfo(userId: number): UserInfo | null {
     return this.accountManager.getUserInfo(userId);
   }

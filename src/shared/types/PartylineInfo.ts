@@ -1,10 +1,11 @@
 import { dataIsObject, dataIsType } from "../helpers.js";
+import { dataIsKeyState, type KeyState } from "./KeyState.js";
 
 export interface PartylineInfo {
   id: number;
   name: string;
-  talk: boolean;
-  listen: boolean;
+  talk: KeyState;
+  listen: KeyState;
 }
 
 export function dataIsPartylineInfo(data: unknown): data is PartylineInfo {
@@ -12,7 +13,7 @@ export function dataIsPartylineInfo(data: unknown): data is PartylineInfo {
     dataIsObject(data) &&
     dataIsType("number", data.id) &&
     dataIsType("string", data.name) &&
-    dataIsType("boolean", data.talk) &&
-    dataIsType("boolean", data.listen)
+    dataIsKeyState(data.talk) &&
+    dataIsKeyState(data.listen)
   );
 }

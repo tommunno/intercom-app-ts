@@ -21,6 +21,7 @@ export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
     USER_LOGIN: this.handleUserLogin.bind(this),
     USER_LOGOUT: this.handleUserLogout.bind(this),
+    KEY_PRESS: this.handleKeyPress.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -151,11 +152,28 @@ export class Controller implements IController {
     );
   }
 
-  handleUserLogout(
+  //Still needs implementing:
+  private handleUserLogout(
     { myLogoutTest }: WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT],
     clientId: string,
     sessionToken: string | null,
   ): void {
     this.logger.info(`User logout request:`, myLogoutTest);
+  }
+
+  private handleKeyPress(
+    keyPressInfo: WssPayloads[typeof WSS_UPSTREAM.KEY_PRESS],
+    clientId: string,
+    sessionToken: string | null,
+  ): void {
+    this.logger.info(`Key press request:`, keyPressInfo);
+    const userId = this.dataController.isClientIdLoggedIn(clientId);
+    if (userId === null) {
+      this.logger.warn(
+        `Ignored key press: client is not logged in (clientId=${clientId}).`,
+      );
+      return;
+    }
+    this.audioController.processKeyPress(keyPressInfo, userId);
   }
 }

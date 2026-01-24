@@ -7,6 +7,8 @@ import {
 import type {
   AudioInfo,
   HttpLoginResponse,
+  KeyState,
+  TailState,
   UserInfo,
 } from "../../shared/types/index.js";
 import type {
@@ -15,6 +17,7 @@ import type {
   IPanelGuiManager,
   IWebRtcManager,
   IPanelWssManager,
+  KeyPressParams,
 } from "../contracts/index.js";
 import type { PanelState } from "../types/PanelState.js";
 import type { WssClientCommandMap } from "../types/index.js";
@@ -27,7 +30,6 @@ export class PanelController implements IPanelController {
   };
   private readonly wssCommands: WssClientCommandMap = {
     USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
-    USER_TEST_RESPONSE: this.handleTestResponse.bind(this),
   };
 
   constructor(
@@ -54,6 +56,7 @@ export class PanelController implements IPanelController {
   private bindListeners(): void {
     this.guiManager.setHandlers({
       onLoginAttempt: (u, p) => this.handleLoginAttempt(u, p),
+      onKeyPress: (p) => this.handleKeyPress(p),
     });
     this.wssManager.setHandlers({
       onOpen: () => this.handleWssOpen(),
@@ -153,10 +156,20 @@ export class PanelController implements IPanelController {
     this.guiManager.setLoginVisible(false);
   }
 
-  //For testing, will be removed
-  private handleTestResponse({
-    myTest2,
-  }: WssPayloads[typeof WSS_DOWNSTREAM.USER_TEST_RESPONSE]) {
-    console.log(myTest2);
+  private handleKeyPress(params: KeyPressParams): void {
+    const { type, id, currState } = params;
+    const setState: KeyState = currState === "ON" ? "OFF" : "ON";
+    const payload = {
+      type,
+      id,
+      setState,
+    };
+
+    if (type === "LISTEN") {
+      this.wssManager.sendMessage("KEY_PRESS", payload);
+      return;
+    }
+    const { tailState } = params;
+    this.wssManager.sendMessage("KEY_PRESS", payload);
   }
 }

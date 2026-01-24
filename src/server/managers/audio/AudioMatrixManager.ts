@@ -1,3 +1,4 @@
+import type { Key } from "node:readline";
 import type {
   ManagerStatus,
   PartylineInfo,
@@ -10,7 +11,11 @@ import type {
   IWebRtcMediaBridge,
 } from "../../contracts/index.js";
 import { OutputPort, Partyline } from "../../entities/index.js";
-import { audioConfigIsValid, type AudioConfig } from "../../types/index.js";
+import {
+  audioConfigIsValid,
+  type AudioConfig,
+  type KeyPressInfo,
+} from "../../types/index.js";
 
 export class AudioMatrixManager implements IAudioMatrixManager {
   private status: ManagerStatus = "IDLE";
@@ -88,26 +93,90 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       return null;
     }
     return this.partylines.map((pl) => {
-      const state = pl.getState();
+      const state = pl.state;
       return {
         id: state.id,
         name: state.name,
-        talk: pl.isPortTalking(userId),
-        listen: pl.isPortListening(userId),
+        talk: pl.isUserTalking(userId) ? "ON" : "OFF",
+        listen: pl.isUserListening(userId) ? "ON" : "OFF",
       };
     });
+  }
+
+  processKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
+    if (this.checkAndWarnIfNotRunning("process key request")) {
+      return;
+    }
+
+    this.logger.info(`Processing key press...`);
+    const { type, id: partylineId, setState } = keyPressInfo;
+    const state = setState === "ON" ? true : false;
+
+    const partyline = this.partylines.find((pl) => pl.id === partylineId);
+    if (!partyline) {
+      this.logger.warn(
+        `No partyline exists with ID ${partylineId}, so cannot process ${type.toLowerCase()} key request`,
+      );
+      return;
+    }
+    //TALK:
+    if (type === "TALK") {
+      this.handleTalkKeyRequest(partyline, userId, state);
+    }
+    //LISTEN:
+    else {
+      this.handleListenKeyRequest(partyline, userId, state);
+    }
+    this.logger.info(`Partyline portsTalking:`, partyline.state.portsTalking);
+    this.logger.info(
+      `Partyline portsListening:`,
+      partyline.state.portsListening,
+    );
+  }
+
+  private handleTalkKeyRequest(
+    partyline: IPartyline,
+    userId: number,
+    state: boolean,
+  ): void {
+    const { success, message } = partyline.setUserTalking(userId, state);
+    if (!success) {
+      this.logger.warn(
+        `Unable to set user ${userId} talk state on partyline ${partyline.id}, because ${message}`,
+      );
+      return;
+    }
+  }
+
+  private handleListenKeyRequest(
+    partyline: IPartyline,
+    userId: number,
+    state: boolean,
+  ): void {
+    const { success, message } = partyline.setUserListening(userId, state);
+    if (!success) {
+      this.logger.warn(
+        `Unable to set user ${userId} listen state on partyline ${partyline.id}, because ${message}`,
+      );
+      return;
+    }
   }
 
   private createPartylines(): void {
     this.partylines = [];
     for (let i = 0; i < this.config.numPartylines; i++) {
       this.partylines.push(
-        new Partyline({
-          id: i,
-          name: `${i + 1}`,
-          portsTalking: new Set(),
-          portsListening: new Set(),
-        }),
+        new Partyline(
+          {
+            id: i,
+            name: `${i + 1}`,
+            numUsers: this.config.numUsers,
+            numSoundcardChannels: this.config.numSoundcardChannels,
+            portsTalking: new Set(),
+            portsListening: new Set(),
+          },
+          this.logger,
+        ),
       );
     }
   }

@@ -1,37 +1,128 @@
-import type { IPartyline } from "../../contracts/index.js";
+import type { SuccessMessage } from "../../../shared/types/SuccessMessage.js";
+import type { ILogger, IPartyline } from "../../contracts/index.js";
 
 export type PartylineState = {
   id: number;
   name: string;
+  numUsers: number;
+  numSoundcardChannels: number;
   portsTalking: Set<number>;
   portsListening: Set<number>;
 };
 
 export class Partyline implements IPartyline {
-  private state: PartylineState;
+  private _state: PartylineState;
 
-  constructor(init: PartylineState) {
-    this.state = {
+  constructor(
+    init: PartylineState,
+    private logger: ILogger,
+  ) {
+    this._state = {
       id: init.id,
       name: init.name,
+      numUsers: init.numUsers,
+      numSoundcardChannels: init.numSoundcardChannels,
       portsTalking: new Set(init.portsTalking),
       portsListening: new Set(init.portsListening),
     };
+    this.logger = this.logger.child({ context: `Partyline ${this._state.id}` });
   }
 
-  getState(): PartylineState {
+  get id(): number {
+    return this._state.id;
+  }
+
+  get state(): PartylineState {
     return {
-      ...this.state,
-      portsTalking: new Set(this.state.portsTalking),
-      portsListening: new Set(this.state.portsListening),
+      ...this._state,
+      portsTalking: new Set(this._state.portsTalking),
+      portsListening: new Set(this._state.portsListening),
     };
   }
 
-  isPortTalking(userId: number): boolean {
-    return this.state.portsTalking.has(userId);
+  isUserTalking(userId: number): boolean {
+    if (!this.isUserIdValid(userId, "isUserTalking")) {
+      return false;
+    }
+
+    return this._state.portsTalking.has(userId);
   }
 
-  isPortListening(userId: number): boolean {
-    return this.state.portsListening.has(userId);
+  isUserListening(userId: number): boolean {
+    if (!this.isUserIdValid(userId, "isUserListening")) {
+      return false;
+    }
+    return this._state.portsListening.has(userId);
+  }
+
+  setUserTalking(userId: number, state: boolean): SuccessMessage {
+    const success = { success: true, message: "" };
+
+    if (!this.isUserIdValid(userId, "setUserTalking")) {
+      return {
+        success: false,
+        message: `userId ${userId} is invalid`,
+      };
+    }
+    //Talking:
+    if (state) {
+      if (this._state.portsTalking.has(userId)) {
+        return {
+          success: false,
+          message: `userId ${userId} is already talking`,
+        };
+      }
+      this._state.portsTalking.add(userId);
+      return success;
+    }
+    //Not talking:
+    if (!this._state.portsTalking.delete(userId)) {
+      return {
+        success: false,
+        message: `userId ${userId} is not talking`,
+      };
+    }
+    return success;
+  }
+
+  setUserListening(userId: number, state: boolean): SuccessMessage {
+    const success = { success: true, message: "" };
+
+    if (!this.isUserIdValid(userId, "setUserListening")) {
+      return {
+        success: false,
+        message: `userId ${userId} is invalid`,
+      };
+    }
+    //Listening:
+    if (state) {
+      if (this._state.portsListening.has(userId)) {
+        return {
+          success: false,
+          message: `userId ${userId} is already listening`,
+        };
+      }
+      this._state.portsListening.add(userId);
+      return success;
+    }
+    //Not listening:
+    if (!this._state.portsListening.delete(userId)) {
+      return {
+        success: false,
+        message: `userId ${userId} is not listening`,
+      };
+    }
+    return success;
+  }
+
+  private isUserIdValid(userId: number, errContext?: string): boolean {
+    const result =
+      Number.isSafeInteger(userId) &&
+      userId >= 0 &&
+      userId < this._state.numUsers;
+    if (!result && errContext) {
+      this.logger.error(`userId ${userId} is not valid in ${errContext}`);
+    }
+    return result;
   }
 }

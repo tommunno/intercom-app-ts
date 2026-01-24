@@ -8,6 +8,7 @@ import type {
   ILogger,
   ITailManager,
 } from "../contracts/index.js";
+import type { KeyPressInfo } from "../types/index.js";
 
 export class AudioController implements IAudioController {
   constructor(
@@ -19,6 +20,7 @@ export class AudioController implements IAudioController {
   }
 
   init(): void {
+    this.bindListeners();
     const config = {
       numUsers: 16,
       numSoundcardChannels: 12,
@@ -57,5 +59,20 @@ export class AudioController implements IAudioController {
       }),
     );
     return { partylines: mergedPartylines };
+  }
+
+  processKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
+    this.tailManager.processKeyPress(keyPressInfo, userId);
+  }
+
+  //Private methods:
+  private bindListeners(): void {
+    this.tailManager.setHandlers({
+      onKeyPress: (k, u) => this.onTailManagerKeyPress(k, u),
+    });
+  }
+
+  onTailManagerKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
+    this.audioMatrixManager.processKeyPress(keyPressInfo, userId);
   }
 }

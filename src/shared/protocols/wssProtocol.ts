@@ -1,23 +1,31 @@
 //Helpers:
-import { dataIsArrayOfType, dataIsObject, dataIsType } from "../helpers.js";
+import type { KeyType } from "../types/KeyType.js";
+import { dataIsObject, dataIsType } from "../helpers.js";
 //Types:
 import {
   dataIsUserInfo,
   type UserInfo,
   dataIsAudioInfo,
   type AudioInfo,
+  type KeyState,
+  dataIsKeyType,
+  dataIsKeyState,
 } from "../types/index.js";
+import {
+  dataIsKeyPressInfo,
+  type KeyPressInfo,
+} from "../../server/types/KeyPressInfo.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
 
 export const WSS_UPSTREAM = {
   USER_LOGIN: "USER_LOGIN",
   USER_LOGOUT: "USER_LOGOUT",
+  KEY_PRESS: "KEY_PRESS",
 } as const;
 
 export const WSS_DOWNSTREAM = {
   USER_LOGIN_RESPONSE: "USER_LOGIN_RESPONSE",
-  USER_TEST_RESPONSE: "USER_TEST_RESPONSE",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -31,8 +39,8 @@ export type WssType = WssUpstream | WssDownstream;
 export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.USER_LOGIN]: dataIsWssUserLogin,
   [WSS_UPSTREAM.USER_LOGOUT]: dataIsWssUserLogout,
+  [WSS_UPSTREAM.KEY_PRESS]: dataIsWssKeyPress,
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
-  [WSS_DOWNSTREAM.USER_TEST_RESPONSE]: dataIsWssUserTestResponse,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -42,13 +50,13 @@ type WssPayloadValidators = {
 type PayloadMap = {
   [WSS_UPSTREAM.USER_LOGIN]: null;
   [WSS_UPSTREAM.USER_LOGOUT]: { myLogoutTest: number };
+  [WSS_UPSTREAM.KEY_PRESS]: KeyPressInfo;
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: {
     success: boolean;
     message: string;
     userInfo: UserInfo | null;
     audioInfo: AudioInfo | null;
   };
-  [WSS_DOWNSTREAM.USER_TEST_RESPONSE]: { myTest2: string[] };
 };
 
 export type WssPayloads = {
@@ -78,6 +86,14 @@ export function dataIsWssUserLogout(
   return dataIsObject(data) && dataIsType("number", data.myLogoutTest);
 }
 
+export function dataIsWssKeyPress(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.KEY_PRESS] {
+  return dataIsKeyPressInfo(data);
+}
+
+//DOWNSTREAM:
+
 export function dataIsWssUserLoginResponse(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE] {
@@ -88,12 +104,4 @@ export function dataIsWssUserLoginResponse(
     (dataIsUserInfo(data.userInfo) || data.userInfo === null) &&
     (dataIsAudioInfo(data.audioInfo) || data.audioInfo === null)
   );
-}
-
-//DOWNSTREAM:
-
-export function dataIsWssUserTestResponse(
-  data: unknown,
-): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_TEST_RESPONSE] {
-  return dataIsObject(data) && dataIsArrayOfType("string", data.myTest2);
 }

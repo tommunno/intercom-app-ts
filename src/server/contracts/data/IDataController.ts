@@ -24,5 +24,6 @@ export interface IDataController {
     userId?: number;
   }) => number | null;
 
-  getUserInfo(userId: number): UserInfo | null;
+  isClientIdLoggedIn: (clientId: string) => number | null;
+  getUserInfo: (userId: number) => UserInfo | null;
 }

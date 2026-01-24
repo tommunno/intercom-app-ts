@@ -24,6 +24,9 @@ export interface IAccountManager {
     hardLogout?: boolean;
   }) => number | null;
 
+  //Returns the userId if logged in
+  isClientIdLoggedIn(clientId: string): number | null;
+
   updateUsers: (users: BaseUser[]) => Promise<void>;
 
   getUserInfo: (userId: number) => UserInfo | null;

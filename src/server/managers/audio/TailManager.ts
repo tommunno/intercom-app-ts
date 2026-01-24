@@ -1,10 +1,20 @@
 import type { ManagerStatus, TailState } from "../../../shared/types/index.js";
-import type { ITailManager, ILogger } from "../../contracts/index.js";
-import { audioConfigIsValid, type AudioConfig } from "../../types/index.js";
+import type {
+  ITailManager,
+  ILogger,
+  TailHandlers,
+} from "../../contracts/index.js";
+import {
+  audioConfigIsValid,
+  type AudioConfig,
+  type KeyPressInfo,
+} from "../../types/index.js";
 
 export class TailManager implements ITailManager {
   private status: ManagerStatus = "IDLE";
+  private handlers: TailHandlers | null = null;
   private context: string = "TailManager";
+
   private config: AudioConfig = {
     numUsers: 0,
     numSoundcardChannels: 0,
@@ -41,7 +51,20 @@ export class TailManager implements ITailManager {
         `Cannot start the ${this.context} whilst its status is ${this.status}`,
       );
     }
+    // Trigger the check to ensure we are ready to roll
+    const ready = this.activeHandlers;
+
     this.status = "RUNNING";
+  }
+
+  setHandlers(handlers: TailHandlers): void {
+    this.handlers = handlers;
+  }
+
+  private get activeHandlers(): TailHandlers {
+    if (!this.handlers)
+      throw new Error(`${this.context} handlers not initialized!`);
+    return this.handlers;
   }
 
   stop(): void {
@@ -61,6 +84,15 @@ export class TailManager implements ITailManager {
     }
     //Real logic to go here:
     return "NONE";
+  }
+
+  //Still need to implement. For now it's just passing data through
+  //This provides the virtualized layer in front of the audio matrix, where we can control tails etc
+  processKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
+    if (this.checkAndWarnIfNotRunning("process key press")) {
+      return;
+    }
+    this.activeHandlers.onKeyPress(keyPressInfo, userId);
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {

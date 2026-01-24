@@ -397,6 +397,19 @@ export class AccountManager implements IAccountManager {
     });
   }
 
+  isClientIdLoggedIn(clientId: string): number | null {
+    const result = this.checkAndWarnIfNotRunning(
+      "check if client ID is logged in",
+    );
+    if (result) return null;
+
+    const foundUser = this.users.find(
+      (usr) => usr.loggedIn && usr.clientId === clientId,
+    );
+    if (!foundUser) return null;
+    return foundUser.id;
+  }
+
   //For eg admins updating info about users. Passwords will be updated if they are not null. Passwords are expected as plain text here.
   async updateUsers(users: BaseUser[]) {
     const result = this.checkAndWarnIfNotRunning("update users");

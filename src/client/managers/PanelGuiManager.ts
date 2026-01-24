@@ -1,14 +1,18 @@
-import type {
-  IPanelGuiManager,
-  PanelGuiManagerHandlers,
+import {
+  type IPanelGuiManager,
+  type PanelGuiManagerHandlers,
 } from "../contracts/index.js";
-import type {
-  AudioInfo,
-  ManagerStatus,
-  MergedPartylineInfo,
-  UserInfo,
+import {
+  dataIsKeyState,
+  dataIsTailState,
+  KEY_TYPE,
+  type AudioInfo,
+  type KeyType,
+  type ManagerStatus,
+  type MergedPartylineInfo,
+  type UserInfo,
 } from "../../shared/types/index.js";
-import type { PanelState } from "../types/index.js";
+import { type PanelState } from "../types/index.js";
 
 export class PanelGuiManager implements IPanelGuiManager {
   private status: ManagerStatus = "IDLE";
@@ -62,6 +66,8 @@ export class PanelGuiManager implements IPanelGuiManager {
         `Cannot start the PanelGuiManager whilst its status is ${this.status}`,
       );
     }
+    // Trigger the check to ensure we are ready to roll
+    const ready = this.activeHandlers;
     this.setupListeners();
     this.status = "RUNNING";
   }
@@ -108,11 +114,6 @@ export class PanelGuiManager implements IPanelGuiManager {
     const { plsList } = this.els.pls;
     const idsNeeded = new Set<number>(partylines.map((pl) => pl.id));
     const idsOnPage = new Set<number>();
-
-    const tempArray = Array.from(
-      plsList.querySelectorAll<HTMLLIElement>("li.pl"),
-    );
-    console.log("tempArray: ", tempArray);
 
     Array.from(plsList.querySelectorAll<HTMLLIElement>("li.pl")).forEach(
       (plEl) => {
@@ -218,11 +219,18 @@ export class PanelGuiManager implements IPanelGuiManager {
       );
       return;
     }
+
     plNameEl.textContent = partyline.name;
-    talkBtnEl.classList.toggle("talk-btn-active", partyline.talk);
-    talkBtnEl.dataset.isActive = partyline.talk ? "true" : "false";
-    listenBtnEl.classList.toggle("listen-btn-active", partyline.listen);
-    listenBtnEl.dataset.isActive = partyline.listen ? "true" : "false";
+    talkBtnEl.classList.toggle("talk-btn-active", partyline.talk === "ON");
+    talkBtnEl.dataset.id = String(partyline.id);
+    talkBtnEl.dataset.state = partyline.talk;
+    talkBtnEl.dataset.tailState = partyline.tailState;
+    listenBtnEl.classList.toggle(
+      "listen-btn-active",
+      partyline.listen === "ON",
+    );
+    listenBtnEl.dataset.id = String(partyline.id);
+    listenBtnEl.dataset.state = partyline.listen;
   }
 
   //More to implement in here, eg focus trapping
@@ -233,9 +241,10 @@ export class PanelGuiManager implements IPanelGuiManager {
 
   private setupListeners() {
     this.setupLoginListeners();
+    this.setupPartylineListeners();
   }
 
-  private setupLoginListeners() {
+  private setupLoginListeners(): void {
     const { form } = this.els.login;
 
     form.addEventListener("submit", (e) => this.handleLoginFormSubmit(e));
@@ -246,6 +255,52 @@ export class PanelGuiManager implements IPanelGuiManager {
     if (this.loginLoading) return;
     const { username, password } = this.els.login;
     this.activeHandlers.onLoginAttempt(username.value, password.value);
+  }
+
+  private setupPartylineListeners(): void {
+    const { plsList } = this.els.pls;
+
+    plsList.addEventListener("pointerdown", (e) =>
+      this.handlePlsListPointerDown(e),
+    );
+  }
+
+  handlePlsListPointerDown(e: PointerEvent): void {
+    //Ignore right click and non non-primary mouse buttons
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const btn = el && el.closest<HTMLButtonElement>(".talk-btn, .listen-btn");
+    if (!btn || btn.disabled) return;
+
+    // Prevent scrolling / text selection on touch
+    e.preventDefault();
+
+    const type: KeyType = btn.classList.contains("talk-btn")
+      ? "TALK"
+      : "LISTEN";
+
+    const id = Number(btn.dataset.id);
+    const currState = btn.dataset.state;
+    const tailState = btn.dataset.tailState;
+
+    if (Number.isNaN(id) || !dataIsKeyState(currState)) {
+      console.error(
+        `Invalid data retrieved from DOM in handlePlsListPointerDown: id: ${id}, currState: ${currState}`,
+      );
+      return;
+    }
+    if (type === "TALK") {
+      if (!dataIsTailState(tailState)) {
+        console.error(
+          `Invalid data retrieved from DOM in handlePlsListPointerDown: id: ${id}, tailState: ${tailState}`,
+        );
+        return;
+      }
+      this.activeHandlers.onKeyPress({ type, id, currState, tailState });
+      return;
+    }
+    this.activeHandlers.onKeyPress({ type, id, currState });
   }
 
   private get activeHandlers(): PanelGuiManagerHandlers {
