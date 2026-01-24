@@ -18,11 +18,9 @@ export interface IAccountManager {
 
   loginUser: (sessionToken: string | null, clientId: string) => AuthResult;
 
-  logoutUser: (params: {
-    userId?: number;
-    user?: User;
-    hardLogout?: boolean;
-  }) => number | null;
+  logoutUser(userId: number, hardLogout?: boolean): number | null;
+  logoutUser(clientId: string, hardLogout?: boolean): number | null;
+  logoutUser(user: User, hardLogout?: boolean): number | null;
 
   //Returns the userId if logged in
   isClientIdLoggedIn(clientId: string): number | null;

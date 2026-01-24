@@ -11,7 +11,7 @@ import {
 //Server Types:
 import type { AccountManagerConfig } from "../../types/index.js";
 //Contracts:
-import type { IAccountManager, ILogger } from "../../contracts/index.js";
+import { type IAccountManager, type ILogger } from "../../contracts/index.js";
 //Constants:
 import { SALT_ROUNDS } from "../../constants/serverConstants.js";
 import {
@@ -22,6 +22,7 @@ import {
 //External Libraries:
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
+import { dataIsType } from "../../../shared/helpers.js";
 
 export class AccountManager implements IAccountManager {
   private status: ManagerStatus = "IDLE";
@@ -224,7 +225,7 @@ export class AccountManager implements IAccountManager {
     }
     //If user is logged in and there is a sessionToken match, then we can do a login takeover. This will logout the old client, and soft/hard login the new user
     if (foundUser.loggedIn && sessionTokenMatch) {
-      this.logoutUser({ user: foundUser, hardLogout: false });
+      this.logoutUser(foundUser);
 
       //Hard login:
       if (!softLogin) {
@@ -316,42 +317,34 @@ export class AccountManager implements IAccountManager {
   }
 
   //If hardLogout is true, the sessionToken is removed from the sessionTokens array.
-  //A userId, a user, or a clientId, should be passed in. Priority if multiple are passed in is user > userId > clientId
+  //A userId, a user, or a clientId, should be passed in.
   //Returns the userId if successful, or null if not
-  logoutUser({
-    userId,
-    user,
-    clientId,
-    hardLogout = false,
-  }: {
-    userId?: number;
-    user?: User;
-    clientId?: string;
-    hardLogout?: boolean;
-  }): number | null {
+  logoutUser(
+    data: number | User | string,
+    hardLogout: boolean = false,
+  ): number | null {
     const result = this.checkAndWarnIfNotRunning("logout user");
     if (result) return null;
 
-    if (clientId === undefined && userId === undefined && user === undefined) {
-      this.logger.warn(
-        `No userId, user, or clientId was passed. Will not logout any user`,
-      );
+    let user: User | undefined;
+    let errInfo = "";
+
+    if (dataIsType("number", data)) {
+      const userId = data;
+      user = this.users.find((u) => u.id === userId);
+      errInfo = `userId of ${userId}`;
+    } else if (dataIsType("string", data)) {
+      const clientId = data;
+      user = this.users.find((u) => u.clientId === clientId);
+      errInfo = `clientId of ${clientId}`;
+    } else {
+      user = data;
+    }
+    if (!user) {
+      this.logger.error(`No user could be found in logoutUser with ${errInfo}`);
       return null;
     }
-    if (user === undefined && userId === undefined) {
-      user = this.users.find((usr) => usr.clientId === clientId);
-      if (!user) {
-        return null;
-      }
-    } else {
-      if (!user) user = this.users.find((u) => u.id === userId);
-      if (!user) {
-        this.logger.warn(
-          `Cannot logout user with id ${userId}, because the user doesn't exist`,
-        );
-        return null;
-      }
-    }
+
     user.loggedIn = false;
     user.clientId = null;
 
@@ -363,7 +356,7 @@ export class AccountManager implements IAccountManager {
 
     user.sessionTokenInUse = null;
 
-    this.logger.info(`Loggged out user with clientId ${clientId}`);
+    this.logger.info(`Logged out user ${user.id}`);
 
     return user.id;
   }

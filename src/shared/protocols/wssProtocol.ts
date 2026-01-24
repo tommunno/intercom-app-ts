@@ -51,7 +51,7 @@ type WssPayloadValidators = {
 
 type PayloadMap = {
   [WSS_UPSTREAM.USER_LOGIN]: null;
-  [WSS_UPSTREAM.USER_LOGOUT]: { myLogoutTest: number };
+  [WSS_UPSTREAM.USER_LOGOUT]: null;
   [WSS_UPSTREAM.KEY_PRESS]: KeyPressInfo;
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: {
     success: boolean;
@@ -86,7 +86,7 @@ export function dataIsWssUserLogin(
 export function dataIsWssUserLogout(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT] {
-  return dataIsObject(data) && dataIsType("number", data.myLogoutTest);
+  return dataIsType("null", data);
 }
 
 export function dataIsWssKeyPress(

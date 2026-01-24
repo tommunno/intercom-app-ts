@@ -58,6 +58,7 @@ export class PanelController implements IPanelController {
     this.guiManager.setHandlers({
       onLoginAttempt: (u, p) => this.handleLoginAttempt(u, p),
       onKeyPress: (p) => this.handleKeyPress(p),
+      onLogoutBtnClick: () => this.handleLogoutBtnClick(),
     });
     this.wssManager.setHandlers({
       onOpen: () => this.handleWssOpen(),
@@ -101,6 +102,14 @@ export class PanelController implements IPanelController {
   private attemptHardLogin(): void {
     console.log("Attempting hard login");
     if (!this.wssManager.isRunning) this.wssManager.start();
+  }
+
+  //If sendRequest is true, the client sends a logout request to the server
+  private logout(sendRequest: boolean = true): void {
+    if (sendRequest) {
+      this.wssManager.sendMessage("USER_LOGOUT", null);
+    }
+    window.location.reload();
   }
 
   //WSS Handlers:
@@ -178,11 +187,17 @@ export class PanelController implements IPanelController {
       setState,
     };
 
+    //LISTEN:
     if (type === "LISTEN") {
       this.wssManager.sendMessage("KEY_PRESS", payload);
       return;
     }
+    //TALK:
     const { tailState } = params;
     this.wssManager.sendMessage("KEY_PRESS", payload);
+  }
+
+  private handleLogoutBtnClick(): void {
+    this.logout();
   }
 }

@@ -18,6 +18,7 @@ export type KeyPressParams =
 
 export interface PanelGuiManagerHandlers {
   onLoginAttempt(username: string, password: string): void;
+  onLogoutBtnClick(): void;
   onKeyPress(params: KeyPressParams): void;
 }
 

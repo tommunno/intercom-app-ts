@@ -16,13 +16,8 @@ export interface IDataController {
 
   loginUser: (sessionToken: string | null, clientId: string) => AuthResult;
 
-  logoutUser: ({
-    clientId,
-    userId,
-  }: {
-    clientId?: string;
-    userId?: number;
-  }) => number | null;
+  logoutUser(userId: number, hardLogout?: boolean): number | null;
+  logoutUser(clientId: string, hardLogout?: boolean): number | null;
 
   //Returns userId if successful:
   isClientIdLoggedIn: (clientId: string) => number | null;

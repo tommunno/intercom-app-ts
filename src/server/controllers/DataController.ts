@@ -1,3 +1,4 @@
+import { dataIsType } from "../../shared/helpers.js";
 import type {
   AuthResult,
   LoginCredentials,
@@ -90,8 +91,12 @@ export class DataController implements IDataController {
     return this.accountManager.loginUser(sessionToken, clientId);
   }
 
-  logoutUser(ids: { clientId?: string; userId?: number }): number | null {
-    return this.accountManager.logoutUser(ids);
+  logoutUser(id: number | string, hardLogout: boolean = false): number | null {
+    if (dataIsType("number", id))
+      //Narrowed to userId for function overload
+      return this.accountManager.logoutUser(id, hardLogout);
+    //Narrowed to clientId for function overload
+    return this.accountManager.logoutUser(id, hardLogout);
   }
 
   isClientIdLoggedIn(clientId: string): number | null {

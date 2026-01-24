@@ -53,6 +53,13 @@ export class PanelWssManager implements IPanelWssManager {
       );
       return;
     }
+
+    if (this.ws.readyState !== WebSocket.OPEN) {
+      console.warn(
+        `WSS send skipped: socket not OPEN (state=${this.ws.readyState}). type=${type}`,
+      );
+      return;
+    }
     this.ws.send(JSON.stringify({ type, payload }));
   }
 

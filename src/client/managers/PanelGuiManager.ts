@@ -28,6 +28,8 @@ export class PanelGuiManager implements IPanelGuiManager {
     },
     optionBar: {
       username: document.querySelector<HTMLSpanElement>(".username")!,
+      muteMicBtn: document.querySelector<HTMLButtonElement>(".mute-mic-btn")!,
+      logoutBtn: document.querySelector<HTMLButtonElement>(".logout-btn")!,
     },
     pls: {
       plsList: document.querySelector<HTMLUListElement>(".pls-list")!,
@@ -234,13 +236,14 @@ export class PanelGuiManager implements IPanelGuiManager {
   }
 
   //More to implement in here, eg focus trapping
-  setLoginVisible(isVisible: boolean) {
+  setLoginVisible(isVisible: boolean): void {
     document.body.classList.toggle("hide-login", !isVisible);
     document.body.classList.toggle("no-scroll", isVisible);
   }
 
-  private setupListeners() {
+  private setupListeners(): void {
     this.setupLoginListeners();
+    this.setupOptionBarListeners();
     this.setupPartylineListeners();
   }
 
@@ -250,11 +253,22 @@ export class PanelGuiManager implements IPanelGuiManager {
     form.addEventListener("submit", (e) => this.handleLoginFormSubmit(e));
   }
 
-  private handleLoginFormSubmit(e: SubmitEvent) {
+  private handleLoginFormSubmit(e: SubmitEvent): void {
     e.preventDefault();
     if (this.loginLoading) return;
     const { username, password } = this.els.login;
     this.activeHandlers.onLoginAttempt(username.value, password.value);
+  }
+
+  private setupOptionBarListeners(): void {
+    const { muteMicBtn, logoutBtn } = this.els.optionBar;
+
+    logoutBtn.addEventListener("click", (e) => this.handleLogoutButtonClick(e));
+  }
+
+  handleLogoutButtonClick(e: PointerEvent): void {
+    e.preventDefault();
+    this.activeHandlers.onLogoutBtnClick();
   }
 
   private setupPartylineListeners(): void {

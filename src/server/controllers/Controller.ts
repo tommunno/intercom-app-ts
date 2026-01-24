@@ -58,8 +58,15 @@ export class Controller implements IController {
     });
   }
 
-  private closeClient(clientId: string) {
-    const userId = this.dataController.logoutUser({ clientId });
+  private closeClient(clientId: string, hardLogout: boolean = false) {
+    let userId = this.dataController.isClientIdLoggedIn(clientId);
+    if (userId === null) {
+      // this.logger.warn(
+      //   `Unable to log out user: client is not logged in (clientId=${clientId}).`,
+      // );
+      return;
+    }
+    userId = this.dataController.logoutUser(clientId, hardLogout);
     if (userId === null) return;
     this.audioController.disconnectUser(userId);
   }
@@ -155,13 +162,13 @@ export class Controller implements IController {
     );
   }
 
-  //Still needs implementing:
   private handleUserLogout(
-    { myLogoutTest }: WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT],
+    _payload: WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT],
     clientId: string,
     sessionToken: string | null,
   ): void {
-    this.logger.info(`User logout request:`, myLogoutTest);
+    this.logger.info(`User logout request`);
+    this.closeClient(clientId, true);
   }
 
   private handleKeyPress(
