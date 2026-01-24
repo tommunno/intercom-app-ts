@@ -30,6 +30,7 @@ export class PanelController implements IPanelController {
   };
   private readonly wssCommands: WssClientCommandMap = {
     USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
+    USER_FORCE_LOGOUT: this.handleForceLogout.bind(this),
     USER_AUDIO_INFO_UPDATE: this.handleAudioInfoUpdate.bind(this),
   };
 
@@ -52,6 +53,8 @@ export class PanelController implements IPanelController {
     this.guiManager.start();
     this.httpManager.start();
     this.webRtcManager.start();
+    this.guiManager.setLoginLoading(false);
+    this.attemptAutomaticLogin();
   }
 
   private bindListeners(): void {
@@ -68,12 +71,44 @@ export class PanelController implements IPanelController {
     });
   }
 
-  private async handleLoginAttempt(
-    username: string,
-    password: string,
+  //Only attempt an auto login if 'noAutoLogin' is not set to true in the URL
+  private attemptAutomaticLogin(): void {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("noAutoLogin") === "true") {
+      url.searchParams.delete("noAutoLogin");
+      history.replaceState(null, "", url.toString());
+      return;
+    }
+    //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
+    this.attemptFullLogin(null, null, true);
+  }
+
+  //Will attempt a soft login followed by a hard login
+  //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
+  private async attemptFullLogin(
+    username: string | null,
+    password: string | null,
+    hideGuiErrors: boolean = false,
   ): Promise<void> {
-    if (username.trim() === "" || password.trim() === "") {
-      this.guiManager.setLoginError("Please enter a username and password");
+    if (
+      (username === null && password !== null) ||
+      (username !== null && password === null)
+    ) {
+      if (!hideGuiErrors)
+        this.guiManager.setLoginError(
+          "An error has occurred, please reload the page",
+        );
+      console.error(
+        `Username and password are of different types in handleLoginAttempt`,
+      );
+      return;
+    }
+    if (
+      (username !== null && username.trim() === "") ||
+      (password !== null && password.trim() === "")
+    ) {
+      if (!hideGuiErrors)
+        this.guiManager.setLoginError("Please enter a username and password");
       return;
     }
     this.guiManager.setLoginLoading(true);
@@ -84,18 +119,21 @@ export class PanelController implements IPanelController {
       });
 
       if (!result.success) {
-        this.guiManager.setLoginError(result.message);
+        if (!hideGuiErrors) this.guiManager.setLoginError(result.message);
         this.guiManager.setLoginLoading(false);
         return;
       }
+
       //Success:
       this.guiManager.setLoginError(null);
       this.attemptHardLogin();
     } catch (error) {
       console.error("Critical Login Error:", error);
-      this.guiManager.setLoginError("Connection failed. Check your internet.");
+      if (!hideGuiErrors)
+        this.guiManager.setLoginError(
+          "Connection failed. Check your internet.",
+        );
       this.guiManager.setLoginLoading(false);
-    } finally {
     }
   }
 
@@ -105,9 +143,21 @@ export class PanelController implements IPanelController {
   }
 
   //If sendRequest is true, the client sends a logout request to the server
-  private logout(sendRequest: boolean = true): void {
+  private logout({
+    sendRequest = true,
+    loginTakeover = false,
+  }: {
+    sendRequest?: boolean;
+    loginTakeover?: boolean;
+  }): void {
     if (sendRequest) {
       this.wssManager.sendMessage("USER_LOGOUT", null);
+    }
+    if (loginTakeover) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("noAutoLogin", "true");
+      window.location.replace(url.toString());
+      return;
     }
     window.location.reload();
   }
@@ -168,6 +218,12 @@ export class PanelController implements IPanelController {
     this.guiManager.setLoginVisible(false);
   }
 
+  private handleForceLogout({
+    loginTakeover,
+  }: WssPayloads[typeof WSS_DOWNSTREAM.USER_FORCE_LOGOUT]) {
+    this.logout({ sendRequest: false, loginTakeover });
+  }
+
   private handleAudioInfoUpdate(
     audioInfo: WssPayloads[typeof WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE],
   ) {
@@ -177,6 +233,14 @@ export class PanelController implements IPanelController {
   }
 
   //GUI Handlers:
+
+  //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
+  private async handleLoginAttempt(
+    username: string,
+    password: string,
+  ): Promise<void> {
+    this.attemptFullLogin(username, password);
+  }
 
   private handleKeyPress(params: KeyPressParams): void {
     const { type, id, currState } = params;
@@ -198,6 +262,6 @@ export class PanelController implements IPanelController {
   }
 
   private handleLogoutBtnClick(): void {
-    this.logout();
+    this.logout({});
   }
 }

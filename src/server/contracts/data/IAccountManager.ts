@@ -7,6 +7,21 @@ import type {
 } from "../../../shared/types/index.js";
 import type { AccountManagerConfig } from "../../types/index.js";
 
+export type HardLoginUserParams =
+  | {
+      user: User;
+      loginTakeover: false;
+      clientId: string | null;
+      sessionToken: string;
+    }
+  | {
+      user: User;
+      loginTakeover: true;
+      clientId: string | null;
+      sessionToken: string;
+      loggedOutClientId: string;
+    };
+
 export interface IAccountManager {
   init: (config: AccountManagerConfig) => void;
   start: () => void;

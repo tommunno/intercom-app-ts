@@ -11,7 +11,11 @@ import {
 //Server Types:
 import type { AccountManagerConfig } from "../../types/index.js";
 //Contracts:
-import { type IAccountManager, type ILogger } from "../../contracts/index.js";
+import {
+  type HardLoginUserParams,
+  type IAccountManager,
+  type ILogger,
+} from "../../contracts/index.js";
 //Constants:
 import { SALT_ROUNDS } from "../../constants/serverConstants.js";
 import {
@@ -223,8 +227,15 @@ export class AccountManager implements IAccountManager {
         statusCode: 409,
       };
     }
-    //If user is logged in and there is a sessionToken match, then we can do a login takeover. This will logout the old client, and soft/hard login the new user
+    //If user is logged in and there is a sessionToken match, then we can do a login takeover. This will logout the old client, and hard/soft login the new user
     if (foundUser.loggedIn && sessionTokenMatch) {
+      let loggedOutClientId = foundUser.clientId;
+      if (loggedOutClientId === null) {
+        this.logger.error(
+          `authenticateUserWithToken: loginTakeover requested, but no clientId was provided for the session to be displaced. `,
+        );
+        loggedOutClientId = "";
+      }
       this.logoutUser(foundUser);
 
       //Hard login:
@@ -234,6 +245,7 @@ export class AccountManager implements IAccountManager {
           loginTakeover: true,
           clientId,
           sessionToken,
+          loggedOutClientId,
         });
       }
       //Soft login:
@@ -245,6 +257,7 @@ export class AccountManager implements IAccountManager {
         userId: foundUser.id,
         newSessionToken: null,
         loginTakeover: true,
+        loggedOutClientId,
       };
     }
     //foundUser is not logged in. Client has been succesfully authenticated, and will be soft/hard logged in
@@ -269,17 +282,9 @@ export class AccountManager implements IAccountManager {
     };
   }
 
-  private hardLoginUser({
-    user,
-    loginTakeover,
-    clientId,
-    sessionToken,
-  }: {
-    user: User;
-    loginTakeover: boolean;
-    clientId: string | null;
-    sessionToken: string;
-  }): AuthResult {
+  private hardLoginUser(params: HardLoginUserParams): AuthResult {
+    const { user, loginTakeover, clientId, sessionToken } = params;
+
     const baseResult: AuthResult = {
       success: false,
       message: "Unable to login user",
@@ -287,12 +292,12 @@ export class AccountManager implements IAccountManager {
     };
 
     if (clientId === null) {
-      this.logger.error(`No clientId provided in hardLoginUser`);
+      this.logger.error(`hardLoginUser: No clientId provided`);
       return baseResult;
     }
     if (user.loggedIn) {
       this.logger.error(
-        `Unable to login user: user ${user.id} is already logged in`,
+        `hardLoginUser: Unable to login user: user ${user.id} is already logged in`,
       );
       return baseResult;
     }
@@ -301,6 +306,18 @@ export class AccountManager implements IAccountManager {
     user.sessionTokenInUse = sessionToken;
     this.addUniqueSessionToken(user, sessionToken);
 
+    if (loginTakeover) {
+      return {
+        ...baseResult,
+        success: true,
+        message: "User logged in",
+        statusCode: 200,
+        userId: user.id,
+        newSessionToken: null,
+        loginTakeover,
+        loggedOutClientId: params.loggedOutClientId,
+      };
+    }
     return {
       ...baseResult,
       success: true,

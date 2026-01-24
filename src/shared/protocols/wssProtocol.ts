@@ -26,6 +26,7 @@ export const WSS_UPSTREAM = {
 
 export const WSS_DOWNSTREAM = {
   USER_LOGIN_RESPONSE: "USER_LOGIN_RESPONSE",
+  USER_FORCE_LOGOUT: "USER_FORCE_LOGOUT",
   USER_AUDIO_INFO_UPDATE: "USER_AUDIO_INFO_UPDATE",
 } as const;
 
@@ -42,6 +43,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.USER_LOGOUT]: dataIsWssUserLogout,
   [WSS_UPSTREAM.KEY_PRESS]: dataIsWssKeyPress,
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
+  [WSS_DOWNSTREAM.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
   [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: dataIsWssUserAudioInfoUpdate,
 } satisfies WssPayloadValidators;
 
@@ -58,6 +60,9 @@ type PayloadMap = {
     message: string;
     userInfo: UserInfo | null;
     audioInfo: AudioInfo | null;
+  };
+  [WSS_DOWNSTREAM.USER_FORCE_LOGOUT]: {
+    loginTakeover: boolean;
   };
   [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: AudioInfo;
 };
@@ -107,6 +112,12 @@ export function dataIsWssUserLoginResponse(
     (dataIsUserInfo(data.userInfo) || data.userInfo === null) &&
     (dataIsAudioInfo(data.audioInfo) || data.audioInfo === null)
   );
+}
+
+export function dataIsWssUserForceLogout(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_FORCE_LOGOUT] {
+  return dataIsObject(data) && dataIsType("boolean", data.loginTakeover);
 }
 
 export function dataIsWssUserAudioInfoUpdate(

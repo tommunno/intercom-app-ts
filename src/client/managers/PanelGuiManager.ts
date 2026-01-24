@@ -36,7 +36,8 @@ export class PanelGuiManager implements IPanelGuiManager {
     },
   };
   private handlers: PanelGuiManagerHandlers | null = null;
-  private loginLoading: boolean = false;
+  //By default, the HTML has the login in loading state, until the JS loads
+  private loginLoading: boolean = true;
 
   ensureElementsExist(): void {
     Object.entries(this.els).forEach(([key, el]) => {

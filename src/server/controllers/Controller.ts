@@ -61,9 +61,6 @@ export class Controller implements IController {
   private closeClient(clientId: string, hardLogout: boolean = false) {
     let userId = this.dataController.isClientIdLoggedIn(clientId);
     if (userId === null) {
-      // this.logger.warn(
-      //   `Unable to log out user: client is not logged in (clientId=${clientId}).`,
-      // );
       return;
     }
     userId = this.dataController.logoutUser(clientId, hardLogout);
@@ -86,6 +83,14 @@ export class Controller implements IController {
     //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
     if (result.success && result.loginTakeover) {
       this.audioController.disconnectUser(result.userId);
+      this.logger.info(
+        `handleUserSoftLoginRequest: Sending force logout message to clientId: ${result.loggedOutClientId}`,
+      );
+      this.networkController.sendWssMessage(
+        "USER_FORCE_LOGOUT",
+        { loginTakeover: true },
+        [result.loggedOutClientId],
+      );
     }
     return result;
   }
@@ -147,6 +152,14 @@ export class Controller implements IController {
         this.networkController.sendLoginFailureMessage(clientId);
         return;
       }
+      this.logger.info(
+        `handleUserLogin: Sending force logout message to clientId: ${result.loggedOutClientId}`,
+      );
+      this.networkController.sendWssMessage(
+        "USER_FORCE_LOGOUT",
+        { loginTakeover: true },
+        [result.loggedOutClientId],
+      );
     }
     //Connect new client:
     const connectSuccess = this.audioController.connectUser(userId, clientId);
