@@ -1,8 +1,10 @@
 import type {
   AudioInfo,
   MergedPartylineInfo,
+  PartylineInfo,
 } from "../../shared/types/index.js";
 import type {
+  AudioHandlers,
   IAudioController,
   IAudioMatrixManager,
   ILogger,
@@ -11,6 +13,8 @@ import type {
 import type { KeyPressInfo } from "../types/index.js";
 
 export class AudioController implements IAudioController {
+  private handlers: AudioHandlers | null = null;
+
   constructor(
     private audioMatrixManager: IAudioMatrixManager,
     private tailManager: ITailManager,
@@ -32,8 +36,14 @@ export class AudioController implements IAudioController {
   }
 
   start(): void {
+    // Trigger the check to ensure we are ready to roll
+    const ready = this.activeHandlers;
     this.audioMatrixManager.start();
     this.tailManager.start();
+  }
+
+  setHandlers(handlers: AudioHandlers): void {
+    this.handlers = handlers;
   }
 
   connectUser(userId: number, clientId: string): boolean {
@@ -66,6 +76,12 @@ export class AudioController implements IAudioController {
   }
 
   //Private methods:
+  private get activeHandlers() {
+    if (!this.handlers)
+      throw new Error("AudioController handlers not initialized!");
+    return this.handlers;
+  }
+
   private bindListeners(): void {
     this.tailManager.setHandlers({
       onKeyPress: (k, u) => this.onTailManagerKeyPress(k, u),
@@ -74,5 +90,8 @@ export class AudioController implements IAudioController {
 
   onTailManagerKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
     this.audioMatrixManager.processKeyPress(keyPressInfo, userId);
+    const audioInfo = this.getAudioInfo(userId);
+    if (!audioInfo) return;
+    this.activeHandlers.onAudioInfoUpdate(userId, audioInfo);
   }
 }

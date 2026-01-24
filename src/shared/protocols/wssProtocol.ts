@@ -26,6 +26,7 @@ export const WSS_UPSTREAM = {
 
 export const WSS_DOWNSTREAM = {
   USER_LOGIN_RESPONSE: "USER_LOGIN_RESPONSE",
+  USER_AUDIO_INFO_UPDATE: "USER_AUDIO_INFO_UPDATE",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -41,6 +42,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.USER_LOGOUT]: dataIsWssUserLogout,
   [WSS_UPSTREAM.KEY_PRESS]: dataIsWssKeyPress,
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
+  [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: dataIsWssUserAudioInfoUpdate,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -57,6 +59,7 @@ type PayloadMap = {
     userInfo: UserInfo | null;
     audioInfo: AudioInfo | null;
   };
+  [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: AudioInfo;
 };
 
 export type WssPayloads = {
@@ -104,4 +107,10 @@ export function dataIsWssUserLoginResponse(
     (dataIsUserInfo(data.userInfo) || data.userInfo === null) &&
     (dataIsAudioInfo(data.audioInfo) || data.audioInfo === null)
   );
+}
+
+export function dataIsWssUserAudioInfoUpdate(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE] {
+  return dataIsAudioInfo(data);
 }

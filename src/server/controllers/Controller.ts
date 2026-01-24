@@ -6,9 +6,9 @@ import type {
   INetworkController,
 } from "../contracts/index.js";
 import type {
+  AudioInfo,
   AuthResult,
   LoginCredentials,
-  UserInfo,
 } from "../../shared/types/index.js";
 import {
   type WssPayloads,
@@ -52,6 +52,9 @@ export class Controller implements IController {
       onMessage: this.handleWssMessage.bind(this),
       onClientDisconnect: (c) => this.handleClientDisconnect(c),
       onClientError: (c) => this.handleClientError(c),
+    });
+    this.audioController.setHandlers({
+      onAudioInfoUpdate: (u, a) => this.handleAudioInfoUpdate(u, a),
     });
   }
 
@@ -175,5 +178,14 @@ export class Controller implements IController {
       return;
     }
     this.audioController.processKeyPress(keyPressInfo, userId);
+  }
+
+  //Handle AudioController:
+  private handleAudioInfoUpdate(userId: number, audioInfo: AudioInfo) {
+    const clientId = this.dataController.isUserIdLoggedIn(userId);
+    if (!clientId) return;
+    this.networkController.sendWssMessage("USER_AUDIO_INFO_UPDATE", audioInfo, [
+      clientId,
+    ]);
   }
 }

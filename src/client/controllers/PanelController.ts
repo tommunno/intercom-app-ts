@@ -30,6 +30,7 @@ export class PanelController implements IPanelController {
   };
   private readonly wssCommands: WssClientCommandMap = {
     USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
+    USER_AUDIO_INFO_UPDATE: this.handleAudioInfoUpdate.bind(this),
   };
 
   constructor(
@@ -102,6 +103,8 @@ export class PanelController implements IPanelController {
     if (!this.wssManager.isRunning) this.wssManager.start();
   }
 
+  //WSS Handlers:
+
   private handleWssOpen() {
     console.log("WebSocket connection open");
     this.wssManager.sendMessage("USER_LOGIN", null);
@@ -155,6 +158,16 @@ export class PanelController implements IPanelController {
     this.guiManager.displayState(this.state);
     this.guiManager.setLoginVisible(false);
   }
+
+  private handleAudioInfoUpdate(
+    audioInfo: WssPayloads[typeof WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE],
+  ) {
+    console.log("Handling audio info update:", audioInfo);
+    this.state.audioInfo = audioInfo;
+    this.guiManager.displayAudioInfo(this.state.audioInfo);
+  }
+
+  //GUI Handlers:
 
   private handleKeyPress(params: KeyPressParams): void {
     const { type, id, currState } = params;

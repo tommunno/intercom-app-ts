@@ -85,7 +85,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
 
     if (
-      !Number.isInteger(userId) ||
+      !Number.isSafeInteger(userId) ||
       userId >= this.config.numUsers ||
       userId < 0
     ) {
@@ -121,12 +121,17 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
     //TALK:
     if (type === "TALK") {
-      this.handleTalkKeyRequest(partyline, userId, state);
+      if (this.handleTalkKeyRequest(partyline, userId, state) === false) {
+        return;
+      }
     }
     //LISTEN:
     else {
-      this.handleListenKeyRequest(partyline, userId, state);
+      if (this.handleListenKeyRequest(partyline, userId, state) === false) {
+        return;
+      }
     }
+
     this.logger.info(`Partyline portsTalking:`, partyline.state.portsTalking);
     this.logger.info(
       `Partyline portsListening:`,
@@ -134,32 +139,36 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     );
   }
 
+  //Returns true if successful
   private handleTalkKeyRequest(
     partyline: IPartyline,
     userId: number,
     state: boolean,
-  ): void {
+  ): boolean {
     const { success, message } = partyline.setUserTalking(userId, state);
     if (!success) {
       this.logger.warn(
         `Unable to set user ${userId} talk state on partyline ${partyline.id}, because ${message}`,
       );
-      return;
+      return false;
     }
+    return true;
   }
 
+  //Returns true if successful
   private handleListenKeyRequest(
     partyline: IPartyline,
     userId: number,
     state: boolean,
-  ): void {
+  ): boolean {
     const { success, message } = partyline.setUserListening(userId, state);
     if (!success) {
       this.logger.warn(
         `Unable to set user ${userId} listen state on partyline ${partyline.id}, because ${message}`,
       );
-      return;
+      return false;
     }
+    return true;
   }
 
   private createPartylines(): void {

@@ -26,6 +26,8 @@ export interface IAccountManager {
 
   //Returns the userId if logged in
   isClientIdLoggedIn(clientId: string): number | null;
+  //Returns clientId if successful:
+  isUserIdLoggedIn: (userId: number) => string | null;
 
   updateUsers: (users: BaseUser[]) => Promise<void>;
 

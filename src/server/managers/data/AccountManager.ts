@@ -397,6 +397,7 @@ export class AccountManager implements IAccountManager {
     });
   }
 
+  //Returns userId if successful:
   isClientIdLoggedIn(clientId: string): number | null {
     const result = this.checkAndWarnIfNotRunning(
       "check if client ID is logged in",
@@ -408,6 +409,20 @@ export class AccountManager implements IAccountManager {
     );
     if (!foundUser) return null;
     return foundUser.id;
+  }
+
+  //Returns clientId if successful:
+  isUserIdLoggedIn(userId: number): string | null {
+    const result = this.checkAndWarnIfNotRunning(
+      "check if user ID is logged in",
+    );
+    if (result) return null;
+
+    const foundUser = this.users.find(
+      (usr) => usr.loggedIn && usr.id === userId,
+    );
+    if (!foundUser) return null;
+    return foundUser.clientId;
   }
 
   //For eg admins updating info about users. Passwords will be updated if they are not null. Passwords are expected as plain text here.
