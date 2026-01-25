@@ -17,6 +17,7 @@ export interface User extends BaseUser {
   clientId: string | null;
   sessionTokenInUse: string | null;
   sessionTokens: string[];
+  lastHeartbeatResponse: number | null;
 }
 
 export function dataIsBaseUser(data: unknown): data is BaseUser {
@@ -35,6 +36,7 @@ export function dataIsUser(data: unknown): data is User {
     dataIsType("boolean", data.loggedIn) &&
     dataIsTypeAOrB("string", "null", data.clientId) &&
     dataIsTypeAOrB("string", "null", data.sessionTokenInUse) &&
-    dataIsArrayOfType("string", data.sessionTokens)
+    dataIsArrayOfType("string", data.sessionTokens) &&
+    dataIsTypeAOrB("number", "null", data.lastHeartbeatResponse)
   );
 }

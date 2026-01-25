@@ -1,10 +1,12 @@
 import { dataIsType } from "../../shared/helpers.js";
 import type {
   AuthResult,
+  HeartbeatRequestPayload,
   LoginCredentials,
   UserInfo,
 } from "../../shared/types/index.js";
 import type {
+  DataHandlers,
   IAccountManager,
   IDataController,
   IDataManager,
@@ -12,6 +14,8 @@ import type {
 } from "../contracts/index.js";
 
 export class DataController implements IDataController {
+  private handlers: DataHandlers | null = null;
+
   constructor(
     private accountManager: IAccountManager,
     private dataManager: IDataManager,
@@ -21,6 +25,7 @@ export class DataController implements IDataController {
   }
 
   init() {
+    this.bindListeners();
     //Test data:
     this.accountManager.init({
       numUsers: 3,
@@ -33,6 +38,7 @@ export class DataController implements IDataController {
           clientId: null,
           sessionTokenInUse: null,
           sessionTokens: ["afjodij", "jafodisjoidfj"],
+          lastHeartbeatResponse: null,
         },
         {
           id: 1,
@@ -42,6 +48,7 @@ export class DataController implements IDataController {
           clientId: null,
           sessionTokenInUse: null,
           sessionTokens: ["fadf", "jafodisjfadsdf"],
+          lastHeartbeatResponse: null,
         },
         {
           id: 2,
@@ -51,6 +58,7 @@ export class DataController implements IDataController {
           clientId: null,
           sessionTokenInUse: null,
           sessionTokens: ["dd", "fss"],
+          lastHeartbeatResponse: null,
         },
       ],
     });
@@ -58,6 +66,8 @@ export class DataController implements IDataController {
   }
 
   start() {
+    // Trigger the check to ensure we are ready to roll
+    const ready = this.activeHandlers;
     this.accountManager.start();
     //Test:
     this.accountManager.updateUsers([
@@ -78,6 +88,16 @@ export class DataController implements IDataController {
       },
     ]);
     //End test
+  }
+
+  setHandlers(handlers: DataHandlers): void {
+    this.handlers = handlers;
+  }
+
+  private get activeHandlers(): DataHandlers {
+    if (!this.handlers)
+      throw new Error("DataController handlers not initialized!");
+    return this.handlers;
   }
 
   softLoginUser(
@@ -109,5 +129,28 @@ export class DataController implements IDataController {
 
   getUserInfo(userId: number): UserInfo | null {
     return this.accountManager.getUserInfo(userId);
+  }
+
+  processHeartbeatResponse(timestamp: number, clientId: string): void {
+    this.accountManager.processHeartbeatResponse(timestamp, clientId);
+  }
+
+  private bindListeners(): void {
+    this.accountManager.setHandlers({
+      onHeartbeat: (c, p) => this.handleAccountHeartbeat(c, p),
+      onStaleHeartbeat: (c) => this.handleStaleHeartbeat(c),
+    });
+  }
+
+  //Handle Account:
+  handleAccountHeartbeat(
+    clientIds: string[],
+    payload: HeartbeatRequestPayload,
+  ): void {
+    this.activeHandlers.onAccountHeartbeat(clientIds, payload);
+  }
+
+  handleStaleHeartbeat(clientId: string): void {
+    this.activeHandlers.onStaleHeartbeat(clientId);
   }
 }

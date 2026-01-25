@@ -12,12 +12,17 @@ import {
 import type { AccountManagerConfig } from "../../types/index.js";
 //Contracts:
 import {
+  type AccountHandlers,
   type HardLoginUserParams,
   type IAccountManager,
   type ILogger,
 } from "../../contracts/index.js";
 //Constants:
-import { SALT_ROUNDS } from "../../constants/serverConstants.js";
+import {
+  ACCOUNT_HEARTBEAT_DURATION_MS,
+  ACCOUNT_STALE_HEARTBEAT_MS,
+  SALT_ROUNDS,
+} from "../../constants/serverConstants.js";
 import {
   MAX_PASSWORD_LENGTH,
   MAX_USERNAME_LENGTH,
@@ -30,8 +35,10 @@ import { dataIsType } from "../../../shared/helpers.js";
 
 export class AccountManager implements IAccountManager {
   private status: ManagerStatus = "IDLE";
+  private handlers: AccountHandlers | null = null;
   private numUsers: number = 0;
   private users: User[] = [];
+  private heartbeatIntervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AccountManager" });
@@ -54,6 +61,9 @@ export class AccountManager implements IAccountManager {
         `Cannot start the AccountManager whilst its status is ${this.status}`,
       );
     }
+    // Trigger the check to ensure we are ready to roll
+    const ready = this.activeHandlers;
+    this.startHeartbeat();
     this.status = "RUNNING";
   }
 
@@ -66,7 +76,18 @@ export class AccountManager implements IAccountManager {
     }
     this.numUsers = 0;
     this.users = [];
+    this.stopHeartbeat();
     this.status = "IDLE";
+  }
+
+  setHandlers(handlers: AccountHandlers): void {
+    this.handlers = handlers;
+  }
+
+  private get activeHandlers(): AccountHandlers {
+    if (!this.handlers)
+      throw new Error("AccountManager handlers not initialized!");
+    return this.handlers;
   }
 
   private createUsers(loadedUsers: unknown): void {
@@ -93,6 +114,7 @@ export class AccountManager implements IAccountManager {
           clientId: null,
           sessionTokenInUse: null,
           sessionTokens: [...data.sessionTokens],
+          lastHeartbeatResponse: null,
         });
       else {
         this.logger.warn(
@@ -128,6 +150,7 @@ export class AccountManager implements IAccountManager {
       clientId: null,
       sessionTokenInUse: null,
       sessionTokens: [],
+      lastHeartbeatResponse: null,
     };
   }
 
@@ -305,6 +328,7 @@ export class AccountManager implements IAccountManager {
     user.clientId = clientId;
     user.sessionTokenInUse = sessionToken;
     this.addUniqueSessionToken(user, sessionToken);
+    user.lastHeartbeatResponse = null;
 
     if (loginTakeover) {
       return {
@@ -327,6 +351,44 @@ export class AccountManager implements IAccountManager {
       newSessionToken: null,
       loginTakeover: false,
     };
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeatIntervalId !== null) {
+      clearInterval(this.heartbeatIntervalId);
+    }
+    this.heartbeatIntervalId = setInterval(
+      () => this.sendHeartbeat(),
+      ACCOUNT_HEARTBEAT_DURATION_MS,
+    );
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatIntervalId !== null) {
+      clearInterval(this.heartbeatIntervalId);
+      this.heartbeatIntervalId = null;
+    }
+  }
+
+  private sendHeartbeat(): void {
+    const clientIds: string[] = [];
+    const timestamp = Date.now();
+
+    this.users.forEach((user) => {
+      if (!user.loggedIn || !user.clientId) return;
+      clientIds.push(user.clientId);
+      const startTime = user.lastHeartbeatResponse;
+      if (startTime === null) return;
+
+      const endTime = Date.now();
+      const timeElapsed = endTime - startTime;
+
+      if (timeElapsed > ACCOUNT_STALE_HEARTBEAT_MS) {
+        this.activeHandlers.onStaleHeartbeat(user.clientId);
+      }
+    });
+
+    this.activeHandlers.onHeartbeat(clientIds, { timestamp });
   }
 
   private generateSessionToken(): string {
@@ -364,6 +426,7 @@ export class AccountManager implements IAccountManager {
 
     user.loggedIn = false;
     user.clientId = null;
+    user.lastHeartbeatResponse = null;
 
     if (hardLogout && user.sessionTokenInUse) {
       user.sessionTokens = user.sessionTokens.filter(
@@ -459,6 +522,9 @@ export class AccountManager implements IAccountManager {
   }
 
   getUserInfo(userId: number): UserInfo | null {
+    const result = this.checkAndWarnIfNotRunning("get user info");
+    if (result) null;
+
     const user = this.users.find((usr) => usr.id === userId);
     if (!user) {
       this.logger.error(
@@ -467,6 +533,20 @@ export class AccountManager implements IAccountManager {
       return null;
     }
     return { loggedIn: user.loggedIn, username: user.username };
+  }
+
+  processHeartbeatResponse(timestamp: number, clientId: string): void {
+    const result = this.checkAndWarnIfNotRunning("process heartbeat response");
+    if (result) null;
+    const foundUser = this.users.find((user) => user.clientId === clientId);
+    if (!foundUser) return;
+    if (!foundUser.loggedIn) {
+      this.logger.error(
+        `processHeartbeatResponse: Invariant violation: user ${foundUser.id} has clientId=${foundUser.clientId} but loggedIn=false. `,
+      );
+      return;
+    }
+    foundUser.lastHeartbeatResponse = Date.now();
   }
 
   //VALIDATION:

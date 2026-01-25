@@ -8,6 +8,8 @@ export const WEB_SERVER_DIR = "public";
 
 //Auth:
 export const SESSION_DURATION_MS = 604800000; //7 * 24 * 60 * 60 * 1000 = 7 days
+export const ACCOUNT_HEARTBEAT_DURATION_MS = 10000;
+export const ACCOUNT_STALE_HEARTBEAT_MS = 20000;
 
 //BCrypt:
 export const SALT_ROUNDS = 10;

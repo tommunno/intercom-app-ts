@@ -13,3 +13,4 @@ export * from "./TailState.js";
 export * from "./KeyType.js";
 export * from "./KeyState.js";
 export * from "./SuccessMessage.js";
+export * from "./HeartbeatRequestPayload.js";

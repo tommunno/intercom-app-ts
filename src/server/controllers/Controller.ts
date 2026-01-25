@@ -8,6 +8,7 @@ import type {
 import type {
   AudioInfo,
   AuthResult,
+  HeartbeatRequestPayload,
   LoginCredentials,
 } from "../../shared/types/index.js";
 import {
@@ -15,10 +16,11 @@ import {
   type WssUpstream,
   WSS_UPSTREAM,
 } from "../../shared/protocols/index.js";
-import type { WssCommandMap } from "../types/index.js";
+import type { CloseClientParams, WssCommandMap } from "../types/index.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
+    HEARTBEAT_RESPONSE: this.handleHeartbeatResponse.bind(this),
     USER_LOGIN: this.handleUserLogin.bind(this),
     USER_LOGOUT: this.handleUserLogout.bind(this),
     KEY_PRESS: this.handleKeyPress.bind(this),
@@ -47,26 +49,63 @@ export class Controller implements IController {
   }
 
   private bindListeners(): void {
+    this.audioController.setHandlers({
+      onAudioInfoUpdate: (u, a) => this.handleAudioInfoUpdate(u, a),
+    });
+
     this.networkController.setHandlers({
       onUserSoftLoginRequest: (s, l) => this.handleUserSoftLoginRequest(s, l),
       onMessage: this.handleWssMessage.bind(this),
       onClientDisconnect: (c) => this.handleClientDisconnect(c),
       onClientError: (c) => this.handleClientError(c),
     });
-    this.audioController.setHandlers({
-      onAudioInfoUpdate: (u, a) => this.handleAudioInfoUpdate(u, a),
+
+    this.dataController.setHandlers({
+      onAccountHeartbeat: (c, p) => this.handleAccountHeartbeat(c, p),
+      onStaleHeartbeat: (c) => this.handleStaleHeartbeat(c),
     });
   }
 
-  private closeClient(clientId: string, hardLogout: boolean = false) {
-    let userId = this.dataController.isClientIdLoggedIn(clientId);
-    if (userId === null) {
-      return;
+  // logout: true ⇒ requires clientId, optional hardLogout
+  // logout: false ⇒ requires clientId + userId
+  // Optional loginTakeover lets the client know that this is the result of a loginTakeover
+  // logout: true means client will be logged out first
+  // hardLogout: true means the sessionToken will expire
+  private closeClient(params: CloseClientParams) {
+    const { clientId, loginTakeover = false, logout } = params;
+    let chosenUserId: number | null;
+
+    if (logout) {
+      const { hardLogout = false } = params;
+
+      chosenUserId = this.dataController.isClientIdLoggedIn(clientId);
+      if (chosenUserId === null) {
+        return;
+      }
+      chosenUserId = this.dataController.logoutUser(clientId, hardLogout);
+      if (chosenUserId === null) return;
+    } else {
+      chosenUserId = params.userId;
     }
-    userId = this.dataController.logoutUser(clientId, hardLogout);
-    if (userId === null) return;
-    this.audioController.disconnectUser(userId);
+
+    this.audioController.disconnectUser(chosenUserId);
+    this.networkController.sendWssMessage(
+      "USER_FORCE_LOGOUT",
+      { loginTakeover },
+      [clientId],
+    );
   }
+
+  //Handle AudioController:
+  private handleAudioInfoUpdate(userId: number, audioInfo: AudioInfo) {
+    const clientId = this.dataController.isUserIdLoggedIn(userId);
+    if (!clientId) return;
+    this.networkController.sendWssMessage("USER_AUDIO_INFO_UPDATE", audioInfo, [
+      clientId,
+    ]);
+  }
+
+  //Handle HTTP:
 
   //Client first makes Http request for a 'soft' login
   //If there is a valid sessionToken, success
@@ -82,18 +121,17 @@ export class Controller implements IController {
     );
     //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
     if (result.success && result.loginTakeover) {
-      this.audioController.disconnectUser(result.userId);
-      this.logger.info(
-        `handleUserSoftLoginRequest: Sending force logout message to clientId: ${result.loggedOutClientId}`,
-      );
-      this.networkController.sendWssMessage(
-        "USER_FORCE_LOGOUT",
-        { loginTakeover: true },
-        [result.loggedOutClientId],
-      );
+      this.closeClient({
+        logout: false,
+        clientId: result.loggedOutClientId,
+        loginTakeover: true,
+        userId: result.userId,
+      });
     }
     return result;
   }
+
+  //Handle Wss messages:
 
   private handleWssMessage<K extends WssUpstream>({
     type,
@@ -111,14 +149,23 @@ export class Controller implements IController {
   }
 
   private handleClientDisconnect(clientId: string) {
-    this.closeClient(clientId);
+    this.closeClient({ logout: true, clientId });
   }
 
   private handleClientError(clientId: string) {
-    this.closeClient(clientId);
+    this.closeClient({ logout: true, clientId });
   }
 
-  //Handle Wss messages:
+  private handleHeartbeatResponse(
+    { timestamp }: WssPayloads[typeof WSS_UPSTREAM.HEARTBEAT_RESPONSE],
+    clientId: string,
+    sessionToken: string | null,
+  ): void {
+    this.logger.info(
+      `Handling heartbeat response from client ${clientId}, timestamp: ${timestamp}`,
+    );
+    this.dataController.processHeartbeatResponse(timestamp, clientId);
+  }
 
   //User requests 'hard' login via WS. The sessionToken is used for validation here.
   private handleUserLogin(
@@ -181,7 +228,7 @@ export class Controller implements IController {
     sessionToken: string | null,
   ): void {
     this.logger.info(`User logout request`);
-    this.closeClient(clientId, true);
+    this.closeClient({ logout: true, clientId, hardLogout: true });
   }
 
   private handleKeyPress(
@@ -200,12 +247,19 @@ export class Controller implements IController {
     this.audioController.processKeyPress(keyPressInfo, userId);
   }
 
-  //Handle AudioController:
-  private handleAudioInfoUpdate(userId: number, audioInfo: AudioInfo) {
-    const clientId = this.dataController.isUserIdLoggedIn(userId);
-    if (!clientId) return;
-    this.networkController.sendWssMessage("USER_AUDIO_INFO_UPDATE", audioInfo, [
-      clientId,
-    ]);
+  //Handle Data Controller:
+  private handleAccountHeartbeat(
+    clientIds: string[],
+    payload: HeartbeatRequestPayload,
+  ): void {
+    this.networkController.sendWssMessage(
+      "HEARTBEAT_REQUEST",
+      payload,
+      clientIds,
+    );
+  }
+
+  private handleStaleHeartbeat(clientId: string): void {
+    this.closeClient({ logout: true, clientId });
   }
 }

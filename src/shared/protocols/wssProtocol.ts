@@ -15,16 +15,22 @@ import {
   dataIsKeyPressInfo,
   type KeyPressInfo,
 } from "../../server/types/KeyPressInfo.js";
+import {
+  dataIsHeartbeatRequestPayload,
+  type HeartbeatRequestPayload,
+} from "../types/HeartbeatRequestPayload.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
 
 export const WSS_UPSTREAM = {
+  HEARTBEAT_RESPONSE: "HEARTBEAT_RESPONSE",
   USER_LOGIN: "USER_LOGIN",
   USER_LOGOUT: "USER_LOGOUT",
   KEY_PRESS: "KEY_PRESS",
 } as const;
 
 export const WSS_DOWNSTREAM = {
+  HEARTBEAT_REQUEST: "HEARTBEAT_REQUEST",
   USER_LOGIN_RESPONSE: "USER_LOGIN_RESPONSE",
   USER_FORCE_LOGOUT: "USER_FORCE_LOGOUT",
   USER_AUDIO_INFO_UPDATE: "USER_AUDIO_INFO_UPDATE",
@@ -39,9 +45,11 @@ export type WssType = WssUpstream | WssDownstream;
 //PAYLOAD VALIDATION:
 
 export const WSS_PAYLOAD_VALIDATORS = {
+  [WSS_UPSTREAM.HEARTBEAT_RESPONSE]: dataIsWssHeartbeatResponse,
   [WSS_UPSTREAM.USER_LOGIN]: dataIsWssUserLogin,
   [WSS_UPSTREAM.USER_LOGOUT]: dataIsWssUserLogout,
   [WSS_UPSTREAM.KEY_PRESS]: dataIsWssKeyPress,
+  [WSS_DOWNSTREAM.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
   [WSS_DOWNSTREAM.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
   [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: dataIsWssUserAudioInfoUpdate,
@@ -52,9 +60,11 @@ type WssPayloadValidators = {
 };
 
 type PayloadMap = {
+  [WSS_UPSTREAM.HEARTBEAT_RESPONSE]: { timestamp: number };
   [WSS_UPSTREAM.USER_LOGIN]: null;
   [WSS_UPSTREAM.USER_LOGOUT]: null;
   [WSS_UPSTREAM.KEY_PRESS]: KeyPressInfo;
+  [WSS_DOWNSTREAM.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: {
     success: boolean;
     message: string;
@@ -82,6 +92,12 @@ export function payloadIsValidForType<K extends WssType>(
 
 //UPSTREAM:
 
+export function dataIsWssHeartbeatResponse(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.HEARTBEAT_RESPONSE] {
+  return dataIsObject(data) && dataIsType("number", data.timestamp);
+}
+
 export function dataIsWssUserLogin(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.USER_LOGIN] {
@@ -101,6 +117,12 @@ export function dataIsWssKeyPress(
 }
 
 //DOWNSTREAM:
+
+export function dataIsWssHeartbeatRequest(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM.HEARTBEAT_REQUEST] {
+  return dataIsHeartbeatRequestPayload(data);
+}
 
 export function dataIsWssUserLoginResponse(
   data: unknown,

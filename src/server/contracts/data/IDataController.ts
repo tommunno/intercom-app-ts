@@ -1,13 +1,23 @@
 import type {
   AuthResult,
+  HeartbeatRequestPayload,
   LoginCredentials,
   UserInfo,
 } from "../../../shared/types/index.js";
 import type { WssSendMessage } from "../../types/WssSendMessage.js";
 
+export interface DataHandlers {
+  onAccountHeartbeat(
+    clientIds: string[],
+    payload: HeartbeatRequestPayload,
+  ): void;
+  onStaleHeartbeat(clientId: string): void;
+}
+
 export interface IDataController {
   init: () => void;
   start: () => void;
+  setHandlers: (handlers: DataHandlers) => void;
 
   softLoginUser: (
     sessionToken: string | null,
@@ -24,4 +34,5 @@ export interface IDataController {
   //Returns clientId if successful:
   isUserIdLoggedIn: (userId: number) => string | null;
   getUserInfo: (userId: number) => UserInfo | null;
+  processHeartbeatResponse: (timestamp: number, clientId: string) => void;
 }

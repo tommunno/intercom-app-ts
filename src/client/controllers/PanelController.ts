@@ -6,6 +6,7 @@ import {
 } from "../../shared/protocols/wssProtocol.js";
 import type {
   AudioInfo,
+  HeartbeatRequestPayload,
   HttpLoginResponse,
   KeyState,
   TailState,
@@ -29,6 +30,7 @@ export class PanelController implements IPanelController {
     audioInfo: { partylines: [] },
   };
   private readonly wssCommands: WssClientCommandMap = {
+    HEARTBEAT_REQUEST: this.handleHeartbeatRequest.bind(this),
     USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
     USER_FORCE_LOGOUT: this.handleForceLogout.bind(this),
     USER_AUDIO_INFO_UPDATE: this.handleAudioInfoUpdate.bind(this),
@@ -69,6 +71,7 @@ export class PanelController implements IPanelController {
       onError: () => this.handleWssError(),
       onMessage: this.handleWssMessage.bind(this),
     });
+    window.addEventListener("storage", (e) => this.handleTabReloadCommand(e));
   }
 
   //Only attempt an auto login if 'noAutoLogin' is not set to true in the URL
@@ -162,6 +165,13 @@ export class PanelController implements IPanelController {
     window.location.reload();
   }
 
+  private reloadOtherTabs() {
+    localStorage.setItem(
+      "forceReloadIfLoggedIn",
+      Date.now() + "-" + Math.random(),
+    );
+  }
+
   //WSS Handlers:
 
   private handleWssOpen() {
@@ -183,6 +193,12 @@ export class PanelController implements IPanelController {
   ): void {
     const command = this.wssCommands[type];
     command(payload);
+  }
+
+  private handleHeartbeatRequest({ timestamp }: HeartbeatRequestPayload): void {
+    this.wssManager.sendMessage("HEARTBEAT_RESPONSE", {
+      timestamp,
+    });
   }
 
   private handleLoginResponse({
@@ -211,11 +227,12 @@ export class PanelController implements IPanelController {
       );
       return;
     }
-
+    //Success:
     this.state.userInfo = userInfo;
     this.state.audioInfo = audioInfo;
     this.guiManager.displayState(this.state);
     this.guiManager.setLoginVisible(false);
+    this.reloadOtherTabs();
   }
 
   private handleForceLogout({
@@ -263,5 +280,16 @@ export class PanelController implements IPanelController {
 
   private handleLogoutBtnClick(): void {
     this.logout({});
+  }
+
+  //Misc Handlers:
+  handleTabReloadCommand(e: StorageEvent): void {
+    if (!this.state.userInfo.loggedIn) return;
+    //e.newValue is null on removeItem
+    if (e.key === "forceReloadIfLoggedIn" && e.newValue) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("noAutoLogin", "true");
+      window.location.replace(url.toString());
+    }
   }
 }

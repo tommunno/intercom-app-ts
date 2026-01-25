@@ -1,3 +1,4 @@
+import type { HeartbeatRequestPayload } from "../../../shared/types/index.js";
 import type {
   AuthResult,
   BaseUser,
@@ -22,9 +23,16 @@ export type HardLoginUserParams =
       loggedOutClientId: string;
     };
 
+export interface AccountHandlers {
+  onHeartbeat(clientIds: string[], payload: HeartbeatRequestPayload): void;
+  onStaleHeartbeat(clientId: string): void;
+}
+
 export interface IAccountManager {
   init: (config: AccountManagerConfig) => void;
   start: () => void;
+  stop: () => void;
+  setHandlers: (handlers: AccountHandlers) => void;
 
   softLoginUser: (
     sessionToken: string | null,
@@ -41,8 +49,7 @@ export interface IAccountManager {
   isClientIdLoggedIn(clientId: string): number | null;
   //Returns clientId if successful:
   isUserIdLoggedIn: (userId: number) => string | null;
-
   updateUsers: (users: BaseUser[]) => Promise<void>;
-
   getUserInfo: (userId: number) => UserInfo | null;
+  processHeartbeatResponse: (timestamp: number, clientId: string) => void;
 }
