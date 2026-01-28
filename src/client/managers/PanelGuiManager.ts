@@ -1,11 +1,11 @@
 import {
+  type IClientLogger,
   type IPanelGuiManager,
   type PanelGuiManagerHandlers,
 } from "../contracts/index.js";
 import {
   dataIsKeyState,
   dataIsTailState,
-  KEY_TYPE,
   type AudioInfo,
   type KeyType,
   type ManagerStatus,
@@ -34,10 +34,19 @@ export class PanelGuiManager implements IPanelGuiManager {
     pls: {
       plsList: document.querySelector<HTMLUListElement>(".pls-list")!,
     },
+    error: {
+      modalOverlay: document.querySelector<HTMLDivElement>(
+        ".modal-overlay-error",
+      )!,
+    },
   };
   private handlers: PanelGuiManagerHandlers | null = null;
   //By default, the HTML has the login in loading state, until the JS loads
   private loginLoading: boolean = true;
+
+  constructor(private logger: IClientLogger) {
+    this.logger = this.logger.child({ context: "PanelGuiManager" });
+  }
 
   ensureElementsExist(): void {
     Object.entries(this.els).forEach(([key, el]) => {
@@ -122,7 +131,9 @@ export class PanelGuiManager implements IPanelGuiManager {
       (plEl) => {
         const { id } = plEl.dataset;
         if (id === undefined || !Number.isSafeInteger(+id)) {
-          console.error(`plEl has an invalid id of ${id} in displayAudioInfo`);
+          this.logger.error(
+            `plEl has an invalid id of ${id} in displayAudioInfo`,
+          );
           plEl.remove();
           return;
         }
@@ -152,6 +163,15 @@ export class PanelGuiManager implements IPanelGuiManager {
     });
 
     this.sortPlsListToMatchPartylines(partylines);
+  }
+
+  setErrorModal(visible: boolean): void {
+    const notRunning = this.checkAndWarnIfNotRunning("set error modal");
+    if (notRunning) return;
+
+    const { modalOverlay } = this.els.error;
+    modalOverlay.style.display = visible ? "flex" : "none";
+    document.body.classList.toggle("no-scroll", visible);
   }
 
   private sortPlsListToMatchPartylines(
@@ -217,7 +237,7 @@ export class PanelGuiManager implements IPanelGuiManager {
     const listenBtnEl = plEl.querySelector<HTMLButtonElement>(".listen-btn");
 
     if (!plNameEl || !talkBtnEl || !listenBtnEl) {
-      console.error(
+      this.logger.error(
         `Missing HTML elements for plEl with id ${plEl.dataset.id} in displayAudioInfo`,
       );
       return;
@@ -300,14 +320,14 @@ export class PanelGuiManager implements IPanelGuiManager {
     const tailState = btn.dataset.tailState;
 
     if (Number.isNaN(id) || !dataIsKeyState(currState)) {
-      console.error(
+      this.logger.error(
         `Invalid data retrieved from DOM in handlePlsListPointerDown: id: ${id}, currState: ${currState}`,
       );
       return;
     }
     if (type === "TALK") {
       if (!dataIsTailState(tailState)) {
-        console.error(
+        this.logger.error(
           `Invalid data retrieved from DOM in handlePlsListPointerDown: id: ${id}, tailState: ${tailState}`,
         );
         return;
@@ -326,7 +346,9 @@ export class PanelGuiManager implements IPanelGuiManager {
 
   private checkAndWarnIfNotRunning(action: string): boolean {
     if (this.status !== "RUNNING") {
-      console.error(`Unable to ${action} because the status is ${this.status}`);
+      this.logger.error(
+        `Unable to ${action} because the status is ${this.status}`,
+      );
       return true;
     }
     return false;

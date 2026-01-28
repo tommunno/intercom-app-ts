@@ -5,23 +5,20 @@ import {
   type WssPayloads,
 } from "../../shared/protocols/wssProtocol.js";
 import type {
-  AudioInfo,
   HeartbeatRequestPayload,
   HttpLoginResponse,
   KeyState,
-  TailState,
-  UserInfo,
 } from "../../shared/types/index.js";
 import type {
   IHttpManager,
   IPanelController,
   IPanelGuiManager,
-  IWebRtcManager,
+  IPanelWebRtcManager,
   IPanelWssManager,
   KeyPressParams,
+  IClientLogger,
 } from "../contracts/index.js";
-import type { PanelState } from "../types/PanelState.js";
-import type { WssClientCommandMap } from "../types/index.js";
+import type { PanelState, WssClientCommandMap } from "../types/index.js";
 
 export class PanelController implements IPanelController {
   private state: PanelState = {
@@ -40,8 +37,11 @@ export class PanelController implements IPanelController {
     private guiManager: IPanelGuiManager,
     private wssManager: IPanelWssManager,
     private httpManager: IHttpManager,
-    private webRtcManager: IWebRtcManager,
-  ) {}
+    private webRtcManager: IPanelWebRtcManager,
+    private logger: IClientLogger,
+  ) {
+    this.logger = this.logger.child({ context: "PanelController" });
+  }
 
   init(): void {
     this.bindListeners();
@@ -70,6 +70,8 @@ export class PanelController implements IPanelController {
       onClose: () => this.handleWssClose(),
       onError: () => this.handleWssError(),
       onMessage: this.handleWssMessage.bind(this),
+      onServerRestored: () => this.handleWssServerRestored(),
+      onHeartbeatTimeout: () => this.handleHeartbeatTimeout(),
     });
     window.addEventListener("storage", (e) => this.handleTabReloadCommand(e));
   }
@@ -101,7 +103,7 @@ export class PanelController implements IPanelController {
         this.guiManager.setLoginError(
           "An error has occurred, please reload the page",
         );
-      console.error(
+      this.logger.error(
         `Username and password are of different types in handleLoginAttempt`,
       );
       return;
@@ -131,7 +133,7 @@ export class PanelController implements IPanelController {
       this.guiManager.setLoginError(null);
       this.attemptHardLogin();
     } catch (error) {
-      console.error("Critical Login Error:", error);
+      this.logger.error("Critical Login Error:", error);
       if (!hideGuiErrors)
         this.guiManager.setLoginError(
           "Connection failed. Check your internet.",
@@ -141,7 +143,7 @@ export class PanelController implements IPanelController {
   }
 
   private attemptHardLogin(): void {
-    console.log("Attempting hard login");
+    this.logger.info("Attempting hard login");
     if (!this.wssManager.isRunning) this.wssManager.start();
   }
 
@@ -162,6 +164,7 @@ export class PanelController implements IPanelController {
       window.location.replace(url.toString());
       return;
     }
+    this.wssManager.monitorHeartbeatWatchdog(false);
     window.location.reload();
   }
 
@@ -175,16 +178,24 @@ export class PanelController implements IPanelController {
   //WSS Handlers:
 
   private handleWssOpen() {
-    console.log("WebSocket connection open");
+    this.logger.success("WebSocket connection open");
     this.wssManager.sendMessage("USER_LOGIN", null);
   }
 
   private handleWssClose() {
-    console.log("WebSocket connection closed");
+    this.logger.error("WebSocket connection closed");
+    this.handleWssDisconnection();
   }
 
   private handleWssError() {
-    console.log("WebSocket connection error");
+    this.logger.error("WebSocket connection error");
+    this.handleWssDisconnection();
+  }
+
+  private handleWssDisconnection() {
+    this.guiManager.setErrorModal(true);
+    this.wssManager.monitorServerRecovery(true);
+    this.wssManager.monitorHeartbeatWatchdog(false);
   }
 
   private handleWssMessage<K extends WssDownstream>(
@@ -195,10 +206,21 @@ export class PanelController implements IPanelController {
     command(payload);
   }
 
+  handleWssServerRestored(): void {
+    this.logger.info("Server restored");
+    window.location.reload();
+  }
+
+  private handleHeartbeatTimeout(): void {
+    this.logger.error("Heartbeat timeout");
+    this.handleWssDisconnection();
+  }
+
   private handleHeartbeatRequest({ timestamp }: HeartbeatRequestPayload): void {
     this.wssManager.sendMessage("HEARTBEAT_RESPONSE", {
       timestamp,
     });
+    this.wssManager.notifyHeartbeatReceived();
   }
 
   private handleLoginResponse({
@@ -209,12 +231,11 @@ export class PanelController implements IPanelController {
   }: WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]) {
     this.guiManager.setLoginLoading(false);
 
-    console.log(
+    this.logger.info(
       `Login Response: success: ${success}, message: ${message}, userInfo:`,
       userInfo,
-      "audioInfo:",
-      audioInfo,
     );
+    this.logger.info("audioInfo:", audioInfo);
 
     if (!success) {
       this.guiManager.setLoginError(message);
@@ -222,7 +243,7 @@ export class PanelController implements IPanelController {
     }
     if (!userInfo || !audioInfo) {
       this.guiManager.setLoginError("Error retrieving user information");
-      console.error(
+      this.logger.error(
         `Login state violation: Server returned success: true, but userInfo or audioInfo is missing from the payload`,
       );
       return;
@@ -232,6 +253,7 @@ export class PanelController implements IPanelController {
     this.state.audioInfo = audioInfo;
     this.guiManager.displayState(this.state);
     this.guiManager.setLoginVisible(false);
+    this.wssManager.monitorHeartbeatWatchdog(true);
     this.reloadOtherTabs();
   }
 
@@ -244,7 +266,7 @@ export class PanelController implements IPanelController {
   private handleAudioInfoUpdate(
     audioInfo: WssPayloads[typeof WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE],
   ) {
-    console.log("Handling audio info update:", audioInfo);
+    this.logger.info("Handling audio info update:", audioInfo);
     this.state.audioInfo = audioInfo;
     this.guiManager.displayAudioInfo(this.state.audioInfo);
   }

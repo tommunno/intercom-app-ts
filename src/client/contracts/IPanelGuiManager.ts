@@ -32,4 +32,5 @@ export interface IPanelGuiManager {
   displayState: (state: PanelState) => void;
   displayUserInfo: (userInfo: UserInfo) => void;
   displayAudioInfo: (audioInfo: AudioInfo) => void;
+  setErrorModal: (visible: boolean) => void;
 }

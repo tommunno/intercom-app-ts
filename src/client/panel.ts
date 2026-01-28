@@ -2,27 +2,31 @@ import type {
   IHttpManager,
   IPanelController,
   IPanelGuiManager,
-  IWebRtcManager,
+  IPanelWebRtcManager,
   IPanelWssManager,
+  IClientLogger,
 } from "./contracts/index.js";
 import {
   HttpManager,
   PanelGuiManager,
-  WebRtcManager,
+  PanelWebRtcManager,
   PanelWssManager,
+  ClientLogger,
 } from "./managers/index.js";
 import { PanelController } from "./controllers/index.js";
 
-const guiManager: IPanelGuiManager = new PanelGuiManager();
-const wssManager: IPanelWssManager = new PanelWssManager();
-const httpManager: IHttpManager = new HttpManager();
-const webRtcManager: IWebRtcManager = new WebRtcManager();
+const logger: IClientLogger = new ClientLogger();
+const guiManager: IPanelGuiManager = new PanelGuiManager(logger);
+const wssManager: IPanelWssManager = new PanelWssManager(logger);
+const httpManager: IHttpManager = new HttpManager(logger);
+const webRtcManager: IPanelWebRtcManager = new PanelWebRtcManager(logger);
 
 const controller: IPanelController = new PanelController(
   guiManager,
   wssManager,
   httpManager,
   webRtcManager,
+  logger,
 );
 
 controller.init();

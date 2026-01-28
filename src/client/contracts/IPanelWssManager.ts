@@ -1,4 +1,5 @@
 import type {
+  WSS_DOWNSTREAM,
   WssDownstream,
   WssPayloads,
   WssUpstream,
@@ -9,6 +10,8 @@ export interface PanelWssHandlers {
   onClose: () => void;
   onError: () => void;
   onMessage: PanelWssMessageHandler;
+  onServerRestored: () => void;
+  onHeartbeatTimeout: () => void;
 }
 
 export type PanelWssMessageHandler = <K extends WssDownstream>(
@@ -25,4 +28,7 @@ export interface IPanelWssManager {
     type: K,
     payload: WssPayloads[K],
   ) => void;
+  monitorServerRecovery: (monitor: boolean) => void;
+  monitorHeartbeatWatchdog: (monitor: boolean) => void;
+  notifyHeartbeatReceived: () => void;
 }

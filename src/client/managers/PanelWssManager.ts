@@ -1,19 +1,41 @@
-import type { IPanelWssManager, PanelWssHandlers } from "../contracts/index.js";
+import type {
+  IClientLogger,
+  IPanelWssManager,
+  PanelWssHandlers,
+} from "../contracts/index.js";
 import type { ManagerStatus } from "../../shared/types/index.js";
 import {
   payloadIsValidForType,
+  WSS_DOWNSTREAM,
   type WssDownstream,
   type WssPayloads,
   type WssUpstream,
 } from "../../shared/protocols/index.js";
-import { dataIsWssDownstreamResponse } from "../types/WssDownstreamResponse.js";
-status;
+import {
+  dataIsWssDownstreamResponse,
+  type WssConnectionStatus,
+} from "../types/index.js";
+import {
+  HEARTBEAT_TIMEOUT_MS,
+  SERVER_RECOVERY_PROBE_INTERVAL_MS,
+} from "../constants/clientConstants.js";
+
 export class PanelWssManager implements IPanelWssManager {
   private status: ManagerStatus = "IDLE";
+  private connectionStatus: WssConnectionStatus = "IDLE";
   private handlers: PanelWssHandlers | null = null;
   private protocol = window.location.protocol === "https:" ? "wss" : "ws";
   private wsUrl = `${this.protocol}://${window.location.host}/`;
+  private serverRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatRunning = false;
+  private heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private recoveryRunning = false;
   private ws: WebSocket | null = null;
+
+  constructor(private logger: IClientLogger) {
+    this.logger = this.logger.child({ context: "PanelWssManager" });
+  }
 
   init(): void {
     if (this.status !== "IDLE") {
@@ -48,14 +70,14 @@ export class PanelWssManager implements IPanelWssManager {
     if (this.checkAndWarnIfNotRunning("send message")) return;
 
     if (!this.ws) {
-      console.error(
+      this.logger.error(
         `Cannot send WebSocket message: WebSocket instance is null`,
       );
       return;
     }
 
     if (this.ws.readyState !== WebSocket.OPEN) {
-      console.warn(
+      this.logger.warn(
         `WSS send skipped: socket not OPEN (state=${this.ws.readyState}). type=${type}`,
       );
       return;
@@ -63,28 +85,104 @@ export class PanelWssManager implements IPanelWssManager {
     this.ws.send(JSON.stringify({ type, payload }));
   }
 
+  monitorServerRecovery(monitor: boolean): void {
+    if (this.checkAndWarnIfNotRunning("monitor server recovery")) return;
+
+    if (!monitor) {
+      this.recoveryRunning = false;
+      if (this.serverRecoveryTimer) {
+        clearTimeout(this.serverRecoveryTimer);
+        this.serverRecoveryTimer = null;
+      }
+      return;
+    }
+
+    if (this.recoveryRunning) return; // prevent duplicates
+    this.recoveryRunning = true;
+
+    const probe = async () => {
+      try {
+        const response = await fetch("/", {
+          method: "HEAD", //no response body
+          cache: "no-store", //always hit the network, don't cache
+        });
+
+        if (response.ok) {
+          this.recoveryRunning = false;
+          this.serverRecoveryTimer = null;
+          this.activeHandlers.onServerRestored();
+          return;
+        }
+      } catch {
+        // ignore and retry
+      }
+
+      this.serverRecoveryTimer = setTimeout(
+        probe,
+        SERVER_RECOVERY_PROBE_INTERVAL_MS,
+      );
+    };
+
+    probe();
+  }
+
+  monitorHeartbeatWatchdog(monitor: boolean): void {
+    if (this.checkAndWarnIfNotRunning("monitor server recovery")) return;
+
+    if (!monitor) {
+      this.heartbeatRunning = false;
+      if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+      return;
+    }
+
+    if (this.heartbeatRunning) return;
+    this.heartbeatRunning = true;
+
+    //Start the countdown immediately
+    this.notifyHeartbeatReceived();
+  }
+
+  notifyHeartbeatReceived(): void {
+    if (!this.heartbeatRunning) return;
+
+    this.logger.info("Heartbeat received");
+
+    if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
+    this.heartbeatTimer = setTimeout(() => {
+      this.heartbeatRunning = false;
+      this.heartbeatTimer = null;
+      this.activeHandlers.onHeartbeatTimeout();
+    }, HEARTBEAT_TIMEOUT_MS);
+  }
+
   private handleWebSocketEvents() {
     if (!this.ws) {
-      console.error(`Cannot bind WebSocket events: WebSocket instance is null`);
+      this.logger.error(
+        `Cannot bind WebSocket events: WebSocket instance is null`,
+      );
       return;
     }
 
     this.ws.onopen = async () => {
+      this.connectionStatus = "OPEN";
       this.activeHandlers.onOpen();
     };
 
     this.ws.onclose = async () => {
+      this.connectionStatus = "CLOSE";
       this.activeHandlers.onClose();
     };
 
     this.ws.onerror = async (error) => {
+      this.connectionStatus = "ERROR";
       this.activeHandlers.onError();
     };
   }
 
   private handleMessages() {
     if (!this.ws) {
-      console.error(
+      this.logger.error(
         `Cannot handle WebSocket messages: WebSocket instance is null`,
       );
       return;
@@ -94,18 +192,18 @@ export class PanelWssManager implements IPanelWssManager {
         const json: unknown = JSON.parse(event.data);
         //Check the 'universal' type
         if (!dataIsWssDownstreamResponse(json)) {
-          console.warn("Malformed message structure");
+          this.logger.warn("Malformed message structure");
           return;
         }
 
         //Now we can safely destructure these
         const { type, payload } = json;
 
-        console.info(`Message type: ${type}`);
+        this.logger.info(`Message type: ${type}`);
 
         this.handleMessage(type, payload);
       } catch (error) {
-        console.error("Failed to parse JSON:", error);
+        this.logger.error("Failed to parse JSON:", error);
         return;
       }
     };
@@ -116,10 +214,11 @@ export class PanelWssManager implements IPanelWssManager {
     payload: unknown,
   ): void {
     if (!payloadIsValidForType(type, payload)) {
-      console.warn(`Payload not valid for message of type ${type}`);
+      this.logger.warn(`Payload not valid for message of type ${type}`);
       return;
     }
-    console.info(`Message payload valid for type: ${type}`);
+    this.logger.success(`Message payload valid for type: ${type}`);
+
     this.activeHandlers.onMessage(type, payload);
   }
 
@@ -130,7 +229,9 @@ export class PanelWssManager implements IPanelWssManager {
 
   private checkAndWarnIfNotRunning(action: string): boolean {
     if (this.status !== "RUNNING") {
-      console.error(`Unable to ${action} because the status is ${this.status}`);
+      this.logger.error(
+        `Unable to ${action} because the status is ${this.status}`,
+      );
       return true;
     }
     return false;

@@ -3,10 +3,14 @@ import type {
   HttpLoginResponse,
   ManagerStatus,
 } from "../../shared/types/index.js";
-import type { IHttpManager } from "../contracts/index.js";
+import type { IClientLogger, IHttpManager } from "../contracts/index.js";
 
 export class HttpManager implements IHttpManager {
   private status: ManagerStatus = "IDLE";
+
+  constructor(private logger: IClientLogger) {
+    this.logger = this.logger.child({ context: "HttpManager" });
+  }
 
   start(): void {
     if (this.status !== "INITIALIZED") {
@@ -47,7 +51,9 @@ export class HttpManager implements IHttpManager {
 
   private checkAndWarnIfNotRunning(action: string): boolean {
     if (this.status !== "RUNNING") {
-      console.error(`Unable to ${action} because the status is ${this.status}`);
+      this.logger.error(
+        `Unable to ${action} because the status is ${this.status}`,
+      );
       return true;
     }
     return false;
