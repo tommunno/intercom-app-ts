@@ -1,10 +1,10 @@
 //Helpers:
+import { dataIsObject, dataIsType, dataIsTypeAOrB } from "../helpers.js";
 import {
-  dataIsArrayOfType,
-  dataIsObject,
-  dataIsType,
-  dataIsTypeAOrB,
-} from "../helpers.js";
+  dataIsArrayOfSessionTokenInfos,
+  dataIsSessionTokenInfo,
+  type SessionTokenInfo,
+} from "./SessionTokenInfo.js";
 
 export interface BaseUser {
   id: number;
@@ -15,8 +15,8 @@ export interface BaseUser {
 export interface User extends BaseUser {
   loggedIn: boolean;
   clientId: string | null;
-  sessionTokenInUse: string | null;
-  sessionTokens: string[];
+  sessionTokenInfoInUse: SessionTokenInfo | null;
+  sessionTokenInfos: SessionTokenInfo[];
   lastHeartbeatResponse: number | null;
 }
 
@@ -35,8 +35,9 @@ export function dataIsUser(data: unknown): data is User {
     dataIsBaseUser(data) &&
     dataIsType("boolean", data.loggedIn) &&
     dataIsTypeAOrB("string", "null", data.clientId) &&
-    dataIsTypeAOrB("string", "null", data.sessionTokenInUse) &&
-    dataIsArrayOfType("string", data.sessionTokens) &&
+    (dataIsSessionTokenInfo(data.sessionTokenInfoInUse) ||
+      data.sessionTokenInfoInUse === null) &&
+    dataIsArrayOfSessionTokenInfos(data.sessionTokenInfos) &&
     dataIsTypeAOrB("number", "null", data.lastHeartbeatResponse)
   );
 }

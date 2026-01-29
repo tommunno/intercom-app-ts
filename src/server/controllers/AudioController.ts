@@ -37,7 +37,7 @@ export class AudioController implements IAudioController {
 
   start(): void {
     // Trigger the check to ensure we are ready to roll
-    const ready = this.activeHandlers;
+    void this.activeHandlers;
     this.audioMatrixManager.start();
     this.tailManager.start();
   }

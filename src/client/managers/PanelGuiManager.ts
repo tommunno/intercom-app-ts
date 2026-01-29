@@ -79,7 +79,7 @@ export class PanelGuiManager implements IPanelGuiManager {
       );
     }
     // Trigger the check to ensure we are ready to roll
-    const ready = this.activeHandlers;
+    void this.activeHandlers;
     this.setupListeners();
     this.status = "RUNNING";
   }

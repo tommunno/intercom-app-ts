@@ -37,7 +37,7 @@ export class NetworkController implements INetworkController {
 
   start(): void {
     // Trigger the check to ensure we are ready to roll
-    const ready = this.activeHandlers;
+    void this.activeHandlers;
     this.webServerManager.start();
     this.wssManager.start();
   }

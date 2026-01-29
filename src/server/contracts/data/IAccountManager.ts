@@ -1,4 +1,7 @@
-import type { HeartbeatRequestPayload } from "../../../shared/types/index.js";
+import type {
+  HeartbeatRequestPayload,
+  SessionTokenInfo,
+} from "../../../shared/types/index.js";
 import type {
   AuthResult,
   BaseUser,

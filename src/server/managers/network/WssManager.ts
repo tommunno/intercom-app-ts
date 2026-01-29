@@ -69,7 +69,7 @@ export class WssManager implements IWssManager {
       );
     }
     // Trigger the check to ensure we are ready to roll
-    const ready = this.activeHandlers;
+    void this.activeHandlers;
 
     if (this.ws) this.attachWebSocketHandlers(this.ws);
     if (this.wss) this.attachWebSocketHandlers(this.wss);
@@ -141,7 +141,7 @@ export class WssManager implements IWssManager {
       const ws = this.clients.get(id);
       if (!ws) {
         this.logger.error(
-          `Message delivery failed: No active session found for clientId ${id}`,
+          `Message delivery failed for message type ${type}: No active session found for clientId ${id}`,
         );
         return;
       }

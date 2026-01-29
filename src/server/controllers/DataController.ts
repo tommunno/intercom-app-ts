@@ -1,3 +1,4 @@
+//Types:
 import { dataIsType } from "../../shared/helpers.js";
 import type {
   AuthResult,
@@ -5,6 +6,7 @@ import type {
   LoginCredentials,
   UserInfo,
 } from "../../shared/types/index.js";
+
 import type {
   DataHandlers,
   IAccountManager,
@@ -12,6 +14,8 @@ import type {
   IDataManager,
   ILogger,
 } from "../contracts/index.js";
+//Constants:
+import { SESSION_DURATION_MS } from "../constants/serverConstants.js";
 
 export class DataController implements IDataController {
   private handlers: DataHandlers | null = null;
@@ -36,8 +40,17 @@ export class DataController implements IDataController {
           username: "tom",
           password: null,
           clientId: null,
-          sessionTokenInUse: null,
-          sessionTokens: ["afjodij", "jafodisjoidfj"],
+          sessionTokenInfoInUse: null,
+          sessionTokenInfos: [
+            {
+              token: "aaa",
+              expiresAtMs: Date.now() + SESSION_DURATION_MS,
+            },
+            {
+              token: "bbb",
+              expiresAtMs: Date.now() + SESSION_DURATION_MS,
+            },
+          ],
           lastHeartbeatResponse: null,
         },
         {
@@ -46,8 +59,17 @@ export class DataController implements IDataController {
           username: "ben",
           password: null,
           clientId: null,
-          sessionTokenInUse: null,
-          sessionTokens: ["fadf", "jafodisjfadsdf"],
+          sessionTokenInfoInUse: null,
+          sessionTokenInfos: [
+            {
+              token: "ccc",
+              expiresAtMs: Date.now() + SESSION_DURATION_MS,
+            },
+            {
+              token: "ddd",
+              expiresAtMs: Date.now() + SESSION_DURATION_MS,
+            },
+          ],
           lastHeartbeatResponse: null,
         },
         {
@@ -56,8 +78,17 @@ export class DataController implements IDataController {
           username: "mark",
           password: null,
           clientId: null,
-          sessionTokenInUse: null,
-          sessionTokens: ["dd", "fss"],
+          sessionTokenInfoInUse: null,
+          sessionTokenInfos: [
+            {
+              token: "eee",
+              expiresAtMs: Date.now() + SESSION_DURATION_MS,
+            },
+            {
+              token: "fff",
+              expiresAtMs: Date.now() + SESSION_DURATION_MS,
+            },
+          ],
           lastHeartbeatResponse: null,
         },
       ],
@@ -67,7 +98,7 @@ export class DataController implements IDataController {
 
   start() {
     // Trigger the check to ensure we are ready to roll
-    const ready = this.activeHandlers;
+    void this.activeHandlers;
     this.accountManager.start();
     //Test:
     this.accountManager.updateUsers([

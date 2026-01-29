@@ -7,6 +7,7 @@ import {
   type BaseUser,
   dataIsUser,
   type UserInfo,
+  type SessionTokenInfo,
 } from "../../../shared/types/index.js";
 //Server Types:
 import type { AccountManagerConfig } from "../../types/index.js";
@@ -22,6 +23,8 @@ import {
   ACCOUNT_HEARTBEAT_DURATION_MS,
   ACCOUNT_STALE_HEARTBEAT_MS,
   SALT_ROUNDS,
+  SESSION_CLEANUP_INTERVAL_MS,
+  SESSION_DURATION_MS,
 } from "../../constants/serverConstants.js";
 import {
   MAX_PASSWORD_LENGTH,
@@ -39,6 +42,8 @@ export class AccountManager implements IAccountManager {
   private numUsers: number = 0;
   private users: User[] = [];
   private heartbeatIntervalId: ReturnType<typeof setInterval> | null = null;
+  private sessionCleanupIntervalId: ReturnType<typeof setInterval> | null =
+    null;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AccountManager" });
@@ -62,8 +67,9 @@ export class AccountManager implements IAccountManager {
       );
     }
     // Trigger the check to ensure we are ready to roll
-    const ready = this.activeHandlers;
+    void this.activeHandlers;
     this.startHeartbeat();
+    this.startSessionCleanup();
     this.status = "RUNNING";
   }
 
@@ -77,6 +83,7 @@ export class AccountManager implements IAccountManager {
     this.numUsers = 0;
     this.users = [];
     this.stopHeartbeat();
+    this.stopSessionCleanup();
     this.status = "IDLE";
   }
 
@@ -105,18 +112,19 @@ export class AccountManager implements IAccountManager {
         continue;
       }
       const data = loadedUsers[i];
-      if (dataIsUser(data) && this.validateUser(data))
+      if (dataIsUser(data) && this.validateUser(data)) {
+        const infos = this.getValidSessionTokenInfos(data.sessionTokenInfos);
         this.users.push({
           id: i,
           username: data.username,
           password: data.password,
           loggedIn: false,
           clientId: null,
-          sessionTokenInUse: null,
-          sessionTokens: [...data.sessionTokens],
+          sessionTokenInfoInUse: null,
+          sessionTokenInfos: infos,
           lastHeartbeatResponse: null,
         });
-      else {
+      } else {
         this.logger.warn(
           `User data could not be loaded correctly. Invalid user at index ${i}. Starting with an empty user list`,
         );
@@ -148,8 +156,8 @@ export class AccountManager implements IAccountManager {
       password: null,
       loggedIn: false,
       clientId: null,
-      sessionTokenInUse: null,
-      sessionTokens: [],
+      sessionTokenInfoInUse: null,
+      sessionTokenInfos: [],
       lastHeartbeatResponse: null,
     };
   }
@@ -227,11 +235,23 @@ export class AccountManager implements IAccountManager {
       };
     }
 
-    const foundUser = this.users.find((user) =>
-      user.sessionTokens.includes(sessionToken),
-    );
+    let foundUser: User | undefined;
+    let sessionTokenInfo: SessionTokenInfo | undefined;
 
-    if (!foundUser) {
+    for (const user of this.users) {
+      const info = user.sessionTokenInfos.find((i) => i.token === sessionToken);
+      if (info) {
+        foundUser = user;
+        sessionTokenInfo = info;
+        break;
+      }
+    }
+
+    if (
+      !foundUser ||
+      !sessionTokenInfo ||
+      this.sessionTokenInfoHasExpired(sessionTokenInfo)
+    ) {
       return {
         ...baseResult,
         message: "Invalid session token",
@@ -240,7 +260,8 @@ export class AccountManager implements IAccountManager {
     }
     //We have now found a user
 
-    const sessionTokenMatch = sessionToken === foundUser.sessionTokenInUse;
+    const sessionTokenMatch =
+      sessionToken === foundUser.sessionTokenInfoInUse?.token;
 
     //If the user is already logged in and the client is logging in using a different sessionToken, we don't allow this
     if (foundUser.loggedIn && !sessionTokenMatch) {
@@ -326,8 +347,8 @@ export class AccountManager implements IAccountManager {
     }
     user.loggedIn = true;
     user.clientId = clientId;
-    user.sessionTokenInUse = sessionToken;
-    this.addUniqueSessionToken(user, sessionToken);
+    const sessionTokenInfo = this.addUniqueSessionToken(user, sessionToken);
+    user.sessionTokenInfoInUse = sessionTokenInfo;
     user.lastHeartbeatResponse = null;
 
     if (loginTakeover) {
@@ -377,11 +398,11 @@ export class AccountManager implements IAccountManager {
     this.users.forEach((user) => {
       if (!user.loggedIn || !user.clientId) return;
       clientIds.push(user.clientId);
-      const startTime = user.lastHeartbeatResponse;
-      if (startTime === null) return;
+      const lastResponseAt = user.lastHeartbeatResponse;
+      if (lastResponseAt === null) return;
 
       const endTime = Date.now();
-      const timeElapsed = endTime - startTime;
+      const timeElapsed = endTime - lastResponseAt;
 
       if (timeElapsed > ACCOUNT_STALE_HEARTBEAT_MS) {
         this.activeHandlers.onStaleHeartbeat(user.clientId);
@@ -428,13 +449,14 @@ export class AccountManager implements IAccountManager {
     user.clientId = null;
     user.lastHeartbeatResponse = null;
 
-    if (hardLogout && user.sessionTokenInUse) {
-      user.sessionTokens = user.sessionTokens.filter(
-        (t) => t !== user.sessionTokenInUse,
+    if (hardLogout && user.sessionTokenInfoInUse) {
+      const { sessionTokenInfoInUse } = user;
+      user.sessionTokenInfos = user.sessionTokenInfos.filter(
+        (info) => info.token !== sessionTokenInfoInUse.token,
       );
     }
 
-    user.sessionTokenInUse = null;
+    user.sessionTokenInfoInUse = null;
 
     this.logger.info(`Logged out user ${user.id}`);
 
@@ -523,7 +545,7 @@ export class AccountManager implements IAccountManager {
 
   getUserInfo(userId: number): UserInfo | null {
     const result = this.checkAndWarnIfNotRunning("get user info");
-    if (result) null;
+    if (result) return null;
 
     const user = this.users.find((usr) => usr.id === userId);
     if (!user) {
@@ -537,7 +559,7 @@ export class AccountManager implements IAccountManager {
 
   processHeartbeatResponse(timestamp: number, clientId: string): void {
     const result = this.checkAndWarnIfNotRunning("process heartbeat response");
-    if (result) null;
+    if (result) return;
     const foundUser = this.users.find((user) => user.clientId === clientId);
     if (!foundUser) return;
     if (!foundUser.loggedIn) {
@@ -556,21 +578,21 @@ export class AccountManager implements IAccountManager {
       return false;
     }
     if (
-      user.sessionTokenInUse !== null &&
-      user.sessionTokenInUse.trim() === ""
+      user.sessionTokenInfoInUse !== null &&
+      user.sessionTokenInfoInUse.token.trim() === ""
     ) {
       this.logger.warn(
-        `User ${user.username} has an invalid sessionTokenInUse`,
+        `User ${user.username} has an invalid sessionTokenInfoInUse`,
       );
       return false;
     }
-    const tokens = user.sessionTokens.map((t) => t.trim());
+    const tokens = user.sessionTokenInfos.map((info) => info.token.trim());
     const someElsEmpty = tokens.some((t) => t === "");
     const hasDuplicates = new Set(tokens).size !== tokens.length;
 
     if (someElsEmpty || hasDuplicates) {
       this.logger.warn(
-        `User ${user.username} has an invalid sessionTokens array` +
+        `User ${user.username} has an invalid sessionTokenInfos array` +
           (someElsEmpty ? " (empty token)" : "") +
           (hasDuplicates ? " (duplicate token)" : ""),
       );
@@ -620,7 +642,61 @@ export class AccountManager implements IAccountManager {
     return null;
   }
 
-  private addUniqueSessionToken(user: User, token: string): void {
-    if (!user.sessionTokens.includes(token)) user.sessionTokens.push(token);
+  private addUniqueSessionToken(user: User, token: string): SessionTokenInfo {
+    const foundSessionTokenInfo = user.sessionTokenInfos.find(
+      (info) => info.token === token,
+    );
+    if (foundSessionTokenInfo) return foundSessionTokenInfo;
+
+    const sessionTokenInfo = {
+      token,
+      expiresAtMs: Date.now() + SESSION_DURATION_MS,
+    };
+    user.sessionTokenInfos.push(sessionTokenInfo);
+    return sessionTokenInfo;
+  }
+
+  private getValidSessionTokenInfos(
+    sessionTokenInfos: SessionTokenInfo[],
+  ): SessionTokenInfo[] {
+    const now = Date.now();
+    return sessionTokenInfos.filter((info) => {
+      return !this.sessionTokenInfoHasExpired(info, now);
+    });
+  }
+
+  private sessionTokenInfoHasExpired(
+    sessionTokenInfo: SessionTokenInfo,
+    now: number = Date.now(),
+  ): boolean {
+    return sessionTokenInfo.expiresAtMs < now;
+  }
+
+  private startSessionCleanup(): void {
+    if (this.sessionCleanupIntervalId !== null) {
+      clearInterval(this.sessionCleanupIntervalId);
+    }
+    this.sessionCleanupIntervalId = setInterval(
+      () => this.cleanupSessions(),
+      SESSION_CLEANUP_INTERVAL_MS,
+    );
+  }
+
+  private stopSessionCleanup(): void {
+    if (this.sessionCleanupIntervalId === null) return;
+    clearInterval(this.sessionCleanupIntervalId);
+    this.sessionCleanupIntervalId = null;
+  }
+
+  private cleanupSessions(): void {
+    this.logger.info("Cleaning up sessions");
+
+    this.users.forEach((user) => {
+      user.sessionTokenInfos = this.getValidSessionTokenInfos(
+        user.sessionTokenInfos,
+      );
+    });
+    //Temporary for testing:
+    // this.logger.info("Users:", this.users);
   }
 }

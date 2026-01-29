@@ -71,8 +71,14 @@ export class Controller implements IController {
   // Optional loginTakeover lets the client know that this is the result of a loginTakeover
   // logout: true means client will be logged out first
   // hardLogout: true means the sessionToken will expire
+  // notifyClient: true means a message will be sent to the client to notify them that they have been logged out
   private closeClient(params: CloseClientParams) {
-    const { clientId, loginTakeover = false, logout } = params;
+    const {
+      clientId,
+      loginTakeover = false,
+      logout,
+      notifyClient = true,
+    } = params;
     let chosenUserId: number | null;
 
     if (logout) {
@@ -89,11 +95,13 @@ export class Controller implements IController {
     }
 
     this.audioController.disconnectUser(chosenUserId);
-    this.networkController.sendWssMessage(
-      "USER_FORCE_LOGOUT",
-      { loginTakeover },
-      [clientId],
-    );
+    console.log("In closeClient section before force logout");
+    if (notifyClient)
+      this.networkController.sendWssMessage(
+        "USER_FORCE_LOGOUT",
+        { loginTakeover },
+        [clientId],
+      );
   }
 
   //Handle AudioController:
@@ -149,11 +157,11 @@ export class Controller implements IController {
   }
 
   private handleClientDisconnect(clientId: string) {
-    this.closeClient({ logout: true, clientId });
+    this.closeClient({ logout: true, clientId, notifyClient: false });
   }
 
   private handleClientError(clientId: string) {
-    this.closeClient({ logout: true, clientId });
+    this.closeClient({ logout: true, clientId, notifyClient: false });
   }
 
   private handleHeartbeatResponse(
@@ -199,6 +207,7 @@ export class Controller implements IController {
         this.networkController.sendLoginFailureMessage(clientId);
         return;
       }
+      console.log("In loginTakeover section before force logout");
       this.logger.info(
         `handleUserLogin: Sending force logout message to clientId: ${result.loggedOutClientId}`,
       );
