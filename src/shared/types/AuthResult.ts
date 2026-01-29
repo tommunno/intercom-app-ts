@@ -16,4 +16,8 @@ export type AuthResult =
       loginTakeover: true;
       loggedOutClientId: string;
     }
-  | { success: false; message: string; statusCode: number };
+  | {
+      success: false;
+      message: string;
+      statusCode: number;
+    };

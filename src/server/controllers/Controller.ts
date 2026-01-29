@@ -16,7 +16,12 @@ import {
   type WssUpstream,
   WSS_UPSTREAM,
 } from "../../shared/protocols/index.js";
-import type { CloseClientParams, WssCommandMap } from "../types/index.js";
+import type {
+  CloseClientParams,
+  DisconnectUserParams,
+  LogoutClientParams,
+  WssCommandMap,
+} from "../types/index.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
@@ -66,42 +71,52 @@ export class Controller implements IController {
     });
   }
 
-  // logout: true ⇒ requires clientId, optional hardLogout
-  // logout: false ⇒ requires clientId + userId
-  // Optional loginTakeover lets the client know that this is the result of a loginTakeover
-  // logout: true means client will be logged out first
-  // hardLogout: true means the sessionToken will expire
-  // notifyClient: true means a message will be sent to the client to notify them that they have been logged out
-  private closeClient(params: CloseClientParams) {
-    const {
-      clientId,
-      loginTakeover = false,
-      logout,
-      notifyClient = true,
-    } = params;
-    let chosenUserId: number | null;
-
-    if (logout) {
-      const { hardLogout = false } = params;
-
-      chosenUserId = this.dataController.isClientIdLoggedIn(clientId);
-      if (chosenUserId === null) {
-        return;
-      }
-      chosenUserId = this.dataController.logoutUser(clientId, hardLogout);
-      if (chosenUserId === null) return;
-    } else {
-      chosenUserId = params.userId;
+  //Returns true if success, false if error
+  //If hardLogout=true, the sessionToken is removed as well
+  //If notifyClient=true, the client will be told they have been logged out
+  //loginTakeover tells the client whether they are being logged out due to a loginTakeover
+  private logoutClientIfLoggedIn({
+    clientId,
+    hardLogout = false,
+    notifyClient = false,
+    loginTakeover = false,
+  }: LogoutClientParams): boolean {
+    let userId = this.dataController.isClientIdLoggedIn(clientId);
+    if (userId === null) {
+      //Client is not logged in, hence we will not do anything. This is not an error
+      return true;
     }
+    userId = this.dataController.logoutUser(clientId, hardLogout);
+    if (userId === null) {
+      this.logger.error(
+        `An error has occured whilst logging out user with clientId ${clientId}. Will not continue with logout`,
+      );
+      return false;
+    }
+    const disconnectUserParams = {
+      userId,
+      notifyClient,
+      loginTakeover,
+      clientId,
+    };
+    return this.disconnectUser(disconnectUserParams);
+  }
 
-    this.audioController.disconnectUser(chosenUserId);
-    console.log("In closeClient section before force logout");
-    if (notifyClient)
+  //Returns true if success, false if error
+  //If notifyClient=true, you must provide a clientId
+  //loginTakeover tells the client whether they are being logged out due to a loginTakeover
+  private disconnectUser(params: DisconnectUserParams): boolean {
+    const { userId, notifyClient, loginTakeover = false } = params;
+    //If success is false, an internal error has occurred. This is logged inside of audioController. We continue to notify client that they have been logged out
+    const success = this.audioController.disconnectUser(userId);
+    if (notifyClient) {
       this.networkController.sendWssMessage(
         "USER_FORCE_LOGOUT",
         { loginTakeover },
-        [clientId],
+        [params.clientId],
       );
+    }
+    return success;
   }
 
   //Handle AudioController:
@@ -129,11 +144,11 @@ export class Controller implements IController {
     );
     //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
     if (result.success && result.loginTakeover) {
-      this.closeClient({
-        logout: false,
-        clientId: result.loggedOutClientId,
-        loginTakeover: true,
+      this.disconnectUser({
         userId: result.userId,
+        loginTakeover: true,
+        clientId: result.loggedOutClientId,
+        notifyClient: true,
       });
     }
     return result;
@@ -157,11 +172,11 @@ export class Controller implements IController {
   }
 
   private handleClientDisconnect(clientId: string) {
-    this.closeClient({ logout: true, clientId, notifyClient: false });
+    this.logoutClientIfLoggedIn({ clientId });
   }
 
   private handleClientError(clientId: string) {
-    this.closeClient({ logout: true, clientId, notifyClient: false });
+    this.logoutClientIfLoggedIn({ clientId });
   }
 
   private handleHeartbeatResponse(
@@ -196,26 +211,25 @@ export class Controller implements IController {
     const audioInfo = this.audioController.getAudioInfo(userId);
 
     if (!userInfo || !audioInfo) {
+      //An internal error has occured
+      //This is logged inside of data and audio controller
       this.networkController.sendLoginFailureMessage(clientId);
       return;
     }
 
     //If a loginTakeover has taken place (meaning a client has been logged out to allow the new client to connect), disconnect the logged out client
     if (loginTakeover) {
-      const disconnectSuccess = this.audioController.disconnectUser(userId);
+      const disconnectSuccess = this.disconnectUser({
+        userId,
+        notifyClient: true,
+        loginTakeover,
+        clientId: result.loggedOutClientId,
+      });
+
       if (!disconnectSuccess) {
         this.networkController.sendLoginFailureMessage(clientId);
         return;
       }
-      console.log("In loginTakeover section before force logout");
-      this.logger.info(
-        `handleUserLogin: Sending force logout message to clientId: ${result.loggedOutClientId}`,
-      );
-      this.networkController.sendWssMessage(
-        "USER_FORCE_LOGOUT",
-        { loginTakeover: true },
-        [result.loggedOutClientId],
-      );
     }
     //Connect new client:
     const connectSuccess = this.audioController.connectUser(userId, clientId);
@@ -237,7 +251,7 @@ export class Controller implements IController {
     sessionToken: string | null,
   ): void {
     this.logger.info(`User logout request`);
-    this.closeClient({ logout: true, clientId, hardLogout: true });
+    this.logoutClientIfLoggedIn({ clientId, hardLogout: true });
   }
 
   private handleKeyPress(
@@ -269,6 +283,6 @@ export class Controller implements IController {
   }
 
   private handleStaleHeartbeat(clientId: string): void {
-    this.closeClient({ logout: true, clientId });
+    this.logoutClientIfLoggedIn({ clientId, notifyClient: true });
   }
 }
