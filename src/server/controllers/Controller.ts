@@ -17,7 +17,6 @@ import {
   WSS_UPSTREAM,
 } from "../../shared/protocols/index.js";
 import type {
-  CloseClientParams,
   DisconnectUserParams,
   LogoutClientParams,
   WssCommandMap,
@@ -45,14 +44,18 @@ export class Controller implements IController {
   init(): void {
     this.logger.info("Initializing");
     this.bindListeners();
-    this.networkController.init();
     this.dataController.init();
+    this.networkController.init();
     this.audioController.init();
   }
   start(): void {
     this.logger.info("Starting");
-    this.networkController.start();
     this.dataController.start();
+    const networkData = this.dataController.getNetworkData();
+    const audioData = this.dataController.getAudioData();
+    this.networkController.populate(networkData);
+    this.networkController.start();
+    this.audioController.populate(audioData);
     this.audioController.start();
   }
 
@@ -218,8 +221,9 @@ export class Controller implements IController {
 
     const userInfo = this.dataController.getUserInfo(userId);
     const audioInfo = this.audioController.getAudioInfo(userId);
+    const turnServerInfo = this.networkController.getTurnServerInfo();
 
-    if (!userInfo || !audioInfo) {
+    if (!userInfo || !audioInfo || !turnServerInfo) {
       //An internal error has occured
       //This is logged inside of data and audio controller
       this.networkController.sendLoginFailureMessage(clientId);
@@ -249,7 +253,7 @@ export class Controller implements IController {
 
     this.networkController.sendWssMessage(
       "USER_LOGIN_RESPONSE",
-      { success: true, message, userInfo, audioInfo },
+      { success: true, message, userInfo, audioInfo, turnServerInfo },
       [clientId],
     );
   }

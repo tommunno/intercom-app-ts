@@ -4,6 +4,8 @@ import type {
   LoginCredentials,
   UserInfo,
 } from "../../../shared/types/index.js";
+import type { AudioData } from "../../types/AudioData.js";
+import type { NetworkData } from "../../types/NetworkData.js";
 import type { WssSendMessage } from "../../types/WssSendMessage.js";
 
 export interface DataHandlers {
@@ -35,4 +37,7 @@ export interface IDataController {
   isUserIdLoggedIn: (userId: number) => string | null;
   getUserInfo: (userId: number) => UserInfo | null;
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
+
+  getNetworkData: () => NetworkData;
+  getAudioData: () => AudioData;
 }

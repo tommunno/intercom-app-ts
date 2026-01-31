@@ -12,6 +12,7 @@ export * from "./MergedPartylineInfo.js";
 export * from "./TailState.js";
 export * from "./KeyType.js";
 export * from "./KeyState.js";
+export * from "./KeyPressInfo.js";
 export * from "./SuccessMessage.js";
 export * from "./HeartbeatRequestPayload.js";
 export * from "./SessionTokenInfo.js";

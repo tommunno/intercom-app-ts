@@ -25,6 +25,13 @@ export class PanelController implements IPanelController {
     audioConnection: { status: "IDLE" },
     userInfo: { loggedIn: false, username: "" },
     audioInfo: { partylines: [] },
+    turnServerInfo: {
+      port: 3478,
+      credentials: {
+        username: "",
+        credential: "",
+      },
+    },
   };
   private readonly wssCommands: WssClientCommandMap = {
     HEARTBEAT_REQUEST: this.handleHeartbeatRequest.bind(this),
@@ -76,6 +83,7 @@ export class PanelController implements IPanelController {
       onServerRestored: () => this.handleWssServerRestored(),
       onHeartbeatTimeout: () => this.handleHeartbeatTimeout(),
     });
+    this.webRtcManager.setHandlers({});
     window.addEventListener("storage", (e) => this.handleTabReloadCommand(e));
   }
 
@@ -231,6 +239,7 @@ export class PanelController implements IPanelController {
     message,
     userInfo,
     audioInfo,
+    turnServerInfo,
   }: WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]) {
     this.guiManager.setLoginLoading(false);
 
@@ -238,22 +247,23 @@ export class PanelController implements IPanelController {
       `Login Response: success: ${success}, message: ${message}, userInfo:`,
       userInfo,
     );
-    this.logger.info("audioInfo:", audioInfo);
+    this.logger.info("turnServerInfo:", turnServerInfo);
 
     if (!success) {
       this.guiManager.setLoginError(message);
       return;
     }
-    if (!userInfo || !audioInfo) {
+    if (!userInfo || !audioInfo || !turnServerInfo) {
       this.guiManager.setLoginError("Error retrieving user information");
       this.logger.error(
-        `Login state violation: Server returned success: true, but userInfo or audioInfo is missing from the payload`,
+        `Login state violation: Server returned success: true, but userInfo, audioInfo or turnServerInfo is missing from the payload`,
       );
       return;
     }
     //Success:
     this.state.userInfo = userInfo;
     this.state.audioInfo = audioInfo;
+    this.state.turnServerInfo = turnServerInfo;
     this.guiManager.displayState(this.state);
     this.guiManager.setLoginVisible(false);
     this.wssManager.monitorHeartbeatWatchdog(true);

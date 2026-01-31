@@ -1,5 +1,4 @@
 //Helpers:
-import type { KeyType } from "../types/KeyType.js";
 import { dataIsObject, dataIsType } from "../helpers.js";
 //Types:
 import {
@@ -7,18 +6,13 @@ import {
   type UserInfo,
   dataIsAudioInfo,
   type AudioInfo,
-  type KeyState,
-  dataIsKeyType,
-  dataIsKeyState,
-} from "../types/index.js";
-import {
+  type TurnServerInfo,
   dataIsKeyPressInfo,
   type KeyPressInfo,
-} from "../../server/types/KeyPressInfo.js";
-import {
   dataIsHeartbeatRequestPayload,
   type HeartbeatRequestPayload,
-} from "../types/HeartbeatRequestPayload.js";
+  dataIsTurnServerInfo,
+} from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
 
@@ -80,6 +74,7 @@ type PayloadMap = {
     message: string;
     userInfo: UserInfo | null;
     audioInfo: AudioInfo | null;
+    turnServerInfo: TurnServerInfo | null;
   };
   [WSS_DOWNSTREAM.USER_FORCE_LOGOUT]: {
     loginTakeover: boolean;
@@ -158,7 +153,8 @@ export function dataIsWssUserLoginResponse(
     dataIsType("boolean", data.success) &&
     dataIsType("string", data.message) &&
     (dataIsUserInfo(data.userInfo) || data.userInfo === null) &&
-    (dataIsAudioInfo(data.audioInfo) || data.audioInfo === null)
+    (dataIsAudioInfo(data.audioInfo) || data.audioInfo === null) &&
+    (dataIsTurnServerInfo(data.turnServerInfo) || data.turnServerInfo === null)
   );
 }
 

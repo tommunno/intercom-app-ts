@@ -1,5 +1,9 @@
 //Types:
-import type { PeerConnectionInfo } from "../../types/index.js";
+import type {
+  PeerConnectionInfo,
+  RtcConfig,
+  RtcPeerConnectionIceErrorEvent,
+} from "../../types/index.js";
 import type {
   IWebRtcManager,
   ILogger,
@@ -16,30 +20,25 @@ import { WEB_RTC_DISCONNECT_TIMEOUT_MS } from "../../constants/serverConstants.j
 import wrtc from "@roamhq/wrtc";
 import type * as wrtcTypes from "@roamhq/wrtc";
 //Give me the type of the first argument of the onicecandidateerror callback:
-type WrtcIceCandidateErrorEvent = Parameters<
-  NonNullable<wrtcTypes.RTCPeerConnection["onicecandidateerror"]>
->[0];
 
 export class WebRtcManager implements IWebRtcManager {
   private status: ManagerStatus = "IDLE";
   private handlers: WebRtcHandlers | null = null;
-  private rtcConfig: RTCConfiguration | null = null;
+  private rtcConfig: RtcConfig | null = null;
+  private turnServerCredentials: TurnServerCredentials | null = null;
   private clients = new Map<string, PeerConnectionInfo>();
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "WebRtcManager" });
   }
 
-  init(
-    turnServerUrl: string,
-    turnServerCredentials: TurnServerCredentials,
-  ): void {
+  init(turnServerCredentials: TurnServerCredentials): void {
     if (this.status !== "IDLE") {
       throw new Error(
         `Cannot initialize the WebRtcManager whilst its status is ${this.status}`,
       );
     }
-    this.generateRtcConfig(turnServerUrl, turnServerCredentials);
+    this.turnServerCredentials = turnServerCredentials;
     this.status = "INITIALIZED";
   }
 
@@ -47,6 +46,11 @@ export class WebRtcManager implements IWebRtcManager {
     if (this.status !== "INITIALIZED") {
       throw new Error(
         `Cannot start the WebRtcManager whilst its status is ${this.status}`,
+      );
+    }
+    if (this.rtcConfig === null) {
+      throw new Error(
+        `Please generate an RTC config before starting the WebRtcManager`,
       );
     }
     // Trigger the check to ensure we are ready to roll
@@ -57,6 +61,21 @@ export class WebRtcManager implements IWebRtcManager {
 
   setHandlers(handlers: WebRtcHandlers): void {
     this.handlers = handlers;
+  }
+
+  generateRtcConfig(turnServerUrl: string): void {
+    if (this.status !== "INITIALIZED") {
+      this.logger.error(
+        `Unable to generate RTC config, because the status is ${this.status}. The status needs to be INITIALIZED in order to generate the config`,
+      );
+      return;
+    }
+    this.rtcConfig = {
+      iceServers: [
+        ...ICE_SERVERS,
+        { urls: [turnServerUrl], ...this.turnServerCredentials },
+      ],
+    };
   }
 
   createPeerConnection(clientId: string): void {
@@ -177,11 +196,11 @@ export class WebRtcManager implements IWebRtcManager {
       this.handlePeerConnectionStateChange(clientId, pc);
     };
 
-    pc.onicecandidate = (event) => {
+    pc.onicecandidate = (event: wrtcTypes.RTCPeerConnectionIceEvent) => {
       this.handlePeerConnectionIceCandidate(clientId, pc, event);
     };
 
-    pc.onicecandidateerror = (event) => {
+    pc.onicecandidateerror = (event: RtcPeerConnectionIceErrorEvent) => {
       this.handlePeerConnectionIceCandidateError(clientId, pc, event);
     };
   }
@@ -250,11 +269,14 @@ export class WebRtcManager implements IWebRtcManager {
   private handlePeerConnectionIceCandidateError(
     clientId: string,
     pc: wrtcTypes.RTCPeerConnection,
-    event: WrtcIceCandidateErrorEvent,
+    event: RtcPeerConnectionIceErrorEvent,
   ): void {
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed) return;
-    this.logger.warn(`ICE candidate error for ${clientId}`, event.errorText);
+    this.logger.warn(
+      `ICE candidate error (${event.errorCode}) for ${clientId}`,
+      event.errorText ?? "",
+    );
   }
 
   private handleDisconnectTimeout(
@@ -345,18 +367,6 @@ export class WebRtcManager implements IWebRtcManager {
     const foundPcInfo = this.clients.get(clientId);
     if (!foundPcInfo) return false;
     return foundPcInfo.pc === pcInfo.pc;
-  }
-
-  private generateRtcConfig(
-    turnServerUrl: string,
-    turnServerCredentials: TurnServerCredentials,
-  ): void {
-    this.rtcConfig = {
-      iceServers: [
-        ...ICE_SERVERS,
-        { urls: [turnServerUrl], ...turnServerCredentials },
-      ],
-    };
   }
 
   private get activeHandlers(): WebRtcHandlers {

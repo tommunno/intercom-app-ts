@@ -1,0 +1,3 @@
+{
+  "extends": "./tsconfig.client.json" //This is just so that VSCode will look at the correct tsconfig
+}

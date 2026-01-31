@@ -1,10 +1,10 @@
-import { dataIsObject, dataIsType } from "../../shared/helpers.js";
+import { dataIsObject, dataIsType } from "../helpers.js";
 import {
   dataIsKeyState,
   dataIsKeyType,
   type KeyState,
   type KeyType,
-} from "../../shared/types/index.js";
+} from "./index.js";
 
 export interface KeyPressInfo {
   type: KeyType;

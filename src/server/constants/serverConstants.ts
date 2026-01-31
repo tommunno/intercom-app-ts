@@ -1,6 +1,6 @@
 //Web Server:
-export const HTTP_PORT = 4321;
-export const HTTPS_PORT = 4322;
+export const DEFAULT_HTTP_PORT = 4321;
+export const DEFAULT_HTTPS_PORT = 4322;
 export const CERT_DIR = "certs";
 export const KEY_FILE = "server.key";
 export const CERT_FILE = "server.cert";
@@ -26,3 +26,6 @@ export const MAX_NUM_PARTYLINES = 64;
 
 //WebRtc:
 export const WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;
+
+//TurnServer:
+export const DEFAULT_TURN_SERVER_PORT = 4321;

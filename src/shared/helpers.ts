@@ -4,7 +4,7 @@ export function isStringAndNotEmpty(value: unknown): value is string {
 
 export function validatePort(port: number) {
   return (
-    Number.isInteger(port) &&
+    Number.isSafeInteger(port) &&
     (port >= 1025 || port === 80 || port === 443) &&
     port <= 65535
   );

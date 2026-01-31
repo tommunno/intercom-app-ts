@@ -1,3 +1,4 @@
+import type { RtcConfig } from "../../server/types/RtcConfig.js";
 import { dataIsObject } from "../helpers.js";
 import {
   dataIsArrayOfMergedPartylineInfos,

@@ -3,7 +3,11 @@ import type {
   WssPayloads,
   WssUpstream,
 } from "../../shared/protocols/index.js";
-import type { AuthResult, LoginCredentials } from "../../shared/types/index.js";
+import type {
+  AuthResult,
+  LoginCredentials,
+  TurnServerInfo,
+} from "../../shared/types/index.js";
 import type {
   INetworkController,
   ILogger,
@@ -11,9 +15,9 @@ import type {
   IWssManager,
   IWebRtcManager,
   ITurnServerManager,
-  WebServerHandlers,
   NetworkHandlers,
 } from "../contracts/index.js";
+import type { NetworkData } from "../types/NetworkData.js";
 import type { WssMessageInfo } from "../types/WssMessageInfo.js";
 
 export class NetworkController implements INetworkController {
@@ -33,11 +37,8 @@ export class NetworkController implements INetworkController {
     this.bindListeners();
     const servers = this.webServerManager.init();
     this.wssManager.init(servers);
-    //Temporary Turn Server details passed in here until the Turn Server is built:
-    this.webRtcManager.init("turn:127.0.0.1:5042", {
-      username: "intercom",
-      credential: "abcdef",
-    });
+    this.turnServerManager.init();
+    this.webRtcManager.init(this.turnServerManager.createServerCredentials());
   }
 
   start(): void {
@@ -45,17 +46,21 @@ export class NetworkController implements INetworkController {
     void this.activeHandlers;
     this.webServerManager.start();
     this.wssManager.start();
+    this.turnServerManager.start();
     this.webRtcManager.start();
+  }
+
+  populate(data: NetworkData): void {
+    this.webServerManager.setPorts(data.httpPort, data.httpsPort);
+    const url = this.turnServerManager.setPortAndIp(
+      data.turnServerPort,
+      data.turnServerIp,
+    );
+    this.webRtcManager.generateRtcConfig(url);
   }
 
   setHandlers(handlers: NetworkHandlers): void {
     this.handlers = handlers;
-  }
-
-  //WebServerManager:
-
-  setWebServerPorts(httpPort: number, httpsPort: number) {
-    return this.webServerManager.setPorts(httpPort, httpsPort);
   }
 
   //WssManager:
@@ -77,6 +82,7 @@ export class NetworkController implements INetworkController {
         message: message ?? "Internal server error",
         userInfo: null,
         audioInfo: null,
+        turnServerInfo: null,
       },
       [clientId],
     );
@@ -98,6 +104,15 @@ export class NetworkController implements INetworkController {
 
   closeRtcClient(clientId: string): void {
     this.webRtcManager.closeClient(clientId);
+  }
+
+  getTurnServerInfo(): TurnServerInfo | null {
+    const credentials = this.turnServerManager.createClientCredentials();
+    if (!credentials) return null;
+    return {
+      port: this.turnServerManager.port,
+      credentials,
+    };
   }
 
   //Private methods:
@@ -126,6 +141,8 @@ export class NetworkController implements INetworkController {
       onRtcAnswer: (c, a) => this.handleRtcAnswer(c, a),
       onRtcIceCandidate: (c, i) => this.handleRtcIceCandidate(c, i),
     });
+
+    this.turnServerManager.setHandlers({});
   }
 
   //Http Manager:

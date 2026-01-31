@@ -20,13 +20,13 @@ import {
 
 //Constants:
 import {
-  HTTP_PORT,
-  HTTPS_PORT,
   CERT_DIR,
   KEY_FILE,
   CERT_FILE,
   WEB_SERVER_DIR,
   SESSION_DURATION_MS,
+  DEFAULT_HTTPS_PORT,
+  DEFAULT_HTTP_PORT,
 } from "../../constants/serverConstants.js";
 
 //External Libraries:
@@ -49,8 +49,8 @@ export class WebServerManager implements IWebServerManager {
   private handlers: WebServerHandlers | null = null;
 
   private app: Express = express();
-  private httpPort: number = HTTP_PORT;
-  private httpsPort: number = HTTPS_PORT;
+  private httpPort: number = DEFAULT_HTTP_PORT;
+  private httpsPort: number = DEFAULT_HTTPS_PORT;
   private isRunning: boolean = false;
 
   private httpServer: http.Server | null = null;

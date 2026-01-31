@@ -16,6 +16,8 @@ import type {
 } from "../contracts/index.js";
 //Constants:
 import { SESSION_DURATION_MS } from "../constants/serverConstants.js";
+import type { NetworkData } from "../types/NetworkData.js";
+import type { AudioData } from "../types/AudioData.js";
 
 export class DataController implements IDataController {
   private handlers: DataHandlers | null = null;
@@ -183,5 +185,22 @@ export class DataController implements IDataController {
 
   handleStaleHeartbeat(clientId: string): void {
     this.activeHandlers.onStaleHeartbeat(clientId);
+  }
+
+  //Handle Data:
+
+  //Test data for now:
+  getNetworkData(): NetworkData {
+    return {
+      httpPort: 80,
+      httpsPort: 443,
+      turnServerPort: 4052,
+      turnServerIp: "192.168.0.33",
+    };
+  }
+
+  //Test data for now:
+  getAudioData(): AudioData {
+    return {};
   }
 }

@@ -1,7 +1,8 @@
-import type { WssSendMessage } from "../../types/index.js";
+import type { TurnServerInfo } from "../../../shared/types/index.js";
+import type { NetworkData, WssSendMessage } from "../../types/index.js";
 import type { WebRtcHandlers } from "./IWebRtcManager.js";
 import type { WebServerHandlers } from "./IWebServerManager.js";
-import type { WssHandlers, WssMessageHandler } from "./IWssManager.js";
+import type { WssHandlers } from "./IWssManager.js";
 
 export interface NetworkHandlers
   extends WebServerHandlers, WssHandlers, WebRtcHandlers {}
@@ -9,9 +10,8 @@ export interface NetworkHandlers
 export interface INetworkController {
   init: () => void;
   start: () => void;
+  populate: (data: NetworkData) => void;
   setHandlers: (handlers: NetworkHandlers) => void;
-  //WebServerManager:
-  setWebServerPorts: (httpPort: number, httpsPort: number) => boolean;
 
   //WssManager:
   sendWssMessage: WssSendMessage;
@@ -23,4 +23,6 @@ export interface INetworkController {
   processRtcRemoteOffer: (clientId: string, offer: any) => void;
   processRtcRemoteIceCandidate: (clientId: string, candidate: any) => void;
   closeRtcClient: (clientId: string) => void;
+
+  getTurnServerInfo: () => TurnServerInfo | null;
 }
