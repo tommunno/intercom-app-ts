@@ -2,15 +2,15 @@ Controller: IController
 
     AudioController: IAudioController
         AudioMatrixManager: IAudioMatrixManager
-            WebRTCMediaBridge: IWebRTCMediaBridge
             OutputPort: IOutputPort //Created dynamically in AudioMatrixManager
             Partyline: IPartyline //Created dynamically in AudioMatrixManager
         TailManager: ITailManager
+        WebRtcMediaBridge: IWebRtcMediaBridge
 
     NetworkController: INetworkController
         WebServerManager: IWebServerManager
         WssManager: IWssManager
-        WebRTCManager: IWebRTCManager
+        WebRtcManager: IWebRtcManager
         TurnServerManager: ITurnServerManager
 
     DataController: IDataController

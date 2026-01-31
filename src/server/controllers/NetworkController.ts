@@ -22,7 +22,7 @@ export class NetworkController implements INetworkController {
   constructor(
     private webServerManager: IWebServerManager,
     private wssManager: IWssManager,
-    private webRTCManager: IWebRtcManager,
+    private webRtcManager: IWebRtcManager,
     private turnServerManager: ITurnServerManager,
     private logger: ILogger,
   ) {
@@ -33,6 +33,11 @@ export class NetworkController implements INetworkController {
     this.bindListeners();
     const servers = this.webServerManager.init();
     this.wssManager.init(servers);
+    //Temporary Turn Server details passed in here until the Turn Server is built:
+    this.webRtcManager.init("turn:127.0.0.1:5042", {
+      username: "intercom",
+      credential: "abcdef",
+    });
   }
 
   start(): void {
@@ -40,15 +45,20 @@ export class NetworkController implements INetworkController {
     void this.activeHandlers;
     this.webServerManager.start();
     this.wssManager.start();
+    this.webRtcManager.start();
   }
 
   setHandlers(handlers: NetworkHandlers): void {
     this.handlers = handlers;
   }
 
+  //WebServerManager:
+
   setWebServerPorts(httpPort: number, httpsPort: number) {
     return this.webServerManager.setPorts(httpPort, httpsPort);
   }
+
+  //WssManager:
 
   sendWssMessage<K extends WssDownstream>(
     type: K,
@@ -58,7 +68,7 @@ export class NetworkController implements INetworkController {
     this.wssManager.sendMessage(type, payload, clientIds);
   }
 
-  //Helpers:
+  //WssManager Helpers:
   sendLoginFailureMessage(clientId: string, message?: string): void {
     this.sendWssMessage(
       "USER_LOGIN_RESPONSE",
@@ -70,6 +80,24 @@ export class NetworkController implements INetworkController {
       },
       [clientId],
     );
+  }
+
+  //WebRtcManager:
+
+  createRtcPeerConnection(clientId: string): void {
+    this.webRtcManager.createPeerConnection(clientId);
+  }
+
+  processRtcRemoteOffer(clientId: string, offer: any): void {
+    this.webRtcManager.processRemoteOffer(clientId, offer);
+  }
+
+  processRtcRemoteIceCandidate(clientId: string, candidate: any): void {
+    this.webRtcManager.processRemoteIceCandidate(clientId, candidate);
+  }
+
+  closeRtcClient(clientId: string): void {
+    this.webRtcManager.closeClient(clientId);
   }
 
   //Private methods:
@@ -89,7 +117,18 @@ export class NetworkController implements INetworkController {
       onClientDisconnect: (c) => this.handleClientDisconnect(c),
       onClientError: (c) => this.handleClientError(c),
     });
+
+    this.webRtcManager.setHandlers({
+      onRtcConnected: (c) => this.handleRtcConnected(c),
+      onRtcDisconnected: (c) => this.handleRtcDisconnected(c),
+      onRtcClosed: (c) => this.handleRtcClosed(c),
+      onRtcFailed: (c) => this.handleRtcFailed(c),
+      onRtcAnswer: (c, a) => this.handleRtcAnswer(c, a),
+      onRtcIceCandidate: (c, i) => this.handleRtcIceCandidate(c, i),
+    });
   }
+
+  //Http Manager:
 
   private async handleUserSoftLoginRequest(
     sessionToken: string | null,
@@ -101,6 +140,8 @@ export class NetworkController implements INetworkController {
     );
     return authResult;
   }
+
+  //WssManager:
 
   private handleWssMessage<K extends WssUpstream>(
     messageInfo: WssMessageInfo<K>,
@@ -114,5 +155,31 @@ export class NetworkController implements INetworkController {
 
   private handleClientError(clientId: string) {
     this.activeHandlers.onClientError(clientId);
+  }
+
+  //WebRtcManager:
+
+  private handleRtcConnected(clientId: string): void {
+    this.activeHandlers.onRtcConnected(clientId);
+  }
+
+  private handleRtcDisconnected(clientId: string): void {
+    this.activeHandlers.onRtcDisconnected(clientId);
+  }
+
+  private handleRtcClosed(clientId: string): void {
+    this.activeHandlers.onRtcClosed(clientId);
+  }
+
+  private handleRtcFailed(clientId: string): void {
+    this.activeHandlers.onRtcFailed(clientId);
+  }
+
+  private handleRtcAnswer(clientId: string, answer: any): void {
+    this.activeHandlers.onRtcAnswer(clientId, answer);
+  }
+
+  private handleRtcIceCandidate(clientId: string, candidate: any): void {
+    this.activeHandlers.onRtcIceCandidate(clientId, candidate);
   }
 }

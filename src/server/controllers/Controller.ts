@@ -29,6 +29,9 @@ export class Controller implements IController {
     USER_LOGIN: this.handleUserLogin.bind(this),
     USER_LOGOUT: this.handleUserLogout.bind(this),
     KEY_PRESS: this.handleKeyPress.bind(this),
+    WEB_RTC_OFFER: this.handleWebRtcOffer.bind(this),
+    WEB_RTC_CLIENT_ICE_CANDIDATE:
+      this.handleWebRtcClientIceCandidate.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -59,10 +62,19 @@ export class Controller implements IController {
     });
 
     this.networkController.setHandlers({
+      //WebServer:
       onUserSoftLoginRequest: (s, l) => this.handleUserSoftLoginRequest(s, l),
+      //Wss:
       onMessage: this.handleWssMessage.bind(this),
       onClientDisconnect: (c) => this.handleClientDisconnect(c),
       onClientError: (c) => this.handleClientError(c),
+      //WebRtc:
+      onRtcConnected: (c) => this.handleRtcConnected(c),
+      onRtcDisconnected: (c) => this.handleRtcDisconnected(c),
+      onRtcClosed: (c) => this.handleRtcClosed(c),
+      onRtcFailed: (c) => this.handleRtcFailed(c),
+      onRtcAnswer: (c, a) => this.handleRtcAnswer(c, a),
+      onRtcIceCandidate: (c, i) => this.handleRtcIceCandidate(c, i),
     });
 
     this.dataController.setHandlers({
@@ -184,9 +196,6 @@ export class Controller implements IController {
     clientId: string,
     sessionToken: string | null,
   ): void {
-    this.logger.info(
-      `Handling heartbeat response from client ${clientId}, timestamp: ${timestamp}`,
-    );
     this.dataController.processHeartbeatResponse(timestamp, clientId);
   }
 
@@ -260,14 +269,76 @@ export class Controller implements IController {
     sessionToken: string | null,
   ): void {
     this.logger.info(`Key press request:`, keyPressInfo);
-    const userId = this.dataController.isClientIdLoggedIn(clientId);
-    if (userId === null) {
-      this.logger.warn(
-        `Ignored key press: client is not logged in (clientId=${clientId}).`,
-      );
-      return;
-    }
+
+    const userId = this.isClientIdLoggedIn(clientId, "Ignored key press");
+    if (userId === null) return;
+
     this.audioController.processKeyPress(keyPressInfo, userId);
+  }
+
+  private handleWebRtcOffer(
+    offer: WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_OFFER],
+    clientId: string,
+    sessionToken: string | null,
+  ): void {
+    const userId = this.isClientIdLoggedIn(clientId, "Offer will be dropped");
+    if (userId === null) return;
+    this.networkController.processRtcRemoteOffer(clientId, offer);
+  }
+
+  private handleWebRtcClientIceCandidate(
+    candidate: WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE],
+    clientId: string,
+    sessionToken: string | null,
+  ): void {
+    const userId = this.isClientIdLoggedIn(
+      clientId,
+      "Client ICE candidate will be dropped",
+    );
+    if (userId === null) return;
+    this.networkController.processRtcRemoteIceCandidate(clientId, candidate);
+  }
+
+  //Handle WebRtc:
+
+  private handleRtcConnected(clientId: string): void {
+    this.logger.success(`WebRtc connected for client ${clientId}`);
+  }
+
+  private handleRtcDisconnected(clientId: string): void {
+    this.logger.warn(`WebRtc disconnected for client ${clientId}`);
+  }
+
+  private handleRtcClosed(clientId: string): void {
+    this.logger.warn(`WebRtc closed for client ${clientId}`);
+    this.logoutClientIfLoggedIn({ clientId, notifyClient: true });
+  }
+
+  private handleRtcFailed(clientId: string): void {
+    this.logger.warn(`WebRtc failed for client ${clientId}`);
+  }
+
+  private handleRtcAnswer(clientId: string, answer: any): void {
+    const userId = this.isClientIdLoggedIn(
+      clientId,
+      "Answer will not be sent to client",
+    );
+    if (userId === null) return;
+    this.networkController.sendWssMessage("WEB_RTC_ANSWER", answer, [clientId]);
+  }
+
+  private handleRtcIceCandidate(clientId: string, candidate: any): void {
+    const userId = this.isClientIdLoggedIn(
+      clientId,
+      "ICE candidate will not be sent to client",
+    );
+    if (userId === null) return;
+
+    this.networkController.sendWssMessage(
+      "WEB_RTC_SERVER_ICE_CANDIDATE",
+      candidate,
+      [clientId],
+    );
   }
 
   //Handle Data Controller:
@@ -284,5 +355,16 @@ export class Controller implements IController {
 
   private handleStaleHeartbeat(clientId: string): void {
     this.logoutClientIfLoggedIn({ clientId, notifyClient: true });
+  }
+
+  //Helpers:
+  private isClientIdLoggedIn(clientId: string, action: string): number | null {
+    const userId = this.dataController.isClientIdLoggedIn(clientId);
+    if (userId === null) {
+      this.logger.warn(
+        `${action}: client is not logged in (clientId=${clientId}).`,
+      );
+    }
+    return userId;
   }
 }

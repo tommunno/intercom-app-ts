@@ -31,6 +31,9 @@ export class PanelController implements IPanelController {
     USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
     USER_FORCE_LOGOUT: this.handleForceLogout.bind(this),
     USER_AUDIO_INFO_UPDATE: this.handleAudioInfoUpdate.bind(this),
+    WEB_RTC_ANSWER: this.handleWebRtcAnswer.bind(this),
+    WEB_RTC_SERVER_ICE_CANDIDATE:
+      this.handleWebRtcServerIceCandidate.bind(this),
   };
 
   constructor(
@@ -269,6 +272,18 @@ export class PanelController implements IPanelController {
     this.logger.info("Handling audio info update:", audioInfo);
     this.state.audioInfo = audioInfo;
     this.guiManager.displayAudioInfo(this.state.audioInfo);
+  }
+
+  private handleWebRtcAnswer(
+    answer: WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_ANSWER],
+  ) {
+    this.logger.info("Handling WebRtc answer:", answer);
+  }
+
+  private handleWebRtcServerIceCandidate(
+    candidate: WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE],
+  ) {
+    this.logger.info("Handling WebRtc server ICE candidate:", candidate);
   }
 
   //GUI Handlers:

@@ -9,3 +9,4 @@ export * from "./KeyPressInfo.js";
 export * from "./CloseClientParams.js";
 export * from "./LogoutClientParams.js";
 export * from "./DisconnectUserParams.js";
+export * from "./PeerConnectionInfo.js";

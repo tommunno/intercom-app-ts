@@ -27,6 +27,8 @@ export const WSS_UPSTREAM = {
   USER_LOGIN: "USER_LOGIN",
   USER_LOGOUT: "USER_LOGOUT",
   KEY_PRESS: "KEY_PRESS",
+  WEB_RTC_OFFER: "WEB_RTC_OFFER",
+  WEB_RTC_CLIENT_ICE_CANDIDATE: "WEB_RTC_CLIENT_ICE_CANDIDATE",
 } as const;
 
 export const WSS_DOWNSTREAM = {
@@ -34,6 +36,8 @@ export const WSS_DOWNSTREAM = {
   USER_LOGIN_RESPONSE: "USER_LOGIN_RESPONSE",
   USER_FORCE_LOGOUT: "USER_FORCE_LOGOUT",
   USER_AUDIO_INFO_UPDATE: "USER_AUDIO_INFO_UPDATE",
+  WEB_RTC_ANSWER: "WEB_RTC_ANSWER",
+  WEB_RTC_SERVER_ICE_CANDIDATE: "WEB_RTC_SERVER_ICE_CANDIDATE",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -49,10 +53,14 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.USER_LOGIN]: dataIsWssUserLogin,
   [WSS_UPSTREAM.USER_LOGOUT]: dataIsWssUserLogout,
   [WSS_UPSTREAM.KEY_PRESS]: dataIsWssKeyPress,
+  [WSS_UPSTREAM.WEB_RTC_OFFER]: dataIsWebRtcOffer,
+  [WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE]: dataIsWebRtcClientIceCandidate,
   [WSS_DOWNSTREAM.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
   [WSS_DOWNSTREAM.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
   [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: dataIsWssUserAudioInfoUpdate,
+  [WSS_DOWNSTREAM.WEB_RTC_ANSWER]: dataIsWebRtcAnswer,
+  [WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE]: dataIsWebRtcServerIceCandidate,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -64,6 +72,8 @@ type PayloadMap = {
   [WSS_UPSTREAM.USER_LOGIN]: null;
   [WSS_UPSTREAM.USER_LOGOUT]: null;
   [WSS_UPSTREAM.KEY_PRESS]: KeyPressInfo;
+  [WSS_UPSTREAM.WEB_RTC_OFFER]: any;
+  [WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE]: any;
   [WSS_DOWNSTREAM.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: {
     success: boolean;
@@ -75,6 +85,8 @@ type PayloadMap = {
     loginTakeover: boolean;
   };
   [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: AudioInfo;
+  [WSS_DOWNSTREAM.WEB_RTC_ANSWER]: any;
+  [WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE]: any;
 };
 
 export type WssPayloads = {
@@ -116,6 +128,20 @@ export function dataIsWssKeyPress(
   return dataIsKeyPressInfo(data);
 }
 
+//Still need to add validation here:
+export function dataIsWebRtcOffer(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_OFFER] {
+  return true;
+}
+
+//Still need to add validation here:
+export function dataIsWebRtcClientIceCandidate(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_OFFER] {
+  return true;
+}
+
 //DOWNSTREAM:
 
 export function dataIsWssHeartbeatRequest(
@@ -146,4 +172,18 @@ export function dataIsWssUserAudioInfoUpdate(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE] {
   return dataIsAudioInfo(data);
+}
+
+//Still need to add validation here:
+export function dataIsWebRtcAnswer(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_ANSWER] {
+  return true;
+}
+
+//Still need to add validation here:
+export function dataIsWebRtcServerIceCandidate(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE] {
+  return true;
 }

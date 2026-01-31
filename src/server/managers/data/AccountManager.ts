@@ -696,7 +696,5 @@ export class AccountManager implements IAccountManager {
         user.sessionTokenInfos,
       );
     });
-    //Temporary for testing:
-    // this.logger.info("Users:", this.users);
   }
 }

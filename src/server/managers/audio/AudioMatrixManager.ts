@@ -29,10 +29,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   private partylines: IPartyline[] = [];
   private outputPorts: IOutputPort[] = [];
 
-  constructor(
-    private webRTCMediaBridge: IWebRtcMediaBridge,
-    private logger: ILogger,
-  ) {
+  constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: this.context });
   }
 

@@ -45,7 +45,6 @@ export class WssManager implements IWssManager {
       throw new Error(
         `No servers were passed into the WssManager during initialization`,
       );
-      status;
     }
     if (!servers.http) {
       this.logger.warn(

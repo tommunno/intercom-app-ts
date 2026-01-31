@@ -9,6 +9,7 @@ import type {
   IAudioMatrixManager,
   ILogger,
   ITailManager,
+  IWebRtcMediaBridge,
 } from "../contracts/index.js";
 import type { KeyPressInfo } from "../types/index.js";
 
@@ -18,6 +19,7 @@ export class AudioController implements IAudioController {
   constructor(
     private audioMatrixManager: IAudioMatrixManager,
     private tailManager: ITailManager,
+    private webRtcMediaBridge: IWebRtcMediaBridge,
     private logger: ILogger,
   ) {
     this.logger = this.logger.child({ context: "AudioController" });
