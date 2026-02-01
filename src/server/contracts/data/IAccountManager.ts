@@ -55,4 +55,6 @@ export interface IAccountManager {
   updateUsers: (users: BaseUser[]) => Promise<void>;
   getUserInfo: (userId: number) => UserInfo | null;
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
+
+  numUsers: number;
 }

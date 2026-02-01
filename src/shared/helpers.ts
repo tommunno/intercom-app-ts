@@ -1,3 +1,10 @@
+import {
+  DEFAULT_NUM_PARTYLINES,
+  DEFAULT_NUM_SOUNDCARD_CHANNELS,
+  MAX_NUM_PARTYLINES,
+  MAX_NUM_SOUNDCARD_CHANNELS,
+} from "../server/constants/serverConstants.js";
+
 export function isStringAndNotEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
@@ -26,6 +33,7 @@ export function dataIsObject(data: unknown): data is Record<string, unknown> {
 type TypeMap = {
   string: string;
   number: number;
+  safeIntegerNum: number;
   boolean: boolean;
   bigint: bigint;
   symbol: symbol;
@@ -40,6 +48,7 @@ export function dataIsType<K extends TypeofTag>(
   data: unknown,
 ): data is TypeMap[K] {
   if (type === "null") return data === null;
+  if (type === "safeIntegerNum") return Number.isSafeInteger(data);
   return typeof data === type;
 }
 
@@ -56,4 +65,17 @@ export function dataIsArrayOfType<K extends TypeofTag>(
   data: unknown,
 ): data is TypeMap[K][] {
   return Array.isArray(data) && data.every((el) => dataIsType(type, el));
+}
+
+export function validateServerConstants(): void {
+  if (DEFAULT_NUM_SOUNDCARD_CHANNELS > MAX_NUM_SOUNDCARD_CHANNELS) {
+    throw new Error(
+      `DEFAULT_NUM_SOUNDCARD_CHANNELS is greater than MAX_NUM_SOUNDCARD_CHANNELS`,
+    );
+  }
+  if (DEFAULT_NUM_PARTYLINES > MAX_NUM_PARTYLINES) {
+    throw new Error(
+      `DEFAULT_NUM_SOUNDCARD_CHANNELS is greater than MAX_NUM_SOUNDCARD_CHANNELS`,
+    );
+  }
 }

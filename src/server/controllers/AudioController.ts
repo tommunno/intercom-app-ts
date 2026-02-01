@@ -27,14 +27,13 @@ export class AudioController implements IAudioController {
 
   init(): void {
     this.bindListeners();
-    const config = {
-      numUsers: 16,
-      numSoundcardChannels: 12,
-      numPartylines: 8,
-    };
+    this.audioMatrixManager.init();
+    this.tailManager.init();
+  }
 
-    this.audioMatrixManager.init(config);
-    this.tailManager.init(config);
+  populate(data: AudioData): void {
+    const audioConfig = this.audioMatrixManager.populate(data.audioMatrixData);
+    this.tailManager.populate(audioConfig);
   }
 
   start(): void {
@@ -43,8 +42,6 @@ export class AudioController implements IAudioController {
     this.audioMatrixManager.start();
     this.tailManager.start();
   }
-
-  populate(data: AudioData): void {}
 
   setHandlers(handlers: AudioHandlers): void {
     this.handlers = handlers;

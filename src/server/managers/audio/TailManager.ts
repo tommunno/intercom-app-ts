@@ -1,59 +1,58 @@
 import type { ManagerStatus, TailState } from "../../../shared/types/index.js";
+import {
+  DEFAULT_NUM_PARTYLINES,
+  DEFAULT_NUM_SOUNDCARD_CHANNELS,
+} from "../../constants/serverConstants.js";
 import type {
   ITailManager,
   ILogger,
   TailHandlers,
 } from "../../contracts/index.js";
-import {
-  audioConfigIsValid,
-  type AudioConfig,
-  type KeyPressInfo,
-} from "../../types/index.js";
+import { type AudioConfig, type KeyPressInfo } from "../../types/index.js";
 
 export class TailManager implements ITailManager {
   private status: ManagerStatus = "IDLE";
   private handlers: TailHandlers | null = null;
   private context: string = "TailManager";
 
+  //TailManager is shadowing AudioMatrix. So during population, TailManager receives the AudioConfig from AudioMatrix
   private config: AudioConfig = {
     numUsers: 0,
-    numSoundcardChannels: 0,
-    numPartylines: 0,
+    numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
+    numPartylines: DEFAULT_NUM_PARTYLINES,
   };
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: this.context });
   }
 
-  init(config: AudioConfig): void {
+  init(): void {
     if (this.status !== "IDLE") {
       throw new Error(
         `Cannot initialize the ${this.context} whilst its status is ${this.status}`,
       );
     }
-
-    audioConfigIsValid({
-      config,
-      throwErr: true,
-      context: this.context,
-    });
-
-    this.config.numUsers = config.numUsers;
-    this.config.numSoundcardChannels = config.numSoundcardChannels;
-    this.config.numPartylines = config.numPartylines;
-
     this.status = "INITIALIZED";
   }
 
-  start(): void {
+  populate(config: AudioConfig): void {
     if (this.status !== "INITIALIZED") {
+      throw new Error(
+        `Cannot populate the ${this.context} whilst its status is ${this.status}`,
+      );
+    }
+    this.config = { ...this.config };
+    this.status = "POPULATED";
+  }
+
+  start(): void {
+    if (this.status !== "POPULATED") {
       throw new Error(
         `Cannot start the ${this.context} whilst its status is ${this.status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-
     this.status = "RUNNING";
   }
 

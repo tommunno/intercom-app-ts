@@ -6,9 +6,9 @@ export interface TailHandlers {
 }
 
 export interface ITailManager {
-  init: (config: AudioConfig) => void;
-
+  init: () => void;
   start: () => void;
+  populate: (config: AudioConfig) => void;
   stop: () => void;
   setHandlers: (handlers: TailHandlers) => void;
   getTailState: (userId: number, plId: number) => TailState;

@@ -23,6 +23,8 @@ export const SALT_ROUNDS = 10;
 export const MAX_NUM_USERS = 64;
 export const MAX_NUM_SOUNDCARD_CHANNELS = 64;
 export const MAX_NUM_PARTYLINES = 64;
+export const DEFAULT_NUM_SOUNDCARD_CHANNELS = 16;
+export const DEFAULT_NUM_PARTYLINES = 16;
 
 //WebRtc:
 export const WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;

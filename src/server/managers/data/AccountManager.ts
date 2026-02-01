@@ -39,7 +39,7 @@ import { dataIsType } from "../../../shared/helpers.js";
 export class AccountManager implements IAccountManager {
   private status: ManagerStatus = "IDLE";
   private handlers: AccountHandlers | null = null;
-  private numUsers: number = 0;
+  private _numUsers: number = 0;
   private users: User[] = [];
   private heartbeatIntervalId: ReturnType<typeof setInterval> | null = null;
   private sessionCleanupIntervalId: ReturnType<typeof setInterval> | null =
@@ -55,7 +55,7 @@ export class AccountManager implements IAccountManager {
         `Cannot initialize the AccountManager whilst its status is ${this.status}`,
       );
     }
-    this.numUsers = numUsers;
+    this._numUsers = numUsers;
     this.createUsers(loadedUsers);
     this.status = "INITIALIZED";
   }
@@ -80,7 +80,7 @@ export class AccountManager implements IAccountManager {
       );
       return;
     }
-    this.numUsers = 0;
+    this._numUsers = 0;
     this.users = [];
     this.stopHeartbeat();
     this.stopSessionCleanup();
@@ -106,7 +106,7 @@ export class AccountManager implements IAccountManager {
       return;
     }
     this.users = [];
-    for (let i = 0; i < this.numUsers; i++) {
+    for (let i = 0; i < this._numUsers; i++) {
       if (i >= loadedUsers.length) {
         this.users.push(this.returnEmptyUser(i));
         continue;
@@ -132,11 +132,11 @@ export class AccountManager implements IAccountManager {
         return;
       }
     }
-    if (this.numUsers > loadedUsers.length)
+    if (this._numUsers > loadedUsers.length)
       this.logger.warn(
         `The user list was incomplete and has been automatically filled in`,
       );
-    else if (this.numUsers < loadedUsers.length)
+    else if (this._numUsers < loadedUsers.length)
       this.logger.warn(
         `The user list was longer than expected, so extra entries were removed`,
       );
@@ -144,7 +144,7 @@ export class AccountManager implements IAccountManager {
 
   private createEmptyUsers(): void {
     this.users = [];
-    for (let i = 0; i < this.numUsers; i++) {
+    for (let i = 0; i < this._numUsers; i++) {
       this.users.push(this.returnEmptyUser(i));
     }
   }
@@ -571,6 +571,15 @@ export class AccountManager implements IAccountManager {
     foundUser.lastHeartbeatResponse = Date.now();
   }
 
+  get numUsers(): number {
+    if (this.status === "IDLE" || this.status === "INITIALIZED") {
+      this.logger.error(
+        `numUsers has not been populated in 'get numUsers'. The current status is ${this.status}`,
+      );
+    }
+    return this._numUsers;
+  }
+
   //VALIDATION:
   private validateUser(user: User, textPassword = false): boolean {
     if (user.clientId !== null && user.clientId.trim() === "") {
@@ -605,7 +614,11 @@ export class AccountManager implements IAccountManager {
   //If textPassword is true, that means password is not encrypted yet (ie sent from client)
   //If false, the password is already a hash, hence validation needs to be different
   private validateBaseUser(user: BaseUser, textPassword = false): boolean {
-    if (!Number.isInteger(user.id) || user.id < 0 || user.id >= this.numUsers) {
+    if (
+      !Number.isInteger(user.id) ||
+      user.id < 0 ||
+      user.id >= this._numUsers
+    ) {
       this.logger.warn(`User id ${user.id} for ${user.username} is invalid`);
       return false;
     }

@@ -21,6 +21,7 @@ import type {
   LogoutClientParams,
   WssCommandMap,
 } from "../types/index.js";
+import { validateServerConstants } from "../../shared/helpers.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
@@ -43,6 +44,7 @@ export class Controller implements IController {
 
   init(): void {
     this.logger.info("Initializing");
+    validateServerConstants();
     this.bindListeners();
     this.dataController.init();
     this.networkController.init();

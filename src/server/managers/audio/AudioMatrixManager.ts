@@ -1,4 +1,3 @@
-import type { Key } from "node:readline";
 import type {
   ManagerStatus,
   PartylineInfo,
@@ -8,22 +7,31 @@ import type {
   ILogger,
   IOutputPort,
   IPartyline,
-  IWebRtcMediaBridge,
 } from "../../contracts/index.js";
 import { OutputPort, Partyline } from "../../entities/index.js";
 import {
-  audioConfigIsValid,
   type AudioConfig,
+  type AudioData,
+  type AudioMatrixData,
   type KeyPressInfo,
 } from "../../types/index.js";
+import { dataIsType } from "../../../shared/helpers.js";
+import {
+  DEFAULT_NUM_PARTYLINES,
+  DEFAULT_NUM_SOUNDCARD_CHANNELS,
+  MAX_NUM_PARTYLINES,
+  MAX_NUM_SOUNDCARD_CHANNELS,
+} from "../../constants/serverConstants.js";
 
 export class AudioMatrixManager implements IAudioMatrixManager {
   private status: ManagerStatus = "IDLE";
   private context: string = "AudioMatrixManager";
   private config: AudioConfig = {
+    //numUsers will always be given to us from the AccountManager
+    //Because we need to shadow the AccountManager perfectly here
     numUsers: 0,
-    numSoundcardChannels: 0,
-    numPartylines: 0,
+    numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
+    numPartylines: DEFAULT_NUM_PARTYLINES,
   };
   private numPorts: number = 0;
   private partylines: IPartyline[] = [];
@@ -33,32 +41,33 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     this.logger = this.logger.child({ context: this.context });
   }
 
-  init(config: AudioConfig): void {
+  init(): void {
     if (this.status !== "IDLE") {
       throw new Error(
         `Cannot initialize the ${this.context} whilst its status is ${this.status}`,
       );
     }
 
-    audioConfigIsValid({
-      config,
-      throwErr: true,
-      context: this.context,
-    });
-
-    this.config.numUsers = config.numUsers;
-    this.config.numSoundcardChannels = config.numSoundcardChannels;
-    this.config.numPartylines = config.numPartylines;
-    this.numPorts = config.numUsers + config.numSoundcardChannels;
-
-    this.createPartylines();
-    this.createOutputPorts();
-
     this.status = "INITIALIZED";
   }
 
-  start(): void {
+  populate(data: AudioMatrixData): AudioConfig {
     if (this.status !== "INITIALIZED") {
+      throw new Error(
+        `Cannot populate the AudioMatrixManager whilst its status is ${this.status}`,
+      );
+    }
+
+    this.setAudioConfig(data);
+    this.createPartylines();
+    this.createOutputPorts();
+
+    this.status = "POPULATED";
+    return { ...this.config };
+  }
+
+  start(): void {
+    if (this.status !== "POPULATED") {
       throw new Error(
         `Cannot start the ${this.context} whilst its status is ${this.status}`,
       );
@@ -134,6 +143,41 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       `Partyline portsListening:`,
       partyline.state.portsListening,
     );
+  }
+
+  private setAudioConfig(matrixData: AudioMatrixData): void {
+    const {
+      numUsers: nU,
+      numSoundcardChannels: nSC,
+      numPartylines: nP,
+    } = matrixData;
+
+    //We trust numUsers because we're reliant on whatever the AccountManager gives us here - we have to shadow it
+    this.config.numUsers = nU;
+
+    if (
+      !dataIsType("safeIntegerNum", nSC) ||
+      nSC < 1 ||
+      nSC > MAX_NUM_SOUNDCARD_CHANNELS
+    ) {
+      this.logger.error(
+        `numSoundcardChannels is invalid. Will fall back to the default value of ${DEFAULT_NUM_SOUNDCARD_CHANNELS}`,
+      );
+    } else {
+      this.config.numSoundcardChannels = nSC;
+    }
+    if (
+      !dataIsType("safeIntegerNum", nP) ||
+      nP < 1 ||
+      nP > MAX_NUM_PARTYLINES
+    ) {
+      this.logger.error(
+        `numPartylines is invalid. Will fall back to the default value of ${DEFAULT_NUM_PARTYLINES}`,
+      );
+    } else {
+      this.config.numPartylines = nP;
+    }
+    this.numPorts = this.config.numUsers + this.config.numSoundcardChannels;
   }
 
   //Returns true if successful

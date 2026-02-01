@@ -199,6 +199,12 @@ export class DataController implements IDataController {
 
   //Test data for now:
   getAudioData(): AudioData {
-    return {};
+    return {
+      audioMatrixData: {
+        numUsers: this.accountManager.numUsers,
+        numSoundcardChannels: 10,
+        numPartylines: 8,
+      },
+    };
   }
 }

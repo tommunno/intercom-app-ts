@@ -7,8 +7,8 @@ export interface AudioHandlers {
 
 export interface IAudioController {
   init: () => void;
-  start: () => void;
   populate: (data: AudioData) => void;
+  start: () => void;
   setHandlers: (handlers: AudioHandlers) => void;
 
   connectUser: (userId: number, clientId: string) => boolean;

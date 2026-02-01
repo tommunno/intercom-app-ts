@@ -9,8 +9,8 @@ export interface NetworkHandlers
 
 export interface INetworkController {
   init: () => void;
-  start: () => void;
   populate: (data: NetworkData) => void;
+  start: () => void;
   setHandlers: (handlers: NetworkHandlers) => void;
 
   //WssManager:

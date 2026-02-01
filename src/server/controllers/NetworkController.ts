@@ -41,6 +41,12 @@ export class NetworkController implements INetworkController {
     this.webRtcManager.init(serverCreds);
   }
 
+  populate(data: NetworkData): void {
+    this.webServerManager.populate(data.webServerData);
+    const url = this.turnServerManager.populate(data.turnServerData);
+    this.webRtcManager.populate(url);
+  }
+
   start(): void {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
@@ -48,12 +54,6 @@ export class NetworkController implements INetworkController {
     this.wssManager.start();
     this.turnServerManager.start();
     this.webRtcManager.start();
-  }
-
-  populate(data: NetworkData): void {
-    this.webServerManager.populate(data.webServerData);
-    const url = this.turnServerManager.populate(data.turnServerData);
-    this.webRtcManager.populate(url);
   }
 
   setHandlers(handlers: NetworkHandlers): void {
