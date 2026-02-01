@@ -17,6 +17,7 @@ import {
   isStringAndNotEmpty,
   validatePort,
 } from "../../../shared/helpers.js";
+import type { Servers, WebServerData } from "../../types/index.js";
 
 //Constants:
 import {
@@ -42,7 +43,6 @@ import http from "http";
 import https from "https";
 import fs from "fs";
 import { TLSSocket } from "tls";
-import type { Servers } from "../../types/index.js";
 
 export class WebServerManager implements IWebServerManager {
   private status: ManagerStatus = "IDLE";
@@ -95,11 +95,24 @@ export class WebServerManager implements IWebServerManager {
     this.httpServer = http.createServer(this.app);
     this.attemptHttpsInit();
     this.status = "INITIALIZED";
-    return this.getServers();
+    return {
+      http: this.httpServer,
+      https: this.httpsServer,
+    };
+  }
+
+  populate({ httpPort, httpsPort }: WebServerData): void {
+    if (this.status !== "INITIALIZED") {
+      throw new Error(
+        `Cannot populate the WebServerManager whilst its status is ${this.status}`,
+      );
+    }
+    this.setPorts(httpPort, httpsPort);
+    this.status = "POPULATED";
   }
 
   start(): void {
-    if (this.status !== "INITIALIZED") {
+    if (this.status !== "POPULATED") {
       throw new Error(
         `Cannot start the WebServerManager whilst its status is ${this.status}`,
       );
@@ -122,6 +135,10 @@ export class WebServerManager implements IWebServerManager {
         );
       });
     }
+  }
+
+  setHandlers(handlers: WebServerHandlers): void {
+    this.handlers = handlers;
   }
 
   private attemptHttpsInit(): void {
@@ -238,45 +255,36 @@ export class WebServerManager implements IWebServerManager {
     next(err);
   }
 
-  setPorts(httpPort: number, httpsPort: number): boolean {
-    if (this.status === "RUNNING") {
-      this.logger.error(`Cannot set ports whilst status is ${this.status}`);
-      return false;
-    }
-    if (httpPort === httpsPort) {
-      this.logger.error(
-        `HTTP and HTTPS ports cannot be the same (${httpPort})`,
+  private setPorts(httpPort?: number, httpsPort?: number): void {
+    if (
+      httpPort !== undefined &&
+      httpsPort !== undefined &&
+      httpPort === httpsPort
+    ) {
+      this.logger.warn(
+        `httpPort and httpsPort can not be the same (${httpPort}). Will use default HTTP port ${DEFAULT_HTTP_PORT} and default HTTPS port ${DEFAULT_HTTPS_PORT}`,
       );
-      return false;
+      return;
     }
-    const httpPortValid = validatePort(httpPort);
-    const httpsPortValid = validatePort(httpsPort);
-    if (!httpPortValid)
-      this.logger.warn(`Invalid httpPort number of ${httpPort}`);
-    if (!httpsPortValid)
-      this.logger.warn(`Invalid httpsPort number of ${httpsPort}`);
-    if (httpPortValid && httpsPortValid) {
+    if (validatePort(httpPort)) {
       this.httpPort = httpPort;
-      this.httpsPort = httpsPort;
-      return true;
+    } else {
+      this.logger.warn(
+        `Invalid httpPort provided. Will use default port ${DEFAULT_HTTP_PORT}`,
+      );
     }
-    return false;
+    if (validatePort(httpsPort)) {
+      this.httpsPort = httpsPort;
+    } else {
+      this.logger.warn(
+        `Invalid httpsPort provided. Will use default port ${DEFAULT_HTTPS_PORT}`,
+      );
+    }
   }
 
   private get activeHandlers(): WebServerHandlers {
     if (!this.handlers)
       throw new Error("WebServerManager handlers not initialized!");
     return this.handlers;
-  }
-
-  setHandlers(handlers: WebServerHandlers): void {
-    this.handlers = handlers;
-  }
-
-  getServers(): Servers {
-    return {
-      http: this.httpServer,
-      https: this.httpsServer,
-    };
   }
 }

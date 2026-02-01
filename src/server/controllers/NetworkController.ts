@@ -37,8 +37,8 @@ export class NetworkController implements INetworkController {
     this.bindListeners();
     const servers = this.webServerManager.init();
     this.wssManager.init(servers);
-    this.turnServerManager.init();
-    this.webRtcManager.init(this.turnServerManager.createServerCredentials());
+    const serverCreds = this.turnServerManager.init();
+    this.webRtcManager.init(serverCreds);
   }
 
   start(): void {
@@ -51,12 +51,9 @@ export class NetworkController implements INetworkController {
   }
 
   populate(data: NetworkData): void {
-    this.webServerManager.setPorts(data.httpPort, data.httpsPort);
-    const url = this.turnServerManager.setPortAndIp(
-      data.turnServerPort,
-      data.turnServerIp,
-    );
-    this.webRtcManager.generateRtcConfig(url);
+    this.webServerManager.populate(data.webServerData);
+    const url = this.turnServerManager.populate(data.turnServerData);
+    this.webRtcManager.populate(url);
   }
 
   setHandlers(handlers: NetworkHandlers): void {

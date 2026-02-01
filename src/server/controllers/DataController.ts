@@ -192,10 +192,8 @@ export class DataController implements IDataController {
   //Test data for now:
   getNetworkData(): NetworkData {
     return {
-      httpPort: 80,
-      httpsPort: 443,
-      turnServerPort: 4052,
-      turnServerIp: "192.168.0.33",
+      webServerData: { httpPort: 80, httpsPort: 443 },
+      turnServerData: { port: 4052, ip: "192.168.0.33" },
     };
   }
 

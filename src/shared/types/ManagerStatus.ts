@@ -1,1 +1,1 @@
-export type ManagerStatus = "IDLE" | "INITIALIZED" | "RUNNING";
+export type ManagerStatus = "IDLE" | "INITIALIZED" | "POPULATED" | "RUNNING";

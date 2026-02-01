@@ -80,12 +80,49 @@ export class WssManager implements IWssManager {
     this.handlers = handlers;
   }
 
+  sendMessage<K extends WssDownstream>(
+    type: K,
+    payload: WssPayloads[K],
+    clientIds: string[],
+  ): void {
+    const notRunning = this.checkAndWarnIfNotRunning("send message");
+    if (notRunning) return;
+
+    let data: string;
+    try {
+      data = JSON.stringify({ type, payload });
+    } catch (err) {
+      this.logger.error(`Serialization failed for ${type}:`, err);
+      return;
+    }
+    clientIds.forEach((id) => {
+      const ws = this.clients.get(id);
+      if (!ws) {
+        this.logger.error(
+          `Message delivery failed for message type ${type}: No active session found for clientId ${id}`,
+        );
+        return;
+      }
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(data, (err) => {
+          if (err) {
+            this.logger.warn(`Send failed to client ${id} for ${type}:`, err);
+          }
+        });
+      } else {
+        this.logger.warn(
+          `Delivery skipped: Client ${id} connection state is ${ws.readyState}`,
+        );
+      }
+    });
+  }
+
   private get activeHandlers(): WssHandlers {
     if (!this.handlers) throw new Error("WssManager handlers not initialized!");
     return this.handlers;
   }
 
-  attachWebSocketHandlers(wsServer: WebSocketServer) {
+  private attachWebSocketHandlers(wsServer: WebSocketServer) {
     wsServer.on("connection", (ws: WebSocket, req: IncomingMessage) => {
       const clientInfo = this.getRequestInfo(req);
 
@@ -121,40 +158,6 @@ export class WssManager implements IWssManager {
 
       this.clients.set(clientId, ws);
       this.logger.success(`Client ${clientId} has connected`);
-    });
-  }
-
-  sendMessage<K extends WssDownstream>(
-    type: K,
-    payload: WssPayloads[K],
-    clientIds: string[],
-  ): void {
-    let data: string;
-    try {
-      data = JSON.stringify({ type, payload });
-    } catch (err) {
-      this.logger.error(`Serialization failed for ${type}:`, err);
-      return;
-    }
-    clientIds.forEach((id) => {
-      const ws = this.clients.get(id);
-      if (!ws) {
-        this.logger.error(
-          `Message delivery failed for message type ${type}: No active session found for clientId ${id}`,
-        );
-        return;
-      }
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data, (err) => {
-          if (err) {
-            this.logger.warn(`Send failed to client ${id} for ${type}:`, err);
-          }
-        });
-      } else {
-        this.logger.warn(
-          `Delivery skipped: Client ${id} connection state is ${ws.readyState}`,
-        );
-      }
     });
   }
 
@@ -254,5 +257,15 @@ export class WssManager implements IWssManager {
 
   private generateClientId(): string {
     return crypto.randomUUID();
+  }
+
+  private checkAndWarnIfNotRunning(action: string): boolean {
+    if (this.status !== "RUNNING") {
+      this.logger.error(
+        `Unable to ${action} because the status is ${this.status}`,
+      );
+      return true;
+    }
+    return false;
   }
 }

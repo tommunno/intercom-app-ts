@@ -42,40 +42,29 @@ export class WebRtcManager implements IWebRtcManager {
     this.status = "INITIALIZED";
   }
 
-  start(): void {
+  populate(turnServerUrl: string): void {
     if (this.status !== "INITIALIZED") {
+      throw new Error(
+        `Cannot populate the WebRtcManager whilst its status is ${this.status}`,
+      );
+    }
+    this.createRtcConfig(turnServerUrl);
+    this.status = "POPULATED";
+  }
+
+  start(): void {
+    if (this.status !== "POPULATED") {
       throw new Error(
         `Cannot start the WebRtcManager whilst its status is ${this.status}`,
       );
     }
-    if (this.rtcConfig === null) {
-      throw new Error(
-        `Please generate an RTC config before starting the WebRtcManager`,
-      );
-    }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-
     this.status = "RUNNING";
   }
 
   setHandlers(handlers: WebRtcHandlers): void {
     this.handlers = handlers;
-  }
-
-  generateRtcConfig(turnServerUrl: string): void {
-    if (this.status !== "INITIALIZED") {
-      this.logger.error(
-        `Unable to generate RTC config, because the status is ${this.status}. The status needs to be INITIALIZED in order to generate the config`,
-      );
-      return;
-    }
-    this.rtcConfig = {
-      iceServers: [
-        ...ICE_SERVERS,
-        { urls: [turnServerUrl], ...this.turnServerCredentials },
-      ],
-    };
   }
 
   createPeerConnection(clientId: string): void {
@@ -103,6 +92,15 @@ export class WebRtcManager implements IWebRtcManager {
       remoteIceCandidates: [],
     });
     this.attachPeerConnectionHandlers(clientId, pc);
+  }
+
+  private createRtcConfig(turnServerUrl: string): void {
+    this.rtcConfig = {
+      iceServers: [
+        ...ICE_SERVERS,
+        { urls: [turnServerUrl], ...this.turnServerCredentials },
+      ],
+    };
   }
 
   async processRemoteOffer(clientId: string, offer: any): Promise<void> {

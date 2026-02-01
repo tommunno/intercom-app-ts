@@ -144,6 +144,7 @@ export class PanelWssManager implements IPanelWssManager {
   }
 
   notifyHeartbeatReceived(): void {
+    if (this.checkAndWarnIfNotRunning("process received heartbeat")) return;
     if (!this.heartbeatRunning) return;
 
     this.logger.info("Heartbeat received");

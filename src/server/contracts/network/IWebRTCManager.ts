@@ -11,9 +11,9 @@ export interface WebRtcHandlers {
 
 export interface IWebRtcManager {
   init: (turnServerCredentials: TurnServerCredentials) => void;
+  populate: (turnServerUrl: string) => void;
   start: () => void;
   setHandlers: (handlers: WebRtcHandlers) => void;
-  generateRtcConfig: (turnServerUrl: string) => void;
   createPeerConnection: (clientId: string) => void;
   processRemoteOffer: (clientId: string, offer: any) => Promise<void>;
   processRemoteIceCandidate: (
