@@ -4,13 +4,13 @@ import {
   type User,
   type ManagerStatus,
   type AuthResult,
-  type BaseUser,
-  dataIsUser,
   type UserInfo,
   type SessionTokenInfo,
+  type AdminUserUpdate,
+  type UserAndId,
 } from "../../../shared/types/index.js";
 //Server Types:
-import type { AccountManagerConfig } from "../../types/index.js";
+
 //Contracts:
 import {
   type AccountHandlers,
@@ -22,6 +22,8 @@ import {
 import {
   ACCOUNT_HEARTBEAT_DURATION_MS,
   ACCOUNT_STALE_HEARTBEAT_MS,
+  DEFAULT_NUM_USERS,
+  MAX_NUM_USERS,
   SALT_ROUNDS,
   SESSION_CLEANUP_INTERVAL_MS,
   SESSION_DURATION_MS,
@@ -35,12 +37,13 @@ import {
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import { dataIsType } from "../../../shared/helpers.js";
+import type { AccountData, PersistedUsers } from "../../types/AccountData.js";
 
 export class AccountManager implements IAccountManager {
   private status: ManagerStatus = "IDLE";
   private handlers: AccountHandlers | null = null;
-  private _numUsers: number = 0;
-  private users: User[] = [];
+  private _numUsers: number = DEFAULT_NUM_USERS;
+  private users: Map<number, User> = new Map();
   private heartbeatIntervalId: ReturnType<typeof setInterval> | null = null;
   private sessionCleanupIntervalId: ReturnType<typeof setInterval> | null =
     null;
@@ -49,19 +52,28 @@ export class AccountManager implements IAccountManager {
     this.logger = this.logger.child({ context: "AccountManager" });
   }
 
-  init({ numUsers, loadedUsers }: AccountManagerConfig): void {
+  init(): void {
     if (this.status !== "IDLE") {
       throw new Error(
         `Cannot initialize the AccountManager whilst its status is ${this.status}`,
       );
     }
-    this._numUsers = numUsers;
-    this.createUsers(loadedUsers);
     this.status = "INITIALIZED";
   }
 
-  start(): void {
+  populate(data: AccountData): void {
     if (this.status !== "INITIALIZED") {
+      throw new Error(
+        `Cannot populate the AccountManager whilst its status is ${this.status}`,
+      );
+    }
+    this.setNumUsers(data.numUsers);
+    this.populateUsers(data.persistedUsers);
+    this.status = "POPULATED";
+  }
+
+  start(): void {
+    if (this.status !== "POPULATED") {
       throw new Error(
         `Cannot start the AccountManager whilst its status is ${this.status}`,
       );
@@ -75,13 +87,13 @@ export class AccountManager implements IAccountManager {
 
   stop(): void {
     if (this.status !== "RUNNING") {
-      this.logger.warn(
+      this.logger.error(
         `Cannot stop the AccountManager whilst its status is ${this.status}`,
       );
       return;
     }
-    this._numUsers = 0;
-    this.users = [];
+    this._numUsers = DEFAULT_NUM_USERS;
+    this.users.clear();
     this.stopHeartbeat();
     this.stopSessionCleanup();
     this.status = "IDLE";
@@ -97,69 +109,191 @@ export class AccountManager implements IAccountManager {
     return this.handlers;
   }
 
-  private createUsers(loadedUsers: unknown): void {
-    if (!Array.isArray(loadedUsers)) {
+  private setNumUsers(numUsers?: number): void {
+    if (
+      !dataIsType("safeIntegerNum", numUsers) ||
+      numUsers < 1 ||
+      numUsers > MAX_NUM_USERS
+    ) {
       this.logger.warn(
-        `User data could not be loaded correctly. Starting with an empty user list.`,
+        `numUsers is invalid. Will fall back to the default value of ${DEFAULT_NUM_USERS}`,
+      );
+      this._numUsers = DEFAULT_NUM_USERS;
+    } else {
+      this._numUsers = numUsers;
+    }
+  }
+
+  private populateUsers(pUsers?: PersistedUsers): void {
+    if (!pUsers) {
+      this.logger.warn(
+        `No users found in loaded data. Will create new empty users instead`,
       );
       this.createEmptyUsers();
       return;
     }
-    this.users = [];
+
+    this.users.clear();
+    const usernames = new Set<string>();
+
     for (let i = 0; i < this._numUsers; i++) {
-      if (i >= loadedUsers.length) {
-        this.users.push(this.returnEmptyUser(i));
+      const newUser = this.returnUniqueEmptyUser(i, usernames);
+      const pUser = pUsers[i];
+      if (!pUser) {
+        this.logger.warn(
+          `No user found at userId ${i} in loaded data. Will create a new empty user instead`,
+        );
+        this.users.set(i, newUser);
+        usernames.add(newUser.username);
         continue;
       }
-      const data = loadedUsers[i];
-      if (dataIsUser(data) && this.validateUser(data)) {
-        const infos = this.getValidSessionTokenInfos(data.sessionTokenInfos);
-        this.users.push({
-          id: i,
-          username: data.username,
-          password: data.password,
-          loggedIn: false,
-          clientId: null,
-          sessionTokenInfoInUse: null,
-          sessionTokenInfos: infos,
-          lastHeartbeatResponse: null,
-        });
-      } else {
+      const { passwordHash: p, sessionTokenInfos: sTs } = pUser;
+      const u = pUser.username.trim();
+
+      if (!this.validateUsername({ name: u, usernames })) {
         this.logger.warn(
-          `User data could not be loaded correctly. Invalid user at index ${i}. Starting with an empty user list`,
+          `Username invalid in loaded data for userId ${i}. Will set the username to ${newUser.username} instead`,
         );
-        this.createEmptyUsers();
-        return;
+      } else {
+        newUser.username = u;
       }
-    }
-    if (this._numUsers > loadedUsers.length)
-      this.logger.warn(
-        `The user list was incomplete and has been automatically filled in`,
-      );
-    else if (this._numUsers < loadedUsers.length)
-      this.logger.warn(
-        `The user list was longer than expected, so extra entries were removed`,
-      );
-  }
+      newUser.passwordHash = p;
+      newUser.sessionTokenInfos = this.sanitiseSessionTokenInfos(sTs, i);
 
-  private createEmptyUsers(): void {
-    this.users = [];
-    for (let i = 0; i < this._numUsers; i++) {
-      this.users.push(this.returnEmptyUser(i));
+      this.users.set(i, newUser);
+      usernames.add(newUser.username);
     }
   }
 
-  private returnEmptyUser(id: number): User {
+  // If name === currentName, we treat it as valid even though it exists in the usernames set.
+  private validateUsername({
+    name,
+    usernames,
+    currentName,
+  }: {
+    name: string;
+    usernames?: Set<string>;
+    currentName?: string;
+  }): boolean {
+    if (currentName && name === currentName) return true;
+
+    if (!usernames) {
+      usernames = new Set<string>(
+        Array.from(this.users.values()).map((u) => u.username),
+      );
+    }
+    return (
+      !usernames.has(name) &&
+      name.length !== 0 &&
+      name.length <= MAX_USERNAME_LENGTH
+    );
+  }
+
+  private validatePassword(password: string): boolean {
+    return (
+      password.length >= MIN_PASSWORD_LENGTH &&
+      password.length <= MAX_PASSWORD_LENGTH
+    );
+  }
+
+  private sanitiseSessionTokenInfos(
+    infos: SessionTokenInfo[],
+    userId: number,
+  ): SessionTokenInfo[] {
+    const result: SessionTokenInfo[] = [];
+    const seen = new Set<string>();
+    let duplicateToken = false;
+
+    for (const info of infos) {
+      if (this.sessionTokenInfoHasExpired(info)) continue;
+
+      if (seen.has(info.token)) {
+        duplicateToken = true;
+        continue;
+      }
+
+      seen.add(info.token);
+      result.push({ ...info });
+    }
+
+    if (duplicateToken) {
+      this.logger.warn(
+        `Duplicate sessionToken found in loaded sessionTokenInfos for userId ${userId}`,
+      );
+    }
+    return result;
+  }
+
+  //Ensures a unique default username is provisioned by checking for collisions against the usernames Set
+  private createUniqueDefaultUsername(
+    id: number,
+    usernames: Set<string>,
+  ): string {
+    const base = `user-${id}`;
+
+    if (!usernames.has(base)) return base;
+
+    // Collision fallback:
+    while (true) {
+      const suffix = crypto.randomUUID().slice(0, 4);
+      const candidate = `${base}-${suffix}`;
+      if (!usernames.has(candidate)) return candidate;
+    }
+  }
+
+  private returnUniqueEmptyUser(id: number, usernames: Set<string>): User {
     return {
-      id,
-      username: `user-${id}`,
-      password: null,
+      username: this.createUniqueDefaultUsername(id, usernames),
+      passwordHash: null,
+      sessionTokenInfos: [],
       loggedIn: false,
       clientId: null,
       sessionTokenInfoInUse: null,
-      sessionTokenInfos: [],
       lastHeartbeatResponse: null,
     };
+  }
+
+  private createEmptyUsers(): void {
+    const usernames = new Set<string>();
+    this.users.clear();
+
+    for (let i = 0; i < this._numUsers; i++) {
+      const newUser = this.returnUniqueEmptyUser(i, usernames);
+      this.users.set(i, newUser);
+      usernames.add(newUser.username);
+    }
+  }
+
+  private findUserAndIdByUsername(name: string): UserAndId | null {
+    for (const [userId, user] of this.users.entries()) {
+      if (user.username === name) {
+        return [user, userId];
+      }
+    }
+    return null;
+  }
+
+  private findUserAndIdByClientId(clientId: string): UserAndId | null {
+    for (const [userId, user] of this.users.entries()) {
+      if (user.clientId === clientId) {
+        return [user, userId];
+      }
+    }
+    return null;
+  }
+
+  private findSessionContextByToken(
+    sessionToken: string,
+  ): { user: User; userId: number; sessionTokenInfo: SessionTokenInfo } | null {
+    for (const [userId, user] of this.users.entries()) {
+      const sessionTokenInfo = user.sessionTokenInfos.find(
+        (i) => i.token === sessionToken,
+      );
+      if (sessionTokenInfo) {
+        return { user, userId, sessionTokenInfo };
+      }
+    }
+    return null;
   }
 
   private async authenticateUserWithCredentials({
@@ -176,21 +310,24 @@ export class AccountManager implements IAccountManager {
       return { ...baseResult, message: "Missing credentials", statusCode: 400 };
     }
 
-    const foundUser = this.users.find((user) => user.username === username);
-
+    const result = this.findUserAndIdByUsername(username);
     //If no found user, or if the password for the found user hasn't been set yet
-    if (!foundUser || foundUser.password === null) {
+    if (!result) {
+      return { ...baseResult, message: "Incorrect username or password" };
+    }
+    const [user, userId] = result;
+    if (user.passwordHash === null) {
       return { ...baseResult, message: "Incorrect username or password" };
     }
 
-    const passwordMatch = await bcrypt.compare(password, foundUser.password);
+    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatch) {
       return { ...baseResult, message: "Incorrect username or password" };
     }
 
     //We now have valid credentials
     //If the user is already logged in, we don't allow a login
-    if (foundUser.loggedIn) {
+    if (user.loggedIn) {
       return {
         ...baseResult,
         message: "User already logged in",
@@ -198,16 +335,16 @@ export class AccountManager implements IAccountManager {
       };
     }
 
-    //foundUser is not logged in, and credentials match. Client has been succesfully authenticated, and a new sessionToken will be handed out. But the client will not be logged in until it is 'hard' logged in via WS!
+    //User is not logged in, and credentials match. Client has been succesfully authenticated, and a new sessionToken will be handed out. But the client will not be logged in until it is 'hard' logged in via WS!
     const newSessionToken = this.generateSessionToken();
-    this.addUniqueSessionToken(foundUser, newSessionToken);
+    this.addUniqueSessionToken(user, newSessionToken);
 
     return {
       ...baseResult,
       success: true,
       message: "Login approved with credentials",
       statusCode: 200,
-      userId: foundUser.id,
+      userId,
       newSessionToken,
       loginTakeover: false,
     };
@@ -235,23 +372,19 @@ export class AccountManager implements IAccountManager {
       };
     }
 
-    let foundUser: User | undefined;
-    let sessionTokenInfo: SessionTokenInfo | undefined;
+    const sessionContext = this.findSessionContextByToken(sessionToken);
 
-    for (const user of this.users) {
-      const info = user.sessionTokenInfos.find((i) => i.token === sessionToken);
-      if (info) {
-        foundUser = user;
-        sessionTokenInfo = info;
-        break;
-      }
+    if (!sessionContext) {
+      return {
+        ...baseResult,
+        message: "Invalid session token",
+        statusCode: 401,
+      };
     }
 
-    if (
-      !foundUser ||
-      !sessionTokenInfo ||
-      this.sessionTokenInfoHasExpired(sessionTokenInfo)
-    ) {
+    const { user, userId, sessionTokenInfo } = sessionContext;
+
+    if (this.sessionTokenInfoHasExpired(sessionTokenInfo)) {
       return {
         ...baseResult,
         message: "Invalid session token",
@@ -260,11 +393,12 @@ export class AccountManager implements IAccountManager {
     }
     //We have now found a user
 
+    let loginTakeover = false;
     const sessionTokenMatch =
-      sessionToken === foundUser.sessionTokenInfoInUse?.token;
+      sessionToken === user.sessionTokenInfoInUse?.token;
 
     //If the user is already logged in and the client is logging in using a different sessionToken, we don't allow this
-    if (foundUser.loggedIn && !sessionTokenMatch) {
+    if (user.loggedIn && !sessionTokenMatch) {
       return {
         ...baseResult,
         message: "User already logged in",
@@ -272,23 +406,24 @@ export class AccountManager implements IAccountManager {
       };
     }
     //If user is logged in and there is a sessionToken match, then we can do a login takeover. This will logout the old client, and hard/soft login the new user
-    if (foundUser.loggedIn && sessionTokenMatch) {
-      let loggedOutClientId = foundUser.clientId;
+    if (user.loggedIn && sessionTokenMatch) {
+      let loggedOutClientId = user.clientId;
       if (loggedOutClientId === null) {
         this.logger.error(
-          `authenticateUserWithToken: loginTakeover requested, but no clientId was provided for the session to be displaced. `,
+          `authenticateUserWithToken: Invariant violation: User ${userId} is marked as loggedIn but has no clientId`,
         );
         loggedOutClientId = "";
       }
-      this.logoutUser(foundUser);
+      this.logoutUser([user, userId]);
 
       //Hard login:
       if (!softLogin) {
         return this.hardLoginUser({
-          user: foundUser,
+          user,
+          userId,
           loginTakeover: true,
           clientId,
-          sessionToken,
+          sessionTokenInfo,
           loggedOutClientId,
         });
       }
@@ -298,7 +433,7 @@ export class AccountManager implements IAccountManager {
         success: true,
         message: "Login takeover with session token",
         statusCode: 200,
-        userId: foundUser.id,
+        userId,
         newSessionToken: null,
         loginTakeover: true,
         loggedOutClientId,
@@ -308,10 +443,11 @@ export class AccountManager implements IAccountManager {
     //Hard login:
     if (!softLogin) {
       return this.hardLoginUser({
-        user: foundUser,
+        user,
+        userId,
         loginTakeover: false,
         clientId,
-        sessionToken,
+        sessionTokenInfo,
       });
     }
     //Soft login:
@@ -320,14 +456,14 @@ export class AccountManager implements IAccountManager {
       success: true,
       message: "Login approved with session token",
       statusCode: 200,
-      userId: foundUser.id,
+      userId,
       newSessionToken: null,
       loginTakeover: false,
     };
   }
 
   private hardLoginUser(params: HardLoginUserParams): AuthResult {
-    const { user, loginTakeover, clientId, sessionToken } = params;
+    const { user, userId, loginTakeover, clientId, sessionTokenInfo } = params;
 
     const baseResult: AuthResult = {
       success: false,
@@ -341,13 +477,12 @@ export class AccountManager implements IAccountManager {
     }
     if (user.loggedIn) {
       this.logger.error(
-        `hardLoginUser: Unable to login user: user ${user.id} is already logged in`,
+        `hardLoginUser: Unable to login user: user ${userId} is already logged in`,
       );
       return baseResult;
     }
     user.loggedIn = true;
     user.clientId = clientId;
-    const sessionTokenInfo = this.addUniqueSessionToken(user, sessionToken);
     user.sessionTokenInfoInUse = sessionTokenInfo;
     user.lastHeartbeatResponse = null;
 
@@ -357,7 +492,7 @@ export class AccountManager implements IAccountManager {
         success: true,
         message: "User logged in",
         statusCode: 200,
-        userId: user.id,
+        userId,
         newSessionToken: null,
         loginTakeover,
         loggedOutClientId: params.loggedOutClientId,
@@ -368,7 +503,7 @@ export class AccountManager implements IAccountManager {
       success: true,
       message: "User logged in",
       statusCode: 200,
-      userId: user.id,
+      userId,
       newSessionToken: null,
       loginTakeover: false,
     };
@@ -420,30 +555,34 @@ export class AccountManager implements IAccountManager {
   //A userId, a user, or a clientId, should be passed in.
   //Returns the userId if successful, or null if not
   logoutUser(
-    data: number | User | string,
+    data: number | string | UserAndId,
     hardLogout: boolean = false,
   ): number | null {
     const result = this.checkAndWarnIfNotRunning("logout user");
     if (result) return null;
 
-    let user: User | undefined;
+    let userAndId: UserAndId | null = null;
     let errInfo = "";
 
     if (dataIsType("number", data)) {
-      const userId = data;
-      user = this.users.find((u) => u.id === userId);
-      errInfo = `userId of ${userId}`;
+      //Data is userId
+      const user = this.users.get(data);
+      if (user) userAndId = [user, data];
+      errInfo = `userId of ${data}`;
     } else if (dataIsType("string", data)) {
-      const clientId = data;
-      user = this.users.find((u) => u.clientId === clientId);
-      errInfo = `clientId of ${clientId}`;
+      //Data is clientId
+      const result = this.findUserAndIdByClientId(data);
+      if (result) userAndId = result;
+      errInfo = `clientId of ${data}`;
     } else {
-      user = data;
+      //Data is type UserAndId
+      userAndId = data;
     }
-    if (!user) {
+    if (!userAndId) {
       this.logger.error(`No user could be found in logoutUser with ${errInfo}`);
       return null;
     }
+    const [user, userId] = userAndId;
 
     user.loggedIn = false;
     user.clientId = null;
@@ -457,10 +596,8 @@ export class AccountManager implements IAccountManager {
     }
 
     user.sessionTokenInfoInUse = null;
-
-    this.logger.info(`Logged out user ${user.id}`);
-
-    return user.id;
+    this.logger.info(`Logged out user ${userId}`);
+    return userId;
   }
 
   async softLoginUser(
@@ -499,11 +636,12 @@ export class AccountManager implements IAccountManager {
     );
     if (result) return null;
 
-    const foundUser = this.users.find(
-      (usr) => usr.loggedIn && usr.clientId === clientId,
-    );
-    if (!foundUser) return null;
-    return foundUser.id;
+    for (const [id, user] of this.users.entries()) {
+      if (user.loggedIn && user.clientId === clientId) {
+        return id;
+      }
+    }
+    return null;
   }
 
   //Returns clientId if successful:
@@ -513,31 +651,50 @@ export class AccountManager implements IAccountManager {
     );
     if (result) return null;
 
-    const foundUser = this.users.find(
-      (usr) => usr.loggedIn && usr.id === userId,
-    );
-    if (!foundUser) return null;
+    const foundUser = this.users.get(userId);
+    if (!foundUser || !foundUser.loggedIn) return null;
     return foundUser.clientId;
   }
 
-  //For eg admins updating info about users. Passwords will be updated if they are not null. Passwords are expected as plain text here.
-  async updateUsers(users: BaseUser[]) {
+  //For eg admins updating info about users. Passwords are expected as plain text here.
+  async updateUsers(updates: AdminUserUpdate[]): Promise<void> {
     const result = this.checkAndWarnIfNotRunning("update users");
     if (result) return;
 
-    for (let user of users) {
-      const success = this.validateBaseUser(user, true);
-      if (!success) continue;
-      const foundUser = this.users.find((u) => u.id === user.id);
+    for (let update of updates) {
+      const { userId: id, username: u, password: p } = update;
+      if (u === undefined && p === undefined) {
+        continue;
+      }
+      const foundUser = this.users.get(id);
       if (!foundUser) {
-        this.logger.warn(
-          `Unable to find user with ID of ${user.id} in updateUsers`,
-        );
-      } else {
-        foundUser.username = user.username;
-        if (user.password !== null) {
-          const hash = await bcrypt.hash(user.password, SALT_ROUNDS);
-          foundUser.password = hash;
+        this.logger.warn(`Unable to update user: userId ${id} does not exist`);
+        continue;
+      }
+      if (p !== undefined) {
+        if (this.validatePassword(p)) {
+          const hash = await bcrypt.hash(p, SALT_ROUNDS);
+          foundUser.passwordHash = hash;
+        } else {
+          this.logger.warn(
+            `Unable to update password for userId ${id}. The password is invalid`,
+          );
+        }
+      }
+      if (u !== undefined) {
+        const trimmedU = u.trim();
+        //Rebuild the usernames set each time in validateUsername, because usernames could have changed during the await above:
+        if (
+          this.validateUsername({
+            name: trimmedU,
+            currentName: foundUser.username,
+          })
+        ) {
+          foundUser.username = trimmedU;
+        } else {
+          this.logger.warn(
+            `Unable to update username for userId ${id}. The username is invalid`,
+          );
         }
       }
     }
@@ -547,7 +704,7 @@ export class AccountManager implements IAccountManager {
     const result = this.checkAndWarnIfNotRunning("get user info");
     if (result) return null;
 
-    const user = this.users.find((usr) => usr.id === userId);
+    const user = this.users.get(userId);
     if (!user) {
       this.logger.error(
         `Unable to get UserInfo for user with id ${userId}: no user with that id exists`,
@@ -558,17 +715,22 @@ export class AccountManager implements IAccountManager {
   }
 
   processHeartbeatResponse(timestamp: number, clientId: string): void {
-    const result = this.checkAndWarnIfNotRunning("process heartbeat response");
-    if (result) return;
-    const foundUser = this.users.find((user) => user.clientId === clientId);
-    if (!foundUser) return;
-    if (!foundUser.loggedIn) {
+    const notRunning = this.checkAndWarnIfNotRunning(
+      "process heartbeat response",
+    );
+    if (notRunning) return;
+
+    const result = this.findUserAndIdByClientId(clientId);
+    if (!result) return;
+    const [user, id] = result;
+
+    if (!user.loggedIn) {
       this.logger.error(
-        `processHeartbeatResponse: Invariant violation: user ${foundUser.id} has clientId=${foundUser.clientId} but loggedIn=false. `,
+        `processHeartbeatResponse: Invariant violation: user ${id} has clientId=${user.clientId} but loggedIn=false. `,
       );
       return;
     }
-    foundUser.lastHeartbeatResponse = Date.now();
+    user.lastHeartbeatResponse = Date.now();
   }
 
   get numUsers(): number {
@@ -578,67 +740,6 @@ export class AccountManager implements IAccountManager {
       );
     }
     return this._numUsers;
-  }
-
-  //VALIDATION:
-  private validateUser(user: User, textPassword = false): boolean {
-    if (user.clientId !== null && user.clientId.trim() === "") {
-      this.logger.warn(`User ${user.username} has an invalid clientId`);
-      return false;
-    }
-    if (
-      user.sessionTokenInfoInUse !== null &&
-      user.sessionTokenInfoInUse.token.trim() === ""
-    ) {
-      this.logger.warn(
-        `User ${user.username} has an invalid sessionTokenInfoInUse`,
-      );
-      return false;
-    }
-    const tokens = user.sessionTokenInfos.map((info) => info.token.trim());
-    const someElsEmpty = tokens.some((t) => t === "");
-    const hasDuplicates = new Set(tokens).size !== tokens.length;
-
-    if (someElsEmpty || hasDuplicates) {
-      this.logger.warn(
-        `User ${user.username} has an invalid sessionTokenInfos array` +
-          (someElsEmpty ? " (empty token)" : "") +
-          (hasDuplicates ? " (duplicate token)" : ""),
-      );
-      return false;
-    }
-
-    return this.validateBaseUser(user, textPassword);
-  }
-
-  //If textPassword is true, that means password is not encrypted yet (ie sent from client)
-  //If false, the password is already a hash, hence validation needs to be different
-  private validateBaseUser(user: BaseUser, textPassword = false): boolean {
-    if (
-      !Number.isInteger(user.id) ||
-      user.id < 0 ||
-      user.id >= this._numUsers
-    ) {
-      this.logger.warn(`User id ${user.id} for ${user.username} is invalid`);
-      return false;
-    }
-    if (
-      user.username.length > MAX_USERNAME_LENGTH ||
-      user.username.trim() === ""
-    ) {
-      this.logger.warn(`Username ${user.username} is invalid`);
-      return false;
-    }
-    if (textPassword && user.password !== null) {
-      if (
-        user.password.length < MIN_PASSWORD_LENGTH ||
-        user.password.length > MAX_PASSWORD_LENGTH
-      ) {
-        this.logger.warn(`User ${user.username} has an invalid password`);
-        return false;
-      }
-    }
-    return true;
   }
 
   private checkAndWarnIfNotRunning(action: string): AuthResult | null {
@@ -656,10 +757,16 @@ export class AccountManager implements IAccountManager {
   }
 
   private addUniqueSessionToken(user: User, token: string): SessionTokenInfo {
-    const foundSessionTokenInfo = user.sessionTokenInfos.find(
-      (info) => info.token === token,
-    );
-    if (foundSessionTokenInfo) return foundSessionTokenInfo;
+    const found = user.sessionTokenInfos.find((info) => info.token === token);
+    if (found) {
+      // Invariant: tokens should be unique and a freshly issued token shouldn't already exist
+      // If this happens, normalise by extending to the full session duration
+      this.logger.warn(
+        `Session token already existed for user; normalising expiry`,
+      );
+      found.expiresAtMs = Date.now() + SESSION_DURATION_MS;
+      return found;
+    }
 
     const sessionTokenInfo = {
       token,

@@ -1,14 +1,13 @@
 import type { PartylineInfo } from "../../../shared/types/index.js";
 import type {
   AudioConfig,
-  AudioData,
-  AudioMatrixData,
+  AudioMatrixPopulateData,
   KeyPressInfo,
 } from "../../types/index.js";
 
 export interface IAudioMatrixManager {
   init: () => void;
-  populate: (data: AudioMatrixData) => AudioConfig;
+  populate: (data: AudioMatrixPopulateData) => AudioConfig;
   start: () => void;
   stop: () => void;
   getPartylineInfos: (userId: number) => PartylineInfo[] | null;

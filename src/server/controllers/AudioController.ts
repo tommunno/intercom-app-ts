@@ -1,7 +1,6 @@
 import type {
   AudioInfo,
   MergedPartylineInfo,
-  PartylineInfo,
 } from "../../shared/types/index.js";
 import type {
   AudioHandlers,
@@ -11,7 +10,7 @@ import type {
   ITailManager,
   IWebRtcMediaBridge,
 } from "../contracts/index.js";
-import type { AudioData, KeyPressInfo } from "../types/index.js";
+import type { AudioPopulateData, KeyPressInfo } from "../types/index.js";
 
 export class AudioController implements IAudioController {
   private handlers: AudioHandlers | null = null;
@@ -31,7 +30,7 @@ export class AudioController implements IAudioController {
     this.tailManager.init();
   }
 
-  populate(data: AudioData): void {
+  populate(data: AudioPopulateData): void {
     const audioConfig = this.audioMatrixManager.populate(data.audioMatrixData);
     this.tailManager.populate(audioConfig);
   }

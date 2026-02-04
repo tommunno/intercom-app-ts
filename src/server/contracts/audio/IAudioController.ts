@@ -1,5 +1,5 @@
 import type { AudioInfo, PartylineInfo } from "../../../shared/types/index.js";
-import type { AudioData, KeyPressInfo } from "../../types/index.js";
+import type { AudioPopulateData, KeyPressInfo } from "../../types/index.js";
 
 export interface AudioHandlers {
   onAudioInfoUpdate: (userId: number, audioInfo: AudioInfo) => void;
@@ -7,7 +7,7 @@ export interface AudioHandlers {
 
 export interface IAudioController {
   init: () => void;
-  populate: (data: AudioData) => void;
+  populate: (data: AudioPopulateData) => void;
   start: () => void;
   setHandlers: (handlers: AudioHandlers) => void;
 

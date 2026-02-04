@@ -15,9 +15,8 @@ import type {
   ILogger,
 } from "../contracts/index.js";
 //Constants:
-import { SESSION_DURATION_MS } from "../constants/serverConstants.js";
 import type { NetworkData } from "../types/NetworkData.js";
-import type { AudioData } from "../types/AudioData.js";
+import type { AudioData, AudioPopulateData } from "../types/index.js";
 
 export class DataController implements IDataController {
   private handlers: DataHandlers | null = null;
@@ -30,97 +29,29 @@ export class DataController implements IDataController {
     this.logger = this.logger.child({ context: "DataController" });
   }
 
-  init() {
+  init(): void {
     this.bindListeners();
-    //Test data:
-    this.accountManager.init({
-      numUsers: 3,
-      loadedUsers: [
-        {
-          id: 0,
-          loggedIn: false,
-          username: "tom",
-          password: null,
-          clientId: null,
-          sessionTokenInfoInUse: null,
-          sessionTokenInfos: [
-            {
-              token: "aaa",
-              expiresAtMs: Date.now() + SESSION_DURATION_MS,
-            },
-            {
-              token: "bbb",
-              expiresAtMs: Date.now() + SESSION_DURATION_MS,
-            },
-          ],
-          lastHeartbeatResponse: null,
-        },
-        {
-          id: 1,
-          loggedIn: false,
-          username: "ben",
-          password: null,
-          clientId: null,
-          sessionTokenInfoInUse: null,
-          sessionTokenInfos: [
-            {
-              token: "ccc",
-              expiresAtMs: Date.now() + SESSION_DURATION_MS,
-            },
-            {
-              token: "ddd",
-              expiresAtMs: Date.now() + SESSION_DURATION_MS,
-            },
-          ],
-          lastHeartbeatResponse: null,
-        },
-        {
-          id: 2,
-          loggedIn: false,
-          username: "mark",
-          password: null,
-          clientId: null,
-          sessionTokenInfoInUse: null,
-          sessionTokenInfos: [
-            {
-              token: "eee",
-              expiresAtMs: Date.now() + SESSION_DURATION_MS,
-            },
-            {
-              token: "fff",
-              expiresAtMs: Date.now() + SESSION_DURATION_MS,
-            },
-          ],
-          lastHeartbeatResponse: null,
-        },
-      ],
-    });
-    //End test data
+    this.dataManager.init();
+    this.accountManager.init();
   }
 
-  start() {
+  private populate(): void {
+    this.accountManager.populate(this.dataManager.getAccountData());
+  }
+
+  start(): void {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
+    this.dataManager.start();
+    this.populate();
     this.accountManager.start();
-    //Test:
+    //Test data:
     this.accountManager.updateUsers([
-      {
-        id: 0,
-        username: "tom",
-        password: "tom123",
-      },
-      {
-        id: 1,
-        username: "ben",
-        password: "ben123",
-      },
-      {
-        id: 2,
-        username: "mark",
-        password: "mark123",
-      },
+      { userId: 0, password: "tom123" },
+      { userId: 1, password: "ben123" },
+      { userId: 2, username: "mark", password: "mark123" },
     ]);
-    //End test
+    //End test data
   }
 
   setHandlers(handlers: DataHandlers): void {
@@ -169,6 +100,8 @@ export class DataController implements IDataController {
   }
 
   private bindListeners(): void {
+    this.dataManager.setHandlers({});
+
     this.accountManager.setHandlers({
       onHeartbeat: (c, p) => this.handleAccountHeartbeat(c, p),
       onStaleHeartbeat: (c) => this.handleStaleHeartbeat(c),
@@ -189,21 +122,17 @@ export class DataController implements IDataController {
 
   //Handle Data:
 
-  //Test data for now:
   getNetworkData(): NetworkData {
-    return {
-      webServerData: { httpPort: 80, httpsPort: 443 },
-      turnServerData: { port: 4052, ip: "192.168.0.33" },
-    };
+    return this.dataManager.getNetworkData();
   }
 
-  //Test data for now:
-  getAudioData(): AudioData {
+  getAudioData(): AudioPopulateData {
+    const audioData: AudioData = this.dataManager.getAudioData();
+
     return {
       audioMatrixData: {
+        ...audioData.audioMatrixData,
         numUsers: this.accountManager.numUsers,
-        numSoundcardChannels: 10,
-        numPartylines: 8,
       },
     };
   }

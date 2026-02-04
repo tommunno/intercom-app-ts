@@ -1,28 +1,31 @@
 import type {
+  AdminUserUpdate,
   HeartbeatRequestPayload,
   SessionTokenInfo,
+  UserAndId,
 } from "../../../shared/types/index.js";
 import type {
   AuthResult,
-  BaseUser,
   LoginCredentials,
   User,
   UserInfo,
 } from "../../../shared/types/index.js";
-import type { AccountManagerConfig } from "../../types/index.js";
+import type { AccountData } from "../../types/index.js";
 
 export type HardLoginUserParams =
   | {
       user: User;
+      userId: number;
       loginTakeover: false;
       clientId: string | null;
-      sessionToken: string;
+      sessionTokenInfo: SessionTokenInfo;
     }
   | {
       user: User;
+      userId: number;
       loginTakeover: true;
       clientId: string | null;
-      sessionToken: string;
+      sessionTokenInfo: SessionTokenInfo;
       loggedOutClientId: string;
     };
 
@@ -32,7 +35,8 @@ export interface AccountHandlers {
 }
 
 export interface IAccountManager {
-  init: (config: AccountManagerConfig) => void;
+  init: () => void;
+  populate: (data: AccountData) => void;
   start: () => void;
   stop: () => void;
   setHandlers: (handlers: AccountHandlers) => void;
@@ -46,13 +50,13 @@ export interface IAccountManager {
 
   logoutUser(userId: number, hardLogout?: boolean): number | null;
   logoutUser(clientId: string, hardLogout?: boolean): number | null;
-  logoutUser(user: User, hardLogout?: boolean): number | null;
+  logoutUser(userAndId: UserAndId, hardLogout?: boolean): number | null;
 
   //Returns the userId if logged in
   isClientIdLoggedIn(clientId: string): number | null;
-  //Returns clientId if successful:
+  //Returns clientId if logged in:
   isUserIdLoggedIn: (userId: number) => string | null;
-  updateUsers: (users: BaseUser[]) => Promise<void>;
+  updateUsers: (updates: AdminUserUpdate[]) => Promise<void>;
   getUserInfo: (userId: number) => UserInfo | null;
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
 

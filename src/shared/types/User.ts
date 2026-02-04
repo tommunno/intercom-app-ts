@@ -1,43 +1,22 @@
-//Helpers:
-import { dataIsObject, dataIsType, dataIsTypeAOrB } from "../helpers.js";
-import {
-  dataIsArrayOfSessionTokenInfos,
-  dataIsSessionTokenInfo,
-  type SessionTokenInfo,
-} from "./SessionTokenInfo.js";
+import { type SessionTokenInfo } from "./SessionTokenInfo.js";
 
-export interface BaseUser {
-  id: number;
+export interface PersistedUser {
   username: string;
-  password: string | null;
+  passwordHash: string | null;
+  sessionTokenInfos: SessionTokenInfo[];
 }
 
-export interface User extends BaseUser {
+export interface User extends PersistedUser {
   loggedIn: boolean;
   clientId: string | null;
   sessionTokenInfoInUse: SessionTokenInfo | null;
-  sessionTokenInfos: SessionTokenInfo[];
   lastHeartbeatResponse: number | null;
 }
 
-export function dataIsBaseUser(data: unknown): data is BaseUser {
-  return (
-    dataIsObject(data) &&
-    dataIsType("number", data.id) &&
-    dataIsType("string", data.username) &&
-    dataIsTypeAOrB("string", "null", data.password)
-  );
+export interface AdminUserUpdate {
+  userId: number;
+  username?: string;
+  password?: string;
 }
 
-export function dataIsUser(data: unknown): data is User {
-  return (
-    dataIsObject(data) &&
-    dataIsBaseUser(data) &&
-    dataIsType("boolean", data.loggedIn) &&
-    dataIsTypeAOrB("string", "null", data.clientId) &&
-    (dataIsSessionTokenInfo(data.sessionTokenInfoInUse) ||
-      data.sessionTokenInfoInUse === null) &&
-    dataIsArrayOfSessionTokenInfos(data.sessionTokenInfos) &&
-    dataIsTypeAOrB("number", "null", data.lastHeartbeatResponse)
-  );
-}
+export type UserAndId = [user: User, userId: number];

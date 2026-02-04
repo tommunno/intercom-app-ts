@@ -11,8 +11,8 @@ import type {
 import { OutputPort, Partyline } from "../../entities/index.js";
 import {
   type AudioConfig,
-  type AudioData,
   type AudioMatrixData,
+  type AudioMatrixPopulateData,
   type KeyPressInfo,
 } from "../../types/index.js";
 import { dataIsType } from "../../../shared/helpers.js";
@@ -51,7 +51,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     this.status = "INITIALIZED";
   }
 
-  populate(data: AudioMatrixData): AudioConfig {
+  populate(data: AudioMatrixPopulateData): AudioConfig {
     if (this.status !== "INITIALIZED") {
       throw new Error(
         `Cannot populate the AudioMatrixManager whilst its status is ${this.status}`,
@@ -145,7 +145,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     );
   }
 
-  private setAudioConfig(matrixData: AudioMatrixData): void {
+  private setAudioConfig(matrixData: AudioMatrixPopulateData): void {
     const {
       numUsers: nU,
       numSoundcardChannels: nSC,

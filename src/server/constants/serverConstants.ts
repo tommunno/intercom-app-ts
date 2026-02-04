@@ -6,13 +6,11 @@ export const KEY_FILE = "server.key";
 export const CERT_FILE = "server.cert";
 export const WEB_SERVER_DIR = "public";
 
-//Auth:
+//AccountManager:
+export const MAX_NUM_USERS = 64;
+export const DEFAULT_NUM_USERS = 16;
 export const SESSION_DURATION_MS = 604_800_000; //7 * 24 * 60 * 60 * 1000 = 7 days
-//Short value for testing:
-// export const SESSION_DURATION_MS = 10000;
 export const SESSION_CLEANUP_INTERVAL_MS = 900_000; //15 * 60 * 1000 = 15 mins
-//Short value for testing:
-// export const SESSION_CLEANUP_INTERVAL_MS = 5000;
 export const ACCOUNT_HEARTBEAT_DURATION_MS = 5000;
 export const ACCOUNT_STALE_HEARTBEAT_MS = 10000;
 
@@ -20,10 +18,9 @@ export const ACCOUNT_STALE_HEARTBEAT_MS = 10000;
 export const SALT_ROUNDS = 10;
 
 //Audio Matrix:
-export const MAX_NUM_USERS = 64;
 export const MAX_NUM_SOUNDCARD_CHANNELS = 64;
-export const MAX_NUM_PARTYLINES = 64;
 export const DEFAULT_NUM_SOUNDCARD_CHANNELS = 16;
+export const MAX_NUM_PARTYLINES = 64;
 export const DEFAULT_NUM_PARTYLINES = 16;
 
 //WebRtc:
