@@ -165,7 +165,7 @@ export class AccountManager implements IAccountManager {
     }
   }
 
-  // If name === currentName, we treat it as valid even though it exists in the usernames set.
+  // If name === currentName, we treat it as valid even though it exists in the usernames set
   private validateUsername({
     name,
     usernames,

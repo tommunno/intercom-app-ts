@@ -83,7 +83,14 @@ export class PanelController implements IPanelController {
       onServerRestored: () => this.handleWssServerRestored(),
       onHeartbeatTimeout: () => this.handleHeartbeatTimeout(),
     });
-    this.webRtcManager.setHandlers({});
+    this.webRtcManager.setHandlers({
+      onRtcConnected: () => this.handleRtcConnected(),
+      onRtcDisconnected: () => this.handleRtcDisconnected(),
+      onRtcClosed: () => this.handleRtcClosed(),
+      onRtcFailed: () => this.handleRtcFailed(),
+      onRtcOffer: (o) => this.handleRtcOffer(o),
+      onRtcIceCandidate: (c) => this.handleRtcIceCandidate(c),
+    });
     window.addEventListener("storage", (e) => this.handleTabReloadCommand(e));
   }
 
@@ -204,9 +211,7 @@ export class PanelController implements IPanelController {
   }
 
   private handleWssDisconnection() {
-    this.guiManager.setErrorModal(true);
-    this.wssManager.monitorServerRecovery(true);
-    this.wssManager.monitorHeartbeatWatchdog(false);
+    this.handleLostConnection();
   }
 
   private handleWssMessage<K extends WssDownstream>(
@@ -266,7 +271,13 @@ export class PanelController implements IPanelController {
     this.state.turnServerInfo = turnServerInfo;
     this.guiManager.displayState(this.state);
     this.guiManager.setLoginVisible(false);
+    this.guiManager.displayPopup({
+      type: "audio",
+      title: "Connecting Audio...",
+      autoHide: false,
+    });
     this.wssManager.monitorHeartbeatWatchdog(true);
+    this.webRtcManager.connect(turnServerInfo);
     this.reloadOtherTabs();
   }
 
@@ -288,12 +299,14 @@ export class PanelController implements IPanelController {
     answer: WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_ANSWER],
   ) {
     this.logger.info("Handling WebRtc answer:", answer);
+    this.webRtcManager.processRemoteAnswer(answer);
   }
 
   private handleWebRtcServerIceCandidate(
     candidate: WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE],
   ) {
     this.logger.info("Handling WebRtc server ICE candidate:", candidate);
+    this.webRtcManager.processRemoteIceCandidate(candidate);
   }
 
   //GUI Handlers:
@@ -338,5 +351,45 @@ export class PanelController implements IPanelController {
       url.searchParams.set("noAutoLogin", "true");
       window.location.replace(url.toString());
     }
+  }
+
+  //WebRtc Handlers:
+  private handleRtcConnected(): void {
+    this.logger.info(`WebRtc connected`);
+    this.guiManager.displayPopup({
+      type: "audio",
+      title: "Connected",
+      autoHide: true,
+      hideTime: 2000,
+    });
+  }
+
+  private handleRtcDisconnected(): void {
+    this.logger.info(`WebRtc disconnected`);
+  }
+
+  private handleRtcClosed(): void {
+    this.logger.info(`WebRtc closed`);
+    this.handleLostConnection();
+  }
+
+  private handleRtcFailed(): void {
+    this.logger.info(`WebRtc failed`);
+    this.handleLostConnection();
+  }
+
+  private handleRtcOffer(offer: any): void {
+    this.wssManager.sendMessage("WEB_RTC_OFFER", offer);
+  }
+
+  private handleRtcIceCandidate(candidate: any): void {
+    this.wssManager.sendMessage("WEB_RTC_CLIENT_ICE_CANDIDATE", candidate);
+  }
+
+  //Misc Handlers:
+  private handleLostConnection() {
+    this.guiManager.setErrorModal(true);
+    this.wssManager.monitorServerRecovery(true);
+    this.wssManager.monitorHeartbeatWatchdog(false);
   }
 }

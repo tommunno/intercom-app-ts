@@ -12,7 +12,7 @@ import {
   type MergedPartylineInfo,
   type UserInfo,
 } from "../../shared/types/index.js";
-import { type PanelState } from "../types/index.js";
+import { type DisplayPopupParams, type PanelState } from "../types/index.js";
 
 export class PanelGuiManager implements IPanelGuiManager {
   private status: ManagerStatus = "IDLE";
@@ -34,6 +34,11 @@ export class PanelGuiManager implements IPanelGuiManager {
     pls: {
       plsList: document.querySelector<HTMLUListElement>(".pls-list")!,
     },
+    popup: {
+      container: document.querySelector<HTMLDivElement>(".popup")!,
+      title: document.querySelector<HTMLParagraphElement>(".popup-title")!,
+      message: document.querySelector<HTMLParagraphElement>(".popup-message")!,
+    },
     error: {
       modalOverlay: document.querySelector<HTMLDivElement>(
         ".modal-overlay-error",
@@ -43,6 +48,7 @@ export class PanelGuiManager implements IPanelGuiManager {
   private handlers: PanelGuiManagerHandlers | null = null;
   //By default, the HTML has the login in loading state, until the JS loads
   private loginLoading: boolean = true;
+  private hidePopupTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private logger: IClientLogger) {
     this.logger = this.logger.child({ context: "PanelGuiManager" });
@@ -163,6 +169,47 @@ export class PanelGuiManager implements IPanelGuiManager {
     });
 
     this.sortPlsListToMatchPartylines(partylines);
+  }
+
+  displayPopup(params: DisplayPopupParams): void {
+    const { type, title, message, autoHide } = params;
+
+    if (this.hidePopupTimeoutId !== null) {
+      clearTimeout(this.hidePopupTimeoutId);
+      this.hidePopupTimeoutId = null;
+    }
+
+    const {
+      container: popupEl,
+      title: titleEl,
+      message: messageEl,
+    } = this.els.popup;
+
+    titleEl.textContent = title;
+    messageEl.textContent = message ?? "";
+    popupEl.className = `popup ${type} visible`;
+
+    if (autoHide) {
+      const { hideTime } = params;
+
+      this.hidePopupTimeoutId = setTimeout(() => {
+        this.internalHidePopup();
+        this.hidePopupTimeoutId = null;
+      }, hideTime);
+    }
+  }
+
+  hidePopup(): void {
+    if (this.hidePopupTimeoutId !== null) {
+      clearTimeout(this.hidePopupTimeoutId);
+      this.hidePopupTimeoutId = null;
+    }
+    this.internalHidePopup();
+  }
+
+  private internalHidePopup(): void {
+    const { container: popupEl } = this.els.popup;
+    popupEl.classList.remove("visible");
   }
 
   setErrorModal(visible: boolean): void {
@@ -300,7 +347,7 @@ export class PanelGuiManager implements IPanelGuiManager {
     );
   }
 
-  handlePlsListPointerDown(e: PointerEvent): void {
+  private handlePlsListPointerDown(e: PointerEvent): void {
     //Ignore right click and non non-primary mouse buttons
     if (e.pointerType === "mouse" && e.button !== 0) return;
 

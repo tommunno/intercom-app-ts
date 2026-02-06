@@ -92,45 +92,60 @@ export class Controller implements IController {
   //If hardLogout=true, the sessionToken is removed as well
   //If notifyClient=true, the client will be told they have been logged out
   //loginTakeover tells the client whether they are being logged out due to a loginTakeover
+  //If closeRtc=false, the WebRtc connection will not be closed
   private logoutClientIfLoggedIn({
     clientId,
     hardLogout = false,
     notifyClient = false,
     loginTakeover = false,
+    closeRtc = true,
   }: LogoutClientParams): boolean {
     let userId = this.dataController.isClientIdLoggedIn(clientId);
     if (userId === null) {
       //Client is not logged in, hence we will not do anything. This is not an error
       return true;
     }
+
     userId = this.dataController.logoutUser(clientId, hardLogout);
     if (userId === null) {
       this.logger.error(
-        `An error has occured whilst logging out user with clientId ${clientId}. Will not continue with logout`,
+        `An error has occured whilst logging out user with clientId ${clientId}. ${closeRtc ? "The WebRtc connection will be closed, but otherwise w" : "W"}ill not continue with logout`,
       );
+      if (closeRtc) {
+        this.networkController.closeRtcClient(clientId);
+      }
       return false;
     }
-    const disconnectUserParams = {
+    return this.disconnectUser({
       userId,
       notifyClient,
       loginTakeover,
       clientId,
-    };
-    return this.disconnectUser(disconnectUserParams);
+      closeRtc,
+    });
   }
 
   //Returns true if success, false if error
   //If notifyClient=true, you must provide a clientId
   //loginTakeover tells the client whether they are being logged out due to a loginTakeover
-  private disconnectUser(params: DisconnectUserParams): boolean {
-    const { userId, notifyClient, loginTakeover = false } = params;
+  //If closeRtc=false, the WebRtc connection will not be closed
+  private disconnectUser({
+    userId,
+    notifyClient,
+    loginTakeover = false,
+    clientId,
+    closeRtc = true,
+  }: DisconnectUserParams): boolean {
+    if (closeRtc) {
+      this.networkController.closeRtcClient(clientId);
+    }
     //If success is false, an internal error has occurred. This is logged inside of audioController. We continue to notify client that they have been logged out
     const success = this.audioController.disconnectUser(userId);
     if (notifyClient) {
       this.networkController.sendWssMessage(
         "USER_FORCE_LOGOUT",
         { loginTakeover },
-        [params.clientId],
+        [clientId],
       );
     }
     return success;
@@ -253,6 +268,8 @@ export class Controller implements IController {
       return;
     }
 
+    this.networkController.createRtcPeerConnection(clientId);
+
     this.networkController.sendWssMessage(
       "USER_LOGIN_RESPONSE",
       { success: true, message, userInfo, audioInfo, turnServerInfo },
@@ -317,11 +334,20 @@ export class Controller implements IController {
 
   private handleRtcClosed(clientId: string): void {
     this.logger.warn(`WebRtc closed for client ${clientId}`);
-    this.logoutClientIfLoggedIn({ clientId, notifyClient: true });
+    this.logoutClientIfLoggedIn({
+      clientId,
+      notifyClient: true,
+      closeRtc: false,
+    });
   }
 
   private handleRtcFailed(clientId: string): void {
     this.logger.warn(`WebRtc failed for client ${clientId}`);
+    this.logoutClientIfLoggedIn({
+      clientId,
+      notifyClient: true,
+      closeRtc: false,
+    });
   }
 
   private handleRtcAnswer(clientId: string, answer: any): void {

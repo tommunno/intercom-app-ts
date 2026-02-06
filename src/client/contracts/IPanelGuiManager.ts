@@ -5,7 +5,7 @@ import type {
   TailState,
   UserInfo,
 } from "../../shared/types/index.js";
-import { type PanelState } from "../types/index.js";
+import type { DisplayPopupParams, PanelState } from "../types/index.js";
 
 export type KeyPressParams =
   | {
@@ -32,5 +32,7 @@ export interface IPanelGuiManager {
   displayState: (state: PanelState) => void;
   displayUserInfo: (userInfo: UserInfo) => void;
   displayAudioInfo: (audioInfo: AudioInfo) => void;
+  displayPopup: (params: DisplayPopupParams) => void;
+  hidePopup: () => void;
   setErrorModal: (visible: boolean) => void;
 }

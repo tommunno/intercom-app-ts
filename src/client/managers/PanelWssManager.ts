@@ -147,8 +147,6 @@ export class PanelWssManager implements IPanelWssManager {
     if (this.checkAndWarnIfNotRunning("process received heartbeat")) return;
     if (!this.heartbeatRunning) return;
 
-    this.logger.info("Heartbeat received");
-
     if (this.heartbeatTimer) clearTimeout(this.heartbeatTimer);
     this.heartbeatTimer = setTimeout(() => {
       this.heartbeatRunning = false;
@@ -200,7 +198,9 @@ export class PanelWssManager implements IPanelWssManager {
         //Now we can safely destructure these
         const { type, payload } = json;
 
-        this.logger.info(`Message type: ${type}`);
+        if (type !== "HEARTBEAT_REQUEST") {
+          this.logger.info(`Message type: ${type}`);
+        }
 
         this.handleMessage(type, payload);
       } catch (error) {
@@ -218,7 +218,10 @@ export class PanelWssManager implements IPanelWssManager {
       this.logger.warn(`Payload not valid for message of type ${type}`);
       return;
     }
-    this.logger.success(`Message payload valid for type: ${type}`);
+
+    if (type !== "HEARTBEAT_REQUEST") {
+      this.logger.success(`Message payload valid for type: ${type}`);
+    }
 
     this.activeHandlers.onMessage(type, payload);
   }

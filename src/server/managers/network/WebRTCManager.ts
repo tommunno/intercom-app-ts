@@ -84,7 +84,9 @@ export class WebRtcManager implements IWebRtcManager {
       );
       return;
     }
-    const pc = new wrtc.RTCPeerConnection(this.rtcConfig);
+    const pc: wrtcTypes.RTCPeerConnection = new wrtc.RTCPeerConnection(
+      this.rtcConfig,
+    );
     this.clients.set(clientId, {
       pc,
       closed: false,
@@ -100,6 +102,9 @@ export class WebRtcManager implements IWebRtcManager {
         ...ICE_SERVERS,
         { urls: [turnServerUrl], ...this.turnServerCredentials },
       ],
+      //Test: for forcing to turn server
+      // iceTransportPolicy: "relay",
+      //End test
     };
   }
 
@@ -156,8 +161,8 @@ export class WebRtcManager implements IWebRtcManager {
     candidate: any,
   ): Promise<void> {
     try {
-      const ice = new wrtc.RTCIceCandidate(candidate); // can throw sync
-      await pcInfo.pc.addIceCandidate(ice); // can reject async
+      const ice = new wrtc.RTCIceCandidate(candidate);
+      await pcInfo.pc.addIceCandidate(ice);
     } catch (err) {
       this.logger.error(
         `Unable to add remote ICE candidate for clientId ${clientId}`,
@@ -200,6 +205,12 @@ export class WebRtcManager implements IWebRtcManager {
 
     pc.onicecandidateerror = (event: RtcPeerConnectionIceErrorEvent) => {
       this.handlePeerConnectionIceCandidateError(clientId, pc, event);
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      this.logger.info(
+        `iceConnectionState for clientId ${clientId} is ${pc.iceConnectionState}`,
+      );
     };
   }
 
@@ -271,10 +282,10 @@ export class WebRtcManager implements IWebRtcManager {
   ): void {
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed) return;
-    this.logger.warn(
-      `ICE candidate error (${event.errorCode}) for ${clientId}`,
-      event.errorText ?? "",
-    );
+    // this.logger.warn(
+    //   `ICE candidate error (${event.errorCode}) for ${clientId}`,
+    //   `Address: ${event.address ?? "None"}, Url: ${event.url ?? "None"}, Message: ${event.errorText ?? ""}`,
+    // );
   }
 
   private handleDisconnectTimeout(
@@ -298,9 +309,12 @@ export class WebRtcManager implements IWebRtcManager {
     clientId: string,
     pc: wrtcTypes.RTCPeerConnection,
   ): void {
+    this.logger.info(`Tearing down client ${clientId}`);
+
     pc.onconnectionstatechange = null;
     pc.onicecandidate = null;
     pc.onicecandidateerror = null;
+    pc.oniceconnectionstatechange = null;
     pc.ontrack = null;
 
     try {

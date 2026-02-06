@@ -171,7 +171,6 @@ export class WssManager implements IWssManager {
     sessionToken: string | null;
   }): void {
     try {
-      this.logger.info(`New Wss message received`);
       const data: unknown = JSON.parse(rawData.toString());
 
       //Check the 'universal' type
@@ -183,7 +182,9 @@ export class WssManager implements IWssManager {
       //Now we can safely destructure these
       const { type, payload } = data;
 
-      this.logger.info(`Message type: ${type}`);
+      if (type !== "HEARTBEAT_RESPONSE") {
+        this.logger.info(`Message type: ${type}`);
+      }
 
       this.handleMessage({ type, payload, clientId, sessionToken });
     } catch (e) {
@@ -206,7 +207,9 @@ export class WssManager implements IWssManager {
       this.logger.warn(`Payload not valid for message of type ${type}`);
       return;
     }
-    this.logger.info(`Message payload valid for type: ${type}`);
+    if (type !== "HEARTBEAT_RESPONSE") {
+      this.logger.success(`Message payload valid for type: ${type}`);
+    }
     this.activeHandlers.onMessage({ type, payload, clientId, sessionToken });
   }
 

@@ -3,4 +3,5 @@ export interface LogoutClientParams {
   hardLogout?: boolean;
   notifyClient?: boolean;
   loginTakeover?: boolean;
+  closeRtc?: boolean;
 }
