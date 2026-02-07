@@ -18,9 +18,17 @@ export class PanelGuiManager implements IPanelGuiManager {
   private status: ManagerStatus = "IDLE";
   private readonly els = {
     login: {
+      windowWrapper: document.querySelector<HTMLDivElement>(
+        ".login-window-wrapper",
+      )!,
       form: document.querySelector<HTMLFormElement>(".login-form")!,
       username: document.querySelector<HTMLInputElement>("#username")!,
+      passwordInputWrapper: document.querySelector<HTMLDivElement>(
+        ".password-input-wrapper",
+      )!,
       password: document.querySelector<HTMLInputElement>("#password")!,
+      openEye: document.querySelector<SVGSVGElement>(".open-eye")!,
+      closedEye: document.querySelector<SVGSVGElement>(".closed-eye")!,
       loginBtn: document.querySelector<HTMLButtonElement>(".login-btn")!,
       errorMessage: document.querySelector<HTMLDivElement>(
         ".login-error-message",
@@ -49,6 +57,7 @@ export class PanelGuiManager implements IPanelGuiManager {
   //By default, the HTML has the login in loading state, until the JS loads
   private loginLoading: boolean = true;
   private hidePopupTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private popupVisible: boolean = false;
 
   constructor(private logger: IClientLogger) {
     this.logger = this.logger.child({ context: "PanelGuiManager" });
@@ -87,6 +96,7 @@ export class PanelGuiManager implements IPanelGuiManager {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
     this.setupListeners();
+    this.els.login.username.focus();
     this.status = "RUNNING";
   }
 
@@ -188,6 +198,7 @@ export class PanelGuiManager implements IPanelGuiManager {
     titleEl.textContent = title;
     messageEl.textContent = message ?? "";
     popupEl.className = `popup ${type} visible`;
+    this.popupVisible = true;
 
     if (autoHide) {
       const { hideTime } = params;
@@ -210,6 +221,7 @@ export class PanelGuiManager implements IPanelGuiManager {
   private internalHidePopup(): void {
     const { container: popupEl } = this.els.popup;
     popupEl.classList.remove("visible");
+    this.popupVisible = false;
   }
 
   setErrorModal(visible: boolean): void {
@@ -219,6 +231,9 @@ export class PanelGuiManager implements IPanelGuiManager {
     const { modalOverlay } = this.els.error;
     modalOverlay.style.display = visible ? "flex" : "none";
     document.body.classList.toggle("no-scroll", visible);
+    if (visible && this.popupVisible) {
+      this.hidePopup();
+    }
   }
 
   private sortPlsListToMatchPartylines(
@@ -309,6 +324,18 @@ export class PanelGuiManager implements IPanelGuiManager {
     document.body.classList.toggle("no-scroll", isVisible);
   }
 
+  shakeLogin(): void {
+    const { windowWrapper } = this.els.login;
+    // Remove the class if it's already there
+    windowWrapper.classList.remove("shake");
+
+    // Force reflow so re-adding the class restarts the animation
+    void windowWrapper.offsetWidth;
+
+    // Add the class again
+    windowWrapper.classList.add("shake");
+  }
+
   private setupListeners(): void {
     this.setupLoginListeners();
     this.setupOptionBarListeners();
@@ -316,16 +343,36 @@ export class PanelGuiManager implements IPanelGuiManager {
   }
 
   private setupLoginListeners(): void {
-    const { form } = this.els.login;
+    const { form, openEye, closedEye } = this.els.login;
 
     form.addEventListener("submit", (e) => this.handleLoginFormSubmit(e));
+
+    openEye.addEventListener("click", (e) => this.handleOpenEyeClick(e));
+    closedEye.addEventListener("click", (e) => this.handleClosedEyeClick(e));
   }
 
   private handleLoginFormSubmit(e: SubmitEvent): void {
     e.preventDefault();
     if (this.loginLoading) return;
+    this.setPasswordVisibility(false);
     const { username, password } = this.els.login;
     this.activeHandlers.onLoginAttempt(username.value, password.value);
+  }
+
+  private handleOpenEyeClick(e: PointerEvent): void {
+    this.setPasswordVisibility(true);
+  }
+
+  private handleClosedEyeClick(e: PointerEvent): void {
+    this.setPasswordVisibility(false);
+  }
+
+  private setPasswordVisibility(visible: boolean): void {
+    const { passwordInputWrapper, password } = this.els.login;
+
+    passwordInputWrapper.classList.toggle("password-shown", visible);
+    password.type = visible ? "text" : "password";
+    password.focus();
   }
 
   private setupOptionBarListeners(): void {

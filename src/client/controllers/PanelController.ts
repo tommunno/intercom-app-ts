@@ -18,7 +18,11 @@ import type {
   KeyPressParams,
   IClientLogger,
 } from "../contracts/index.js";
-import type { PanelState, WssClientCommandMap } from "../types/index.js";
+import type {
+  AttemptFullLoginParams,
+  PanelState,
+  WssClientCommandMap,
+} from "../types/index.js";
 
 export class PanelController implements IPanelController {
   private state: PanelState = {
@@ -103,35 +107,31 @@ export class PanelController implements IPanelController {
       return;
     }
     //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
-    this.attemptFullLogin(null, null, true);
+    this.attemptFullLogin({
+      username: null,
+      password: null,
+      hideGuiErrors: true,
+    });
   }
 
   //Will attempt a soft login followed by a hard login
   //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
-  private async attemptFullLogin(
-    username: string | null,
-    password: string | null,
-    hideGuiErrors: boolean = false,
-  ): Promise<void> {
-    if (
-      (username === null && password !== null) ||
-      (username !== null && password === null)
-    ) {
-      if (!hideGuiErrors)
-        this.guiManager.setLoginError(
-          "An error has occurred, please reload the page",
-        );
-      this.logger.error(
-        `Username and password are of different types in handleLoginAttempt`,
-      );
-      return;
-    }
+  // username: string | null,
+  // password: string | null,
+  // hideGuiErrors: boolean = false,
+  private async attemptFullLogin({
+    username,
+    password,
+    hideGuiErrors = false,
+  }: AttemptFullLoginParams): Promise<void> {
     if (
       (username !== null && username.trim() === "") ||
       (password !== null && password.trim() === "")
     ) {
-      if (!hideGuiErrors)
+      if (!hideGuiErrors) {
         this.guiManager.setLoginError("Please enter a username and password");
+        this.guiManager.shakeLogin();
+      }
       return;
     }
     this.guiManager.setLoginLoading(true);
@@ -142,7 +142,10 @@ export class PanelController implements IPanelController {
       });
 
       if (!result.success) {
-        if (!hideGuiErrors) this.guiManager.setLoginError(result.message);
+        if (!hideGuiErrors) {
+          this.guiManager.setLoginError(result.message);
+          this.guiManager.shakeLogin();
+        }
         this.guiManager.setLoginLoading(false);
         return;
       }
@@ -151,11 +154,13 @@ export class PanelController implements IPanelController {
       this.guiManager.setLoginError(null);
       this.attemptHardLogin();
     } catch (error) {
-      this.logger.error("Critical Login Error:", error);
-      if (!hideGuiErrors)
+      this.logger.error("Critical Login Error", error);
+      if (!hideGuiErrors) {
         this.guiManager.setLoginError(
           "Connection failed. Check your internet.",
         );
+        this.guiManager.shakeLogin();
+      }
       this.guiManager.setLoginLoading(false);
     }
   }
@@ -256,10 +261,12 @@ export class PanelController implements IPanelController {
 
     if (!success) {
       this.guiManager.setLoginError(message);
+      this.guiManager.shakeLogin();
       return;
     }
     if (!userInfo || !audioInfo || !turnServerInfo) {
       this.guiManager.setLoginError("Error retrieving user information");
+      this.guiManager.shakeLogin();
       this.logger.error(
         `Login state violation: Server returned success: true, but userInfo, audioInfo or turnServerInfo is missing from the payload`,
       );
@@ -316,7 +323,7 @@ export class PanelController implements IPanelController {
     username: string,
     password: string,
   ): Promise<void> {
-    this.attemptFullLogin(username, password);
+    this.attemptFullLogin({ username, password });
   }
 
   private handleKeyPress(params: KeyPressParams): void {

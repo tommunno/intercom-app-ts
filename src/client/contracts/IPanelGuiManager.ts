@@ -29,6 +29,7 @@ export interface IPanelGuiManager {
   setLoginError: (errMessage: string | null) => void;
   setLoginLoading: (isLoading: boolean) => void;
   setLoginVisible: (isVisible: boolean) => void;
+  shakeLogin: () => void;
   displayState: (state: PanelState) => void;
   displayUserInfo: (userInfo: UserInfo) => void;
   displayAudioInfo: (audioInfo: AudioInfo) => void;
