@@ -1,12 +1,17 @@
-import type { TurnServerInfo } from "../../shared/types/index.js";
+import type {
+  RtcAnswerWire,
+  RtcIceCandidateInitWire,
+  RtcOfferWire,
+  TurnServerInfo,
+} from "../../shared/types/index.js";
 
 export interface PanelWebRtcHandlers {
   onRtcConnected: () => void;
   onRtcDisconnected: () => void;
   onRtcClosed: () => void;
   onRtcFailed: () => void;
-  onRtcOffer: (offer: any) => void;
-  onRtcIceCandidate: (candidate: any) => void;
+  onRtcOffer: (offer: RtcOfferWire) => void;
+  onRtcIceCandidate: (candidate: RtcIceCandidateInitWire | null) => void;
 }
 
 export interface IPanelWebRtcManager {
@@ -14,6 +19,8 @@ export interface IPanelWebRtcManager {
   start: () => void;
   setHandlers: (handlers: PanelWebRtcHandlers) => void;
   connect: (turnServerInfo: TurnServerInfo) => Promise<void>;
-  processRemoteAnswer: (answer: any) => Promise<void>;
-  processRemoteIceCandidate: (candidate: any) => Promise<void>;
+  processRemoteAnswer: (answer: RtcAnswerWire) => Promise<void>;
+  processRemoteIceCandidate: (
+    candidate: RtcIceCandidateInitWire | null,
+  ) => Promise<void>;
 }

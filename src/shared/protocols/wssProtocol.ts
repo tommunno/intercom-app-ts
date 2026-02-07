@@ -6,12 +6,18 @@ import {
   type UserInfo,
   dataIsAudioInfo,
   type AudioInfo,
+  dataIsTurnServerInfo,
   type TurnServerInfo,
   dataIsKeyPressInfo,
   type KeyPressInfo,
   dataIsHeartbeatRequestPayload,
   type HeartbeatRequestPayload,
-  dataIsTurnServerInfo,
+  dataIsRtcIceCandidateInitWire,
+  type RtcIceCandidateInitWire,
+  dataIsRtcAnswerWire,
+  type RtcAnswerWire,
+  dataIsRtcOfferWire,
+  type RtcOfferWire,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -66,8 +72,8 @@ type PayloadMap = {
   [WSS_UPSTREAM.USER_LOGIN]: null;
   [WSS_UPSTREAM.USER_LOGOUT]: null;
   [WSS_UPSTREAM.KEY_PRESS]: KeyPressInfo;
-  [WSS_UPSTREAM.WEB_RTC_OFFER]: any;
-  [WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE]: any;
+  [WSS_UPSTREAM.WEB_RTC_OFFER]: RtcOfferWire;
+  [WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
   [WSS_DOWNSTREAM.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: {
     success: boolean;
@@ -80,8 +86,8 @@ type PayloadMap = {
     loginTakeover: boolean;
   };
   [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: AudioInfo;
-  [WSS_DOWNSTREAM.WEB_RTC_ANSWER]: any;
-  [WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE]: any;
+  [WSS_DOWNSTREAM.WEB_RTC_ANSWER]: RtcAnswerWire;
+  [WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
 };
 
 export type WssPayloads = {
@@ -123,18 +129,16 @@ export function dataIsWssKeyPress(
   return dataIsKeyPressInfo(data);
 }
 
-//Still need to add validation here:
 export function dataIsWebRtcOffer(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_OFFER] {
-  return true;
+  return dataIsRtcOfferWire(data);
 }
 
-//Still need to add validation here:
 export function dataIsWebRtcClientIceCandidate(
   data: unknown,
-): data is WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_OFFER] {
-  return true;
+): data is WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE] {
+  return dataIsRtcIceCandidateInitWire(data) || dataIsType("null", data);
 }
 
 //DOWNSTREAM:
@@ -170,16 +174,14 @@ export function dataIsWssUserAudioInfoUpdate(
   return dataIsAudioInfo(data);
 }
 
-//Still need to add validation here:
 export function dataIsWebRtcAnswer(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_ANSWER] {
-  return true;
+  return dataIsRtcAnswerWire(data);
 }
 
-//Still need to add validation here:
 export function dataIsWebRtcServerIceCandidate(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE] {
-  return true;
+  return dataIsRtcIceCandidateInitWire(data) || dataIsType("null", data);
 }

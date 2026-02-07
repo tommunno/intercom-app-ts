@@ -1,3 +1,6 @@
+import type { RtcAnswerWire } from "../../../shared/types/RtcAnswerWire.js";
+import type { RtcIceCandidateInitWire } from "../../../shared/types/RtcIceCandidateInitWire.js";
+import type { RtcOfferWire } from "../../../shared/types/RtcOfferWire.js";
 import type { TurnServerCredentials } from "../../../shared/types/TurnServerCredentials.js";
 
 export interface WebRtcHandlers {
@@ -5,8 +8,11 @@ export interface WebRtcHandlers {
   onRtcDisconnected: (clientId: string) => void;
   onRtcClosed: (clientId: string) => void;
   onRtcFailed: (clientId: string) => void;
-  onRtcAnswer: (clientId: string, answer: any) => void;
-  onRtcIceCandidate: (clientId: string, candidate: any) => void;
+  onRtcAnswer: (clientId: string, answer: RtcAnswerWire) => void;
+  onRtcIceCandidate: (
+    clientId: string,
+    candidate: RtcIceCandidateInitWire | null,
+  ) => void;
 }
 
 export interface IWebRtcManager {
@@ -15,10 +21,10 @@ export interface IWebRtcManager {
   start: () => void;
   setHandlers: (handlers: WebRtcHandlers) => void;
   createPeerConnection: (clientId: string) => void;
-  processRemoteOffer: (clientId: string, offer: any) => Promise<void>;
+  processRemoteOffer: (clientId: string, offer: RtcOfferWire) => Promise<void>;
   processRemoteIceCandidate: (
     clientId: string,
-    candidate: any,
+    candidate: RtcIceCandidateInitWire | null,
   ) => Promise<void>;
   closeClient: (clientId: string) => void;
 }

@@ -1,4 +1,8 @@
-import type { TurnServerInfo } from "../../../shared/types/index.js";
+import type {
+  RtcIceCandidateInitWire,
+  RtcOfferWire,
+  TurnServerInfo,
+} from "../../../shared/types/index.js";
 import type { NetworkData, WssSendMessage } from "../../types/index.js";
 import type { WebRtcHandlers } from "./IWebRtcManager.js";
 import type { WebServerHandlers } from "./IWebServerManager.js";
@@ -20,8 +24,11 @@ export interface INetworkController {
 
   //WebRtcManager:
   createRtcPeerConnection: (clientId: string) => void;
-  processRtcRemoteOffer: (clientId: string, offer: any) => void;
-  processRtcRemoteIceCandidate: (clientId: string, candidate: any) => void;
+  processRtcRemoteOffer: (clientId: string, offer: RtcOfferWire) => void;
+  processRtcRemoteIceCandidate: (
+    clientId: string,
+    candidate: RtcIceCandidateInitWire | null,
+  ) => void;
   closeRtcClient: (clientId: string) => void;
 
   getTurnServerInfo: () => TurnServerInfo | null;

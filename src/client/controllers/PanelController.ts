@@ -8,6 +8,8 @@ import type {
   HeartbeatRequestPayload,
   HttpLoginResponse,
   KeyState,
+  RtcIceCandidateInitWire,
+  RtcOfferWire,
 } from "../../shared/types/index.js";
 import type {
   IHttpManager,
@@ -385,11 +387,13 @@ export class PanelController implements IPanelController {
     this.handleLostConnection();
   }
 
-  private handleRtcOffer(offer: any): void {
+  private handleRtcOffer(offer: RtcOfferWire): void {
     this.wssManager.sendMessage("WEB_RTC_OFFER", offer);
   }
 
-  private handleRtcIceCandidate(candidate: any): void {
+  private handleRtcIceCandidate(
+    candidate: RtcIceCandidateInitWire | null,
+  ): void {
     this.wssManager.sendMessage("WEB_RTC_CLIENT_ICE_CANDIDATE", candidate);
   }
 

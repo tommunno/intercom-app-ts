@@ -6,6 +6,9 @@ import type {
 import type {
   AuthResult,
   LoginCredentials,
+  RtcAnswerWire,
+  RtcIceCandidateInitWire,
+  RtcOfferWire,
   TurnServerInfo,
 } from "../../shared/types/index.js";
 import type {
@@ -91,11 +94,14 @@ export class NetworkController implements INetworkController {
     this.webRtcManager.createPeerConnection(clientId);
   }
 
-  processRtcRemoteOffer(clientId: string, offer: any): void {
+  processRtcRemoteOffer(clientId: string, offer: RtcOfferWire): void {
     this.webRtcManager.processRemoteOffer(clientId, offer);
   }
 
-  processRtcRemoteIceCandidate(clientId: string, candidate: any): void {
+  processRtcRemoteIceCandidate(
+    clientId: string,
+    candidate: RtcIceCandidateInitWire | null,
+  ): void {
     this.webRtcManager.processRemoteIceCandidate(clientId, candidate);
   }
 
@@ -189,11 +195,14 @@ export class NetworkController implements INetworkController {
     this.activeHandlers.onRtcFailed(clientId);
   }
 
-  private handleRtcAnswer(clientId: string, answer: any): void {
+  private handleRtcAnswer(clientId: string, answer: RtcAnswerWire): void {
     this.activeHandlers.onRtcAnswer(clientId, answer);
   }
 
-  private handleRtcIceCandidate(clientId: string, candidate: any): void {
+  private handleRtcIceCandidate(
+    clientId: string,
+    candidate: RtcIceCandidateInitWire | null,
+  ): void {
     this.activeHandlers.onRtcIceCandidate(clientId, candidate);
   }
 }

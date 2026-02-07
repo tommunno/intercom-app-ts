@@ -2,7 +2,9 @@
 import type {
   PeerConnectionInfo,
   RtcConfig,
+  RtcPeerConnection,
   RtcPeerConnectionIceErrorEvent,
+  RtcPeerConnectionIceEvent,
 } from "../../types/index.js";
 import type {
   IWebRtcManager,
@@ -11,6 +13,9 @@ import type {
 } from "../../contracts/index.js";
 import type {
   ManagerStatus,
+  RtcAnswerWire,
+  RtcIceCandidateInitWire,
+  RtcOfferWire,
   TurnServerCredentials,
 } from "../../../shared/types/index.js";
 //Constants:
@@ -18,8 +23,6 @@ import { ICE_SERVERS } from "../../../shared/constants/sharedConstants.js";
 import { WEB_RTC_DISCONNECT_TIMEOUT_MS } from "../../constants/serverConstants.js";
 //External libraries:
 import wrtc from "@roamhq/wrtc";
-import type * as wrtcTypes from "@roamhq/wrtc";
-//Give me the type of the first argument of the onicecandidateerror callback:
 
 export class WebRtcManager implements IWebRtcManager {
   private status: ManagerStatus = "IDLE";
@@ -84,9 +87,7 @@ export class WebRtcManager implements IWebRtcManager {
       );
       return;
     }
-    const pc: wrtcTypes.RTCPeerConnection = new wrtc.RTCPeerConnection(
-      this.rtcConfig,
-    );
+    const pc: RtcPeerConnection = new wrtc.RTCPeerConnection(this.rtcConfig);
     this.clients.set(clientId, {
       pc,
       closed: false,
@@ -108,7 +109,10 @@ export class WebRtcManager implements IWebRtcManager {
     };
   }
 
-  async processRemoteOffer(clientId: string, offer: any): Promise<void> {
+  async processRemoteOffer(
+    clientId: string,
+    offer: RtcOfferWire,
+  ): Promise<void> {
     const notRunning = this.checkAndWarnIfNotRunning("process offer");
     if (notRunning) return;
 
@@ -136,7 +140,7 @@ export class WebRtcManager implements IWebRtcManager {
 
   async processRemoteIceCandidate(
     clientId: string,
-    candidate: any,
+    candidate: RtcIceCandidateInitWire | null,
   ): Promise<void> {
     const notRunning = this.checkAndWarnIfNotRunning(
       "process remote ICE candidate",
@@ -158,9 +162,13 @@ export class WebRtcManager implements IWebRtcManager {
   private async addRemoteIceCandidate(
     clientId: string,
     pcInfo: PeerConnectionInfo,
-    candidate: any,
+    candidate: RtcIceCandidateInitWire | null,
   ): Promise<void> {
     try {
+      if (candidate === null) {
+        // end-of-candidates signal
+        return;
+      }
       const ice = new wrtc.RTCIceCandidate(candidate);
       await pcInfo.pc.addIceCandidate(ice);
     } catch (err) {
@@ -174,14 +182,22 @@ export class WebRtcManager implements IWebRtcManager {
   private async createAnswer(
     clientId: string,
     pcInfo: PeerConnectionInfo,
-  ): Promise<any> {
+  ): Promise<RtcAnswerWire | null> {
     const { pc } = pcInfo;
+
     try {
       const answer = await pc.createAnswer();
       if (!this.pcStateAndInfoValid(clientId, pcInfo)) return null;
+
       await pc.setLocalDescription(answer);
       if (!this.pcStateAndInfoValid(clientId, pcInfo)) return null;
-      return pc.localDescription ?? answer;
+
+      const ld = pc.localDescription;
+      const sdp = ld?.sdp ?? answer.sdp;
+
+      if (!sdp) throw new Error("Answer SDP missing after setLocalDescription");
+
+      return { type: "answer", sdp };
     } catch (err) {
       this.logger.error(
         `Failed to create/set local answer for clientId ${clientId}`,
@@ -193,13 +209,13 @@ export class WebRtcManager implements IWebRtcManager {
 
   private attachPeerConnectionHandlers(
     clientId: string,
-    pc: wrtcTypes.RTCPeerConnection,
+    pc: RtcPeerConnection,
   ): void {
     pc.onconnectionstatechange = () => {
       this.handlePeerConnectionStateChange(clientId, pc);
     };
 
-    pc.onicecandidate = (event: wrtcTypes.RTCPeerConnectionIceEvent) => {
+    pc.onicecandidate = (event: RtcPeerConnectionIceEvent) => {
       this.handlePeerConnectionIceCandidate(clientId, pc, event);
     };
 
@@ -224,7 +240,7 @@ export class WebRtcManager implements IWebRtcManager {
 
   private handlePeerConnectionStateChange(
     clientId: string,
-    pc: wrtcTypes.RTCPeerConnection,
+    pc: RtcPeerConnection,
   ): void {
     const pcInfo = this.clients.get(clientId);
     // If we've already torn down / replaced this client, ignore stale events
@@ -265,8 +281,8 @@ export class WebRtcManager implements IWebRtcManager {
 
   private handlePeerConnectionIceCandidate(
     clientId: string,
-    pc: wrtcTypes.RTCPeerConnection,
-    event: wrtcTypes.RTCPeerConnectionIceEvent,
+    pc: RtcPeerConnection,
+    event: RtcPeerConnectionIceEvent,
   ): void {
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed || !event.candidate)
@@ -277,7 +293,7 @@ export class WebRtcManager implements IWebRtcManager {
 
   private handlePeerConnectionIceCandidateError(
     clientId: string,
-    pc: wrtcTypes.RTCPeerConnection,
+    pc: RtcPeerConnection,
     event: RtcPeerConnectionIceErrorEvent,
   ): void {
     const pcInfo = this.clients.get(clientId);
@@ -290,7 +306,7 @@ export class WebRtcManager implements IWebRtcManager {
 
   private handleDisconnectTimeout(
     clientId: string,
-    pc: wrtcTypes.RTCPeerConnection,
+    pc: RtcPeerConnection,
   ): void {
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed) return;
@@ -305,10 +321,7 @@ export class WebRtcManager implements IWebRtcManager {
     pcInfo.disconnectTimeoutId = null;
   }
 
-  private teardownClient(
-    clientId: string,
-    pc: wrtcTypes.RTCPeerConnection,
-  ): void {
+  private teardownClient(clientId: string, pc: RtcPeerConnection): void {
     this.logger.info(`Tearing down client ${clientId}`);
 
     pc.onconnectionstatechange = null;
@@ -333,7 +346,7 @@ export class WebRtcManager implements IWebRtcManager {
   private stashRemoteIceCandidate(
     clientId: string,
     pcInfo: PeerConnectionInfo,
-    candidate: any,
+    candidate: RtcIceCandidateInitWire | null,
   ): void {
     if (pcInfo.remoteIceCandidates.length > 200) {
       this.logger.warn(

@@ -19,3 +19,6 @@ export * from "./SessionTokenInfo.js";
 export * from "./TurnServerInfo.js";
 export * from "./TurnServerCredentials.js";
 export * from "./SharedRtcIceServer.js";
+export * from "./RtcIceCandidateInitWire.js";
+export * from "./RtcOfferWire.js";
+export * from "./RtcAnswerWire.js";

@@ -1,8 +1,10 @@
 import type * as wrtcTypes from "@roamhq/wrtc";
+import type { RtcIceCandidateInitWire } from "../../shared/types/RtcIceCandidateInitWire.js";
+import type { RtcPeerConnection } from "./wrtcShimTypes.js";
 
 export interface PeerConnectionInfo {
-  pc: wrtcTypes.RTCPeerConnection;
+  pc: RtcPeerConnection;
   closed: boolean;
   disconnectTimeoutId: ReturnType<typeof setTimeout> | null;
-  remoteIceCandidates: any[];
+  remoteIceCandidates: (RtcIceCandidateInitWire | null)[];
 }

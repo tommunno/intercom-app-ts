@@ -1,5 +1,7 @@
 import type {
   ManagerStatus,
+  RtcAnswerWire,
+  RtcIceCandidateInitWire,
   TurnServerInfo,
 } from "../../shared/types/index.js";
 
@@ -11,12 +13,13 @@ import type {
   PanelWebRtcHandlers,
 } from "../contracts/index.js";
 import { PANEL_WEB_RTC_DISCONNECT_TIMEOUT_MS } from "../constants/clientConstants.js";
+import { RTCSessionDescription } from "@roamhq/wrtc";
 
 export class PanelWebRtcManager implements IPanelWebRtcManager {
   private status: ManagerStatus = "IDLE";
   private handlers: PanelWebRtcHandlers | null = null;
   private peerConnection: RTCPeerConnection | null = null;
-  private remoteIceCandidates: any[] = [];
+  private remoteIceCandidates: (RtcIceCandidateInitWire | null)[] = [];
   private closed: boolean = false;
   private disconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -121,13 +124,13 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
       if (!ld)
         throw new Error("localDescription is null after setLocalDescription");
 
-      this.activeHandlers.onRtcOffer(ld);
+      this.activeHandlers.onRtcOffer({ type: "offer", sdp: ld.sdp });
     } catch (err) {
       this.logger.error(`Unable to send offer`, err);
     }
   }
 
-  async processRemoteAnswer(answer: any): Promise<void> {
+  async processRemoteAnswer(answer: RtcAnswerWire): Promise<void> {
     const notRunning = this.checkAndWarnIfNotRunning("process answer");
     if (notRunning) return;
 
@@ -146,7 +149,9 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     await this.drainRemoteIceCandidates();
   }
 
-  async processRemoteIceCandidate(candidate: any): Promise<void> {
+  async processRemoteIceCandidate(
+    candidate: RtcIceCandidateInitWire | null,
+  ): Promise<void> {
     const notRunning = this.checkAndWarnIfNotRunning(
       "process remote ICE candidate",
     );
@@ -164,11 +169,17 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     await this.addRemoteIceCandidate(candidate);
   }
 
-  private async addRemoteIceCandidate(candidate: any): Promise<void> {
+  private async addRemoteIceCandidate(
+    candidate: RtcIceCandidateInitWire | null,
+  ): Promise<void> {
     const pc = this.getPeerConnection("addRemoteIceCandidate");
     if (!pc || this.closed === true) return;
 
     try {
+      if (candidate === null) {
+        // end-of-candidates signal
+        return;
+      }
       const ice = new RTCIceCandidate(candidate);
       await pc.addIceCandidate(ice);
     } catch (err) {
@@ -260,7 +271,9 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     this.peerConnection = null;
   }
 
-  private stashRemoteIceCandidate(candidate: any): void {
+  private stashRemoteIceCandidate(
+    candidate: RtcIceCandidateInitWire | null,
+  ): void {
     if (this.remoteIceCandidates.length > 200) {
       this.logger.warn(`Too many queued ICE candidates, dropping`);
       this.remoteIceCandidates.length = 0;

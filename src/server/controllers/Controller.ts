@@ -10,6 +10,8 @@ import type {
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
+  RtcAnswerWire,
+  RtcIceCandidateInitWire,
 } from "../../shared/types/index.js";
 import {
   type WssPayloads,
@@ -350,7 +352,7 @@ export class Controller implements IController {
     });
   }
 
-  private handleRtcAnswer(clientId: string, answer: any): void {
+  private handleRtcAnswer(clientId: string, answer: RtcAnswerWire): void {
     const userId = this.isClientIdLoggedIn(
       clientId,
       "Answer will not be sent to client",
@@ -359,7 +361,10 @@ export class Controller implements IController {
     this.networkController.sendWssMessage("WEB_RTC_ANSWER", answer, [clientId]);
   }
 
-  private handleRtcIceCandidate(clientId: string, candidate: any): void {
+  private handleRtcIceCandidate(
+    clientId: string,
+    candidate: RtcIceCandidateInitWire | null,
+  ): void {
     const userId = this.isClientIdLoggedIn(
       clientId,
       "ICE candidate will not be sent to client",

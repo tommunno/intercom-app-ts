@@ -60,6 +60,13 @@ export function dataIsTypeAOrB<A extends TypeofTag, B extends TypeofTag>(
   return dataIsType(a, data) || dataIsType(b, data);
 }
 
+export function dataIsTypeAOrBOptional<
+  A extends TypeofTag,
+  B extends TypeofTag,
+>(a: A, b: B, data: unknown): data is TypeMap[A] | TypeMap[B] | undefined {
+  return dataIsType(a, data) || dataIsType(b, data) || data === undefined;
+}
+
 export function dataIsArrayOfType<K extends TypeofTag>(
   type: K,
   data: unknown,

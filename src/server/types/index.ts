@@ -11,7 +11,5 @@ export * from "./CloseClientParams.js";
 export * from "./LogoutClientParams.js";
 export * from "./DisconnectUserParams.js";
 export * from "./PeerConnectionInfo.js";
-export * from "./RtcConfig.js";
-export * from "./IceServer.js";
-export * from "./RtcPeerConnectionIceErrorEvent.js";
 export * from "./AccountData.js";
+export * from "./wrtcShimTypes.js";
