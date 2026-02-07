@@ -14,5 +14,7 @@ export interface IAudioController {
   connectUser: (userId: number, clientId: string) => boolean;
   disconnectUser: (userId: number) => boolean;
   getAudioInfo: (userId: number) => AudioInfo | null;
-  processKeyPress: (keyPressInfo: KeyPressInfo, userId: number) => void;
+  processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
+  addRxTrack: (userId: number, track: any) => boolean;
+  removeRxTrack: (userId: number) => boolean;
 }

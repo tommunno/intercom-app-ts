@@ -82,6 +82,7 @@ export class Controller implements IController {
       onRtcFailed: (c) => this.handleRtcFailed(c),
       onRtcAnswer: (c, a) => this.handleRtcAnswer(c, a),
       onRtcIceCandidate: (c, i) => this.handleRtcIceCandidate(c, i),
+      onRtcTrack: (c, t) => this.handleRtcTrack(c, t),
     });
 
     this.dataController.setHandlers({
@@ -138,6 +139,7 @@ export class Controller implements IController {
     clientId,
     closeRtc = true,
   }: DisconnectUserParams): boolean {
+    this.audioController.removeRxTrack(userId);
     if (closeRtc) {
       this.networkController.closeRtcClient(clientId);
     }
@@ -298,7 +300,7 @@ export class Controller implements IController {
     const userId = this.isClientIdLoggedIn(clientId, "Ignored key press");
     if (userId === null) return;
 
-    this.audioController.processKeyPress(keyPressInfo, userId);
+    this.audioController.processKeyPress(userId, keyPressInfo);
   }
 
   private handleWebRtcOffer(
@@ -376,6 +378,17 @@ export class Controller implements IController {
       candidate,
       [clientId],
     );
+  }
+
+  private handleRtcTrack(clientId: string, track: any): void {
+    const userId = this.dataController.isClientIdLoggedIn(clientId);
+    if (userId === null) {
+      this.logger.warn(
+        `Unable to add track for clientId ${clientId}: the client is not logged in`,
+      );
+      return;
+    }
+    this.audioController.addRxTrack(userId, track);
   }
 
   //Handle Data Controller:

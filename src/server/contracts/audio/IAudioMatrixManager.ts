@@ -11,5 +11,5 @@ export interface IAudioMatrixManager {
   start: () => void;
   stop: () => void;
   getPartylineInfos: (userId: number) => PartylineInfo[] | null;
-  processKeyPress: (keyPressInfo: KeyPressInfo, userId: number) => void;
+  processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
 }

@@ -143,6 +143,7 @@ export class NetworkController implements INetworkController {
       onRtcFailed: (c) => this.handleRtcFailed(c),
       onRtcAnswer: (c, a) => this.handleRtcAnswer(c, a),
       onRtcIceCandidate: (c, i) => this.handleRtcIceCandidate(c, i),
+      onRtcTrack: (c, t) => this.handleRtcTrack(c, t),
     });
 
     this.turnServerManager.setHandlers({});
@@ -204,5 +205,9 @@ export class NetworkController implements INetworkController {
     candidate: RtcIceCandidateInitWire | null,
   ): void {
     this.activeHandlers.onRtcIceCandidate(clientId, candidate);
+  }
+
+  private handleRtcTrack(clientId: string, track: any): void {
+    this.activeHandlers.onRtcTrack(clientId, track);
   }
 }

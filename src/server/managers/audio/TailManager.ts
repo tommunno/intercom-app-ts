@@ -87,11 +87,11 @@ export class TailManager implements ITailManager {
 
   //Still need to implement. For now it's just passing data through
   //This provides the virtualized layer in front of the audio matrix, where we can control tails etc
-  processKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
+  processKeyPress(userId: number, keyPressInfo: KeyPressInfo): void {
     if (this.checkAndWarnIfNotRunning("process key press")) {
       return;
     }
-    this.activeHandlers.onKeyPress(keyPressInfo, userId);
+    this.activeHandlers.onKeyPress(userId, keyPressInfo);
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {

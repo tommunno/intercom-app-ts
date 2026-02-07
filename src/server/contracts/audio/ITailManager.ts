@@ -2,7 +2,7 @@ import type { TailState } from "../../../shared/types/TailState.js";
 import type { AudioConfig, KeyPressInfo } from "../../types/index.js";
 
 export interface TailHandlers {
-  onKeyPress(keyPressInfo: KeyPressInfo, userId: number): void;
+  onKeyPress(userId: number, keyPressInfo: KeyPressInfo): void;
 }
 
 export interface ITailManager {
@@ -12,5 +12,5 @@ export interface ITailManager {
   stop: () => void;
   setHandlers: (handlers: TailHandlers) => void;
   getTailState: (userId: number, plId: number) => TailState;
-  processKeyPress: (keyPressInfo: KeyPressInfo, userId: number) => void;
+  processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
 }

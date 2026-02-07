@@ -14,6 +14,9 @@ import type { AudioPopulateData, KeyPressInfo } from "../types/index.js";
 
 export class AudioController implements IAudioController {
   private handlers: AudioHandlers | null = null;
+  //Test:
+  private logIndex: number = 0;
+  //End test
 
   constructor(
     private audioMatrixManager: IAudioMatrixManager,
@@ -74,8 +77,16 @@ export class AudioController implements IAudioController {
     return { partylines: mergedPartylines };
   }
 
-  processKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
-    this.tailManager.processKeyPress(keyPressInfo, userId);
+  processKeyPress(userId: number, keyPressInfo: KeyPressInfo): void {
+    this.tailManager.processKeyPress(userId, keyPressInfo);
+  }
+
+  addRxTrack(userId: number, track: any): boolean {
+    return this.webRtcMediaBridge.addRxTrack(userId, track);
+  }
+
+  removeRxTrack(userId: number): boolean {
+    return this.webRtcMediaBridge.removeRxTrack(userId);
   }
 
   //Private methods:
@@ -87,7 +98,7 @@ export class AudioController implements IAudioController {
 
   private bindListeners(): void {
     this.tailManager.setHandlers({
-      onKeyPress: (k, u) => this.handleTailManagerKeyPress(k, u),
+      onKeyPress: (u, k) => this.handleTailManagerKeyPress(u, k),
     });
     this.webRtcMediaBridge.setHandlers({
       onAudio: (c, s) => this.handleBridgeAudio(c, s),
@@ -97,10 +108,10 @@ export class AudioController implements IAudioController {
   //TailManager:
 
   private handleTailManagerKeyPress(
-    keyPressInfo: KeyPressInfo,
     userId: number,
+    keyPressInfo: KeyPressInfo,
   ): void {
-    this.audioMatrixManager.processKeyPress(keyPressInfo, userId);
+    this.audioMatrixManager.processKeyPress(userId, keyPressInfo);
     const audioInfo = this.getAudioInfo(userId);
     if (!audioInfo) return;
     this.activeHandlers.onAudioInfoUpdate(userId, audioInfo);
@@ -109,6 +120,14 @@ export class AudioController implements IAudioController {
   //WebRtcMediaBridge:
 
   private handleBridgeAudio(channelNum: number, samples: any): void {
-    // this.logger.info(`Bridge audio for channelNum ${channelNum}`, samples);
+    //Test:
+    // if (this.logIndex === 0) {
+    //   this.logger.info(`Bridge audio for channelNum ${channelNum}`, samples);
+    // } else if (this.logIndex === 50) {
+    //   this.logIndex = 0;
+    //   return;
+    // }
+    // this.logIndex++;
+    //End test
   }
 }

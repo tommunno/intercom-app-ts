@@ -93,6 +93,7 @@ export class WebRtcManager implements IWebRtcManager {
       closed: false,
       disconnectTimeoutId: null,
       remoteIceCandidates: [],
+      trackReceived: false,
     });
     this.attachPeerConnectionHandlers(clientId, pc);
   }
@@ -228,6 +229,10 @@ export class WebRtcManager implements IWebRtcManager {
         `iceConnectionState for clientId ${clientId} is ${pc.iceConnectionState}`,
       );
     };
+
+    pc.ontrack = (event) => {
+      this.handlePeerConnectionOnTrack(clientId, pc, event);
+    };
   }
 
   closeClient(clientId: string): void {
@@ -302,6 +307,41 @@ export class WebRtcManager implements IWebRtcManager {
     //   `ICE candidate error (${event.errorCode}) for ${clientId}`,
     //   `Address: ${event.address ?? "None"}, Url: ${event.url ?? "None"}, Message: ${event.errorText ?? ""}`,
     // );
+  }
+
+  private handlePeerConnectionOnTrack(
+    clientId: string,
+    pc: RtcPeerConnection,
+    event: any,
+  ): void {
+    const pcInfo = this.clients.get(clientId);
+    if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed) return;
+
+    if (pcInfo.trackReceived) {
+      this.logger.warn(
+        `Dropping track for clientId ${clientId}: a track has already been received`,
+      );
+      return;
+    }
+
+    const track = event.track;
+    if (!track) {
+      this.logger.warn(
+        `ontrack fired for ${clientId} but event.track was missing`,
+      );
+      return;
+    }
+
+    if (track.kind && track.kind !== "audio") {
+      this.logger.info(
+        `Ignoring non-audio track (${track.kind}) from ${clientId}`,
+      );
+      return;
+    }
+
+    this.logger.info(`Audio track received for clientId ${clientId}`);
+    pcInfo.trackReceived = true;
+    this.activeHandlers.onRtcTrack(clientId, track);
   }
 
   private handleDisconnectTimeout(

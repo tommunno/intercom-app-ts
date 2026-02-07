@@ -109,7 +109,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     });
   }
 
-  processKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
+  processKeyPress(userId: number, keyPressInfo: KeyPressInfo): void {
     if (this.checkAndWarnIfNotRunning("process key request")) {
       return;
     }

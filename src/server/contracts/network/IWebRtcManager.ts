@@ -13,6 +13,7 @@ export interface WebRtcHandlers {
     clientId: string,
     candidate: RtcIceCandidateInitWire | null,
   ) => void;
+  onRtcTrack: (clientId: string, track: any) => void;
 }
 
 export interface IWebRtcManager {

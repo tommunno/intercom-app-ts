@@ -128,7 +128,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
         );
       }
     }
-
+    this.logger.info(`Removed RX track for channelNum ${channelNum}`);
     rx.rtcAudioSink = null;
     rx.track = null;
     return true;
