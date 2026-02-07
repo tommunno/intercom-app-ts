@@ -28,11 +28,13 @@ export class AudioController implements IAudioController {
     this.bindListeners();
     this.audioMatrixManager.init();
     this.tailManager.init();
+    this.webRtcMediaBridge.init();
   }
 
   populate(data: AudioPopulateData): void {
     const audioConfig = this.audioMatrixManager.populate(data.audioMatrixData);
     this.tailManager.populate(audioConfig);
+    this.webRtcMediaBridge.populate(audioConfig.numUsers);
   }
 
   start(): void {
@@ -40,6 +42,7 @@ export class AudioController implements IAudioController {
     void this.activeHandlers;
     this.audioMatrixManager.start();
     this.tailManager.start();
+    this.webRtcMediaBridge.start();
   }
 
   setHandlers(handlers: AudioHandlers): void {
@@ -84,14 +87,28 @@ export class AudioController implements IAudioController {
 
   private bindListeners(): void {
     this.tailManager.setHandlers({
-      onKeyPress: (k, u) => this.onTailManagerKeyPress(k, u),
+      onKeyPress: (k, u) => this.handleTailManagerKeyPress(k, u),
+    });
+    this.webRtcMediaBridge.setHandlers({
+      onAudio: (c, s) => this.handleBridgeAudio(c, s),
     });
   }
 
-  onTailManagerKeyPress(keyPressInfo: KeyPressInfo, userId: number): void {
+  //TailManager:
+
+  private handleTailManagerKeyPress(
+    keyPressInfo: KeyPressInfo,
+    userId: number,
+  ): void {
     this.audioMatrixManager.processKeyPress(keyPressInfo, userId);
     const audioInfo = this.getAudioInfo(userId);
     if (!audioInfo) return;
     this.activeHandlers.onAudioInfoUpdate(userId, audioInfo);
+  }
+
+  //WebRtcMediaBridge:
+
+  private handleBridgeAudio(channelNum: number, samples: any): void {
+    // this.logger.info(`Bridge audio for channelNum ${channelNum}`, samples);
   }
 }

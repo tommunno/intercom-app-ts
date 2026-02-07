@@ -12,4 +12,6 @@ export * from "./LogoutClientParams.js";
 export * from "./DisconnectUserParams.js";
 export * from "./PeerConnectionInfo.js";
 export * from "./AccountData.js";
+export * from "./MediaBridgeChannel.js";
+export * from "./TrackAndStream.js";
 export * from "./wrtcShimTypes.js";

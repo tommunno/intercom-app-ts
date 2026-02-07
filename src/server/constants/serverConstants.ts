@@ -17,11 +17,12 @@ export const ACCOUNT_STALE_HEARTBEAT_MS = 10000;
 //BCrypt:
 export const SALT_ROUNDS = 10;
 
-//Audio Matrix:
+//Audio:
 export const MAX_NUM_SOUNDCARD_CHANNELS = 64;
 export const DEFAULT_NUM_SOUNDCARD_CHANNELS = 16;
 export const MAX_NUM_PARTYLINES = 64;
 export const DEFAULT_NUM_PARTYLINES = 16;
+export const CHUNK_SIZE = 480;
 
 //WebRtc:
 export const WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;
