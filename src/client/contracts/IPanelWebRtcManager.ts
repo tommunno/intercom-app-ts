@@ -12,6 +12,7 @@ export interface PanelWebRtcHandlers {
   onRtcFailed: () => void;
   onRtcOffer: (offer: RtcOfferWire) => void;
   onRtcIceCandidate: (candidate: RtcIceCandidateInitWire | null) => void;
+  onErrorMessage: (message: string) => void;
 }
 
 export interface IPanelWebRtcManager {

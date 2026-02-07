@@ -13,7 +13,6 @@ import type {
   PanelWebRtcHandlers,
 } from "../contracts/index.js";
 import { PANEL_WEB_RTC_DISCONNECT_TIMEOUT_MS } from "../constants/clientConstants.js";
-import { RTCSessionDescription } from "@roamhq/wrtc";
 
 export class PanelWebRtcManager implements IPanelWebRtcManager {
   private status: ManagerStatus = "IDLE";
@@ -22,6 +21,8 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
   private remoteIceCandidates: (RtcIceCandidateInitWire | null)[] = [];
   private closed: boolean = false;
   private disconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private audioEl: HTMLAudioElement | null = null;
+  private localStream: MediaStream | null = null;
 
   constructor(private logger: IClientLogger) {
     this.logger = this.logger.child({ context: "PanelWebRtcManager" });
@@ -33,6 +34,7 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
         `Cannot initialize the PanelWebRtcManager whilst its status is ${this.status}`,
       );
     }
+    this.ensureAudioEl();
     this.status = "INITIALIZED";
   }
 
@@ -65,10 +67,60 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     const config = this.createRtcConfig(info);
     this.peerConnection = new RTCPeerConnection(config);
     //Test:
-    this.peerConnection.createDataChannel("test-liveness");
+    // this.peerConnection.createDataChannel("test-liveness");
     //End test
     this.attachPeerConnectionHandlers();
+    await this.attachAudioToPeerConnection();
     await this.sendOffer();
+  }
+
+  private ensureAudioEl(): HTMLAudioElement {
+    if (this.audioEl) return this.audioEl;
+
+    const el = document.createElement("audio");
+    el.autoplay = true;
+    el.style.display = "none";
+    document.body.appendChild(el);
+
+    this.audioEl = el;
+    return el;
+  }
+
+  private async attachAudioToPeerConnection(): Promise<void> {
+    const pc = this.getPeerConnection("attachAudioToPeerConnection");
+    if (!pc) return;
+
+    try {
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: true,
+      });
+    } catch (err) {
+      this.logger.error("Error in getting user media", err);
+      this.activeHandlers.onErrorMessage(
+        "Microphone Access Denied: Please ensure your microphone is connected and that you have granted permission in your browser settings",
+      );
+      return;
+    }
+    this.logger.info(`After await`);
+
+    for (const track of this.localStream.getTracks()) {
+      pc.addTrack(track, this.localStream);
+    }
+
+    pc.ontrack = async (event) => {
+      const el = this.ensureAudioEl();
+      const [stream] = event.streams;
+      if (!stream) return;
+
+      el.srcObject = stream;
+
+      try {
+        await el.play();
+      } catch {
+        this.logger.error("Unable to play audio");
+      }
+    };
   }
 
   private createRtcConfig(info: TurnServerInfo): RTCConfiguration {
@@ -255,6 +307,10 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
   private teardownPeerConnection(): void {
     const pc = this.getPeerConnection("teardownPeerConnection");
     if (!pc) return;
+
+    this.localStream?.getTracks().forEach((t) => t.stop());
+    this.localStream = null;
+    if (this.audioEl) this.audioEl.srcObject = null;
 
     pc.onconnectionstatechange = null;
     pc.onicecandidate = null;

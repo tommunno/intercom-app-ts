@@ -96,6 +96,7 @@ export class PanelController implements IPanelController {
       onRtcFailed: () => this.handleRtcFailed(),
       onRtcOffer: (o) => this.handleRtcOffer(o),
       onRtcIceCandidate: (c) => this.handleRtcIceCandidate(c),
+      onErrorMessage: (m) => this.handleRtcErrorMessage(m),
     });
     window.addEventListener("storage", (e) => this.handleTabReloadCommand(e));
   }
@@ -395,6 +396,11 @@ export class PanelController implements IPanelController {
     candidate: RtcIceCandidateInitWire | null,
   ): void {
     this.wssManager.sendMessage("WEB_RTC_CLIENT_ICE_CANDIDATE", candidate);
+  }
+
+  //Still need to show this error in the GUI
+  private handleRtcErrorMessage(message: string): void {
+    this.logger.error(message);
   }
 
   //Misc Handlers:
