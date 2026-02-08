@@ -243,8 +243,9 @@ export class Controller implements IController {
     const userInfo = this.dataController.getUserInfo(userId);
     const audioInfo = this.audioController.getAudioInfo(userId);
     const turnServerInfo = this.networkController.getTurnServerInfo();
+    const trackAndStream = this.audioController.getTxTrackAndStream(userId);
 
-    if (!userInfo || !audioInfo || !turnServerInfo) {
+    if (!userInfo || !audioInfo || !turnServerInfo || !trackAndStream) {
       //An internal error has occured
       //This is logged inside of data and audio controller
       this.networkController.sendLoginFailureMessage(clientId);
@@ -273,6 +274,7 @@ export class Controller implements IController {
     }
 
     this.networkController.createRtcPeerConnection(clientId);
+    this.networkController.addRtcTxTrackAndStream(clientId, trackAndStream);
 
     this.networkController.sendWssMessage(
       "USER_LOGIN_RESPONSE",

@@ -5,6 +5,7 @@ import type {
   RtcPeerConnection,
   RtcPeerConnectionIceErrorEvent,
   RtcPeerConnectionIceEvent,
+  TrackAndStream,
 } from "../../types/index.js";
 import type {
   IWebRtcManager,
@@ -93,7 +94,8 @@ export class WebRtcManager implements IWebRtcManager {
       closed: false,
       disconnectTimeoutId: null,
       remoteIceCandidates: [],
-      trackReceived: false,
+      rxTrackReceived: false,
+      txTrackAdded: false,
     });
     this.attachPeerConnectionHandlers(clientId, pc);
   }
@@ -235,6 +237,36 @@ export class WebRtcManager implements IWebRtcManager {
     };
   }
 
+  addTxTrackAndStream(clientId: string, trackAndStream: TrackAndStream): void {
+    const pcInfo = this.clients.get(clientId);
+    if (!pcInfo) {
+      this.logger.warn(
+        `Unable to add TX track for clientId ${clientId}: pcInfo cannot be found`,
+      );
+      return;
+    }
+    if (pcInfo.closed) {
+      this.logger.warn(
+        `Unable to add TX track for clientId ${clientId}: pcInfo is reporting as closed`,
+      );
+      return;
+    }
+    if (pcInfo.txTrackAdded) {
+      this.logger.warn(
+        `Dropping TX track for clientId ${clientId}: a track has already been added`,
+      );
+      return;
+    }
+    const { track, stream } = trackAndStream;
+    try {
+      pcInfo.pc.addTrack(track, stream);
+      pcInfo.txTrackAdded = true;
+      this.logger.success(`TX track added for clientId ${clientId}`);
+    } catch (err) {
+      this.logger.error(`addTrack failed`, err);
+    }
+  }
+
   closeClient(clientId: string): void {
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo || pcInfo.closed) return;
@@ -317,9 +349,9 @@ export class WebRtcManager implements IWebRtcManager {
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed) return;
 
-    if (pcInfo.trackReceived) {
+    if (pcInfo.rxTrackReceived) {
       this.logger.warn(
-        `Dropping track for clientId ${clientId}: a track has already been received`,
+        `Dropping RX track for clientId ${clientId}: a track has already been received`,
       );
       return;
     }
@@ -340,7 +372,7 @@ export class WebRtcManager implements IWebRtcManager {
     }
 
     this.logger.info(`Audio track received for clientId ${clientId}`);
-    pcInfo.trackReceived = true;
+    pcInfo.rxTrackReceived = true;
     this.activeHandlers.onRtcTrack(clientId, track);
   }
 

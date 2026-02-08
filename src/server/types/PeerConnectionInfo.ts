@@ -7,5 +7,6 @@ export interface PeerConnectionInfo {
   closed: boolean;
   disconnectTimeoutId: ReturnType<typeof setTimeout> | null;
   remoteIceCandidates: (RtcIceCandidateInitWire | null)[];
-  trackReceived: boolean;
+  rxTrackReceived: boolean;
+  txTrackAdded: boolean;
 }

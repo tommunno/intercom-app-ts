@@ -21,6 +21,7 @@ import type {
   NetworkHandlers,
 } from "../contracts/index.js";
 import type { NetworkData } from "../types/NetworkData.js";
+import type { TrackAndStream } from "../types/TrackAndStream.js";
 import type { WssMessageInfo } from "../types/WssMessageInfo.js";
 
 export class NetworkController implements INetworkController {
@@ -103,6 +104,13 @@ export class NetworkController implements INetworkController {
     candidate: RtcIceCandidateInitWire | null,
   ): void {
     this.webRtcManager.processRemoteIceCandidate(clientId, candidate);
+  }
+
+  addRtcTxTrackAndStream(
+    clientId: string,
+    trackAndStream: TrackAndStream,
+  ): void {
+    this.webRtcManager.addTxTrackAndStream(clientId, trackAndStream);
   }
 
   closeRtcClient(clientId: string): void {

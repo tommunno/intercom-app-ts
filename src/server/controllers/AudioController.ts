@@ -10,12 +10,17 @@ import type {
   ITailManager,
   IWebRtcMediaBridge,
 } from "../contracts/index.js";
-import type { AudioPopulateData, KeyPressInfo } from "../types/index.js";
+import { startSineTest, startSweepTest } from "../serverHelpers.js";
+import type {
+  AudioPopulateData,
+  KeyPressInfo,
+  TrackAndStream,
+} from "../types/index.js";
 
 export class AudioController implements IAudioController {
   private handlers: AudioHandlers | null = null;
   //Test:
-  private logIndex: number = 0;
+  // private logIndex: number = 0;
   //End test
 
   constructor(
@@ -46,6 +51,11 @@ export class AudioController implements IAudioController {
     this.audioMatrixManager.start();
     this.tailManager.start();
     this.webRtcMediaBridge.start();
+    //Test:
+    // startSweepTest(
+    //   this.webRtcMediaBridge.pushAudio.bind(this.webRtcMediaBridge),
+    // );
+    //End test
   }
 
   setHandlers(handlers: AudioHandlers): void {
@@ -87,6 +97,10 @@ export class AudioController implements IAudioController {
 
   removeRxTrack(userId: number): boolean {
     return this.webRtcMediaBridge.removeRxTrack(userId);
+  }
+
+  getTxTrackAndStream(channelNum: number): TrackAndStream | null {
+    return this.webRtcMediaBridge.getTxTrackAndStream(channelNum);
   }
 
   //Private methods:

@@ -52,6 +52,7 @@ export type RtcPeerConnection = {
   setLocalDescription(desc: unknown): Promise<void> | void;
   setRemoteDescription(desc: unknown): Promise<void> | void;
   addIceCandidate(cand: unknown): Promise<void> | void;
+  addTrack(track: any, stream: any): any;
   close(): void;
 };
 

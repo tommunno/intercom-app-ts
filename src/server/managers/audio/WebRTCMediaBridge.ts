@@ -14,6 +14,7 @@ import type {
 //External libraries:
 import wrtc from "@roamhq/wrtc";
 import { CHUNK_SIZE } from "../../constants/serverConstants.js";
+import { decode } from "node:punycode";
 const { RTCAudioSink, RTCAudioSource } = wrtc.nonstandard;
 
 export class WebRtcMediaBridge implements IWebRtcMediaBridge {

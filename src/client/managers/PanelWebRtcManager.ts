@@ -66,11 +66,9 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     this.logger.info(`Connecting...`);
     const config = this.createRtcConfig(info);
     this.peerConnection = new RTCPeerConnection(config);
-    //Test:
-    // this.peerConnection.createDataChannel("test-liveness");
-    //End test
     this.attachPeerConnectionHandlers();
-    await this.attachAudioToPeerConnection();
+    const result = await this.attachAudioToPeerConnection();
+    if (!result) return;
     await this.sendOffer();
   }
 
@@ -86,9 +84,9 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     return el;
   }
 
-  private async attachAudioToPeerConnection(): Promise<void> {
+  private async attachAudioToPeerConnection(): Promise<boolean> {
     const pc = this.getPeerConnection("attachAudioToPeerConnection");
-    if (!pc) return;
+    if (!pc) return false;
 
     try {
       this.localStream = await navigator.mediaDevices.getUserMedia({
@@ -100,7 +98,7 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
       this.activeHandlers.onErrorMessage(
         "Microphone Access Denied: Please ensure your microphone is connected and that you have granted permission in your browser settings",
       );
-      return;
+      return false;
     }
     this.logger.info(`After await`);
 
@@ -121,6 +119,7 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
         this.logger.error("Unable to play audio");
       }
     };
+    return true;
   }
 
   private createRtcConfig(info: TurnServerInfo): RTCConfiguration {
