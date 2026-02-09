@@ -53,7 +53,7 @@ static void CleanupTsfn(void *)
 
 // NAPI FUNCTIONS:
 
-Napi::Value CreateEngine(const Napi::CallbackInfo &info)
+Napi::Value createEngine(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
 
@@ -887,7 +887,7 @@ Napi::Value addLoggingCallback(const Napi::CallbackInfo &info)
 Napi::Object
 Init(Napi::Env env, Napi::Object exports)
 {
-    exports.Set(Napi::String::New(env, "createEngine"), Napi::Function::New(env, CreateEngine));
+    exports.Set(Napi::String::New(env, "createEngine"), Napi::Function::New(env, createEngine));
     exports.Set(Napi::String::New(env, "stopEngine"), Napi::Function::New(env, stopEngine));
     exports.Set(Napi::String::New(env, "getPortAudioDevices"), Napi::Function::New(env, getPortAudioDevices));
     exports.Set(Napi::String::New(env, "routeToBufferedInput"), Napi::Function::New(env, routeToBufferedInput));

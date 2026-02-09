@@ -4,6 +4,7 @@ import type {
   ILogger,
   // Audio
   IAudioController,
+  IAudioEngineManager,
   IAudioMatrixManager,
   IWebRtcMediaBridge,
   ITailManager,
@@ -30,6 +31,7 @@ import {
   //Base
   Logger,
   // Audio
+  AudioEngineManager,
   AudioMatrixManager,
   WebRtcMediaBridge,
   TailManager,
@@ -44,6 +46,8 @@ import {
 } from "./managers/index.js";
 
 const logger: ILogger = new Logger();
+const audioEngineManager: IAudioEngineManager = new AudioEngineManager(logger);
+const audioMatrixManager: IAudioMatrixManager = new AudioMatrixManager(logger);
 const tailManager: ITailManager = new TailManager(logger);
 const webRtcMediaBridge: IWebRtcMediaBridge = new WebRtcMediaBridge(logger);
 const webServerManager: IWebServerManager = new WebServerManager(logger);
@@ -53,9 +57,9 @@ const turnServerManager: ITurnServerManager = new TurnServerManager(logger);
 const accountManager: IAccountManager = new AccountManager(logger);
 const dataManager: IDataManager = new DataManager(logger);
 
-const audioMatrixManager: IAudioMatrixManager = new AudioMatrixManager(logger);
 
 const audioController: IAudioController = new AudioController(
+  audioEngineManager,
   audioMatrixManager,
   tailManager,
   webRtcMediaBridge,

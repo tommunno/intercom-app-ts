@@ -5,6 +5,7 @@ import type {
 import type {
   AudioHandlers,
   IAudioController,
+  IAudioEngineManager,
   IAudioMatrixManager,
   ILogger,
   ITailManager,
@@ -24,6 +25,7 @@ export class AudioController implements IAudioController {
   //End test
 
   constructor(
+    private audioEngineManager: IAudioEngineManager,
     private audioMatrixManager: IAudioMatrixManager,
     private tailManager: ITailManager,
     private webRtcMediaBridge: IWebRtcMediaBridge,
@@ -34,12 +36,14 @@ export class AudioController implements IAudioController {
 
   init(): void {
     this.bindListeners();
+    this.audioEngineManager.init();
     this.audioMatrixManager.init();
     this.tailManager.init();
     this.webRtcMediaBridge.init();
   }
 
   populate(data: AudioPopulateData): void {
+    this.audioEngineManager.populate();
     const audioConfig = this.audioMatrixManager.populate(data.audioMatrixData);
     this.tailManager.populate(audioConfig);
     this.webRtcMediaBridge.populate(audioConfig.numUsers);
@@ -48,6 +52,7 @@ export class AudioController implements IAudioController {
   start(): void {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
+    this.audioEngineManager.start();
     this.audioMatrixManager.start();
     this.tailManager.start();
     this.webRtcMediaBridge.start();
@@ -111,6 +116,7 @@ export class AudioController implements IAudioController {
   }
 
   private bindListeners(): void {
+    this.audioEngineManager.setHandlers({});
     this.tailManager.setHandlers({
       onKeyPress: (u, k) => this.handleTailManagerKeyPress(u, k),
     });

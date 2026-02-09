@@ -3,6 +3,7 @@ export * from "./base/IController.js";
 export * from "./base/ILogger.js";
 
 // --- Audio ---
+export * from "./audio/IAudioEngineManager.js";
 export * from "./audio/IAudioController.js";
 export * from "./audio/IAudioMatrixManager.js";
 export * from "./audio/IWebRtcMediaBridge.js";

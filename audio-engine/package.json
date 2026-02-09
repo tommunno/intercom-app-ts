@@ -4,6 +4,8 @@
   "scripts": {
     "build": "node-gyp rebuild"
   },
+  "main": "index.js",
+  "types": "index.d.ts",
   "keywords": [],
   "author": "",
   "license": "ISC",

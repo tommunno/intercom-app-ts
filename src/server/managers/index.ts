@@ -1,6 +1,7 @@
 // --- Base ---
 export * from "./base/Logger.js";
 // --- Audio ---
+export * from "./audio/AudioEngineManager.js";
 export * from "./audio/AudioMatrixManager.js";
 export * from "./audio/WebRtcMediaBridge.js";
 export * from "./audio/TailManager.js";
