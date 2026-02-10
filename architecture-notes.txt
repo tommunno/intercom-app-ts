@@ -1,6 +1,7 @@
 Controller: IController
 
     AudioController: IAudioController
+        AudioEngineManager: IAudioEngineManager
         AudioMatrixManager: IAudioMatrixManager
             OutputPort: IOutputPort //Created dynamically in AudioMatrixManager
             Partyline: IPartyline //Created dynamically in AudioMatrixManager
