@@ -15,6 +15,7 @@ import { startSineTest, startSweepTest } from "../serverHelpers.js";
 import type {
   AudioPopulateData,
   KeyPressInfo,
+  RtcMediaStreamTrack,
   TrackAndStream,
 } from "../types/index.js";
 
@@ -96,7 +97,7 @@ export class AudioController implements IAudioController {
     this.tailManager.processKeyPress(userId, keyPressInfo);
   }
 
-  addRxTrack(userId: number, track: any): boolean {
+  addRxTrack(userId: number, track: RtcMediaStreamTrack): boolean {
     return this.webRtcMediaBridge.addRxTrack(userId, track);
   }
 
@@ -139,7 +140,7 @@ export class AudioController implements IAudioController {
 
   //WebRtcMediaBridge:
 
-  private handleBridgeAudio(channelNum: number, samples: any): void {
+  private handleBridgeAudio(channelNum: number, samples: Int16Array): void {
     //Test:
     // if (this.logIndex === 0) {
     //   this.logger.info(`Bridge audio for channelNum ${channelNum}`, samples);

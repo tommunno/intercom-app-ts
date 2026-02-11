@@ -1,4 +1,6 @@
+import type { RtcMediaStream, RtcMediaStreamTrack } from "./wrtcShimTypes.js";
+
 export interface TrackAndStream {
-  track: any;
-  stream: any;
+  track: RtcMediaStreamTrack;
+  stream: RtcMediaStream;
 }

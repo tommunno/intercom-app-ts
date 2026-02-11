@@ -2,6 +2,7 @@ import type { AudioInfo, PartylineInfo } from "../../../shared/types/index.js";
 import type {
   AudioPopulateData,
   KeyPressInfo,
+  RtcMediaStreamTrack,
   TrackAndStream,
 } from "../../types/index.js";
 
@@ -19,7 +20,7 @@ export interface IAudioController {
   disconnectUser: (userId: number) => boolean;
   getAudioInfo: (userId: number) => AudioInfo | null;
   processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
-  addRxTrack: (userId: number, track: any) => boolean;
+  addRxTrack: (userId: number, track: RtcMediaStreamTrack) => boolean;
   removeRxTrack: (userId: number) => boolean;
   getTxTrackAndStream: (channelNum: number) => TrackAndStream | null;
 }

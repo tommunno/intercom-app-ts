@@ -1,6 +1,9 @@
+//Types:
+import type { RtcMediaStream, RtcMediaStreamTrack } from "./wrtcShimTypes.js";
+//External libraries:
 import type {
-  RTCAudioSink,
-  RTCAudioSource,
+  RTCAudioSink as RTCAudioSinkType,
+  RTCAudioSource as RTCAudioSourceType,
 } from "@roamhq/wrtc/types/nonstandard.js";
 
 export interface MediaBridgeChannel {
@@ -10,12 +13,12 @@ export interface MediaBridgeChannel {
 }
 
 export interface RxMediaBridgeChannel {
-  track: any | null;
-  rtcAudioSink: RTCAudioSink | null;
+  track: RtcMediaStreamTrack | null;
+  rtcAudioSink: RTCAudioSinkType | null;
 }
 
 export interface TxMediaBridgeChannel {
-  track: any;
-  stream: any;
-  rtcAudioSource: RTCAudioSource;
+  track: RtcMediaStreamTrack;
+  stream: RtcMediaStream;
+  rtcAudioSource: RTCAudioSourceType;
 }

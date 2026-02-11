@@ -21,6 +21,7 @@ import {
 import type {
   DisconnectUserParams,
   LogoutClientParams,
+  RtcMediaStreamTrack,
   WssCommandMap,
 } from "../types/index.js";
 import { validateServerConstants } from "../../shared/helpers.js";
@@ -382,7 +383,7 @@ export class Controller implements IController {
     );
   }
 
-  private handleRtcTrack(clientId: string, track: any): void {
+  private handleRtcTrack(clientId: string, track: RtcMediaStreamTrack): void {
     const userId = this.dataController.isClientIdLoggedIn(clientId);
     if (userId === null) {
       this.logger.warn(

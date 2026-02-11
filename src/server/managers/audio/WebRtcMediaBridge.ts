@@ -4,18 +4,23 @@ import type {
   ILogger,
   IWebRtcMediaBridge,
   MediaBridgeHandlers,
-  PushHandler,
 } from "../../contracts/index.js";
 import type {
   MediaBridgeChannel,
+  RtcMediaStreamTrack,
   TrackAndStream,
   TxMediaBridgeChannel,
 } from "../../types/index.js";
+//Constants:
+import { CHUNK_SIZE } from "../../constants/serverConstants.js";
 //External libraries:
 import wrtc from "@roamhq/wrtc";
-import { CHUNK_SIZE } from "../../constants/serverConstants.js";
-import { decode } from "node:punycode";
 const { RTCAudioSink, RTCAudioSource } = wrtc.nonstandard;
+import type {
+  RTCAudioSink as RTCAudioSinkType,
+  RTCAudioSource as RTCAudioSourceType,
+  RTCAudioData as RTCAudioDataType,
+} from "@roamhq/wrtc/types/nonstandard.js";
 
 export class WebRtcMediaBridge implements IWebRtcMediaBridge {
   private status: ManagerStatus = "IDLE";
@@ -23,7 +28,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
   private numChannels: number = 0;
   private channels: MediaBridgeChannel[] = [];
   //For efficient lookup in pushAudio method:
-  private txRtcAudioSources: any[] = [];
+  private txRtcAudioSources: RTCAudioSourceType[] = [];
   private pushAudioRunningErr: boolean = false;
   private pushAudioLengthErr: boolean = false;
   private pushAudioSourceErr: boolean = false;
@@ -68,7 +73,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
   }
 
   //Returns true if success
-  addRxTrack(channelNum: number, track: any): boolean {
+  addRxTrack(channelNum: number, track: RtcMediaStreamTrack): boolean {
     const notRunning = this.checkAndWarnIfNotRunning("add RX track");
     if (notRunning) return false;
 
@@ -89,7 +94,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     rx.rtcAudioSink = new RTCAudioSink(track);
     rx.track = track;
 
-    rx.rtcAudioSink.ondata = (audioData: any) => {
+    rx.rtcAudioSink.ondata = (audioData: RTCAudioDataType) => {
       this.activeHandlers.onAudio(channelNum, audioData.samples);
     };
 

@@ -276,9 +276,18 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
   private handlePeerConnectionIceCandidate(
     event: RTCPeerConnectionIceEvent,
   ): void {
-    if (this.closed || !event.candidate) return;
+    if (this.closed) return;
 
-    this.activeHandlers.onRtcIceCandidate(event.candidate);
+    const c = event.candidate;
+    if (!c) return;
+
+    const wire: RtcIceCandidateInitWire = {
+      candidate: c.candidate,
+      sdpMLineIndex: c.sdpMLineIndex ?? null,
+      sdpMid: c.sdpMid ?? null,
+      usernameFragment: c.usernameFragment ?? null,
+    };
+    this.activeHandlers.onRtcIceCandidate(wire);
   }
 
   private handlePeerConnectionIceCandidateError(

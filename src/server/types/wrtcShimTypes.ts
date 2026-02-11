@@ -1,7 +1,11 @@
-import type { RtcIceCandidateInitWire } from "../../shared/types/RtcIceCandidateInitWire.js";
-
 export type RtcPeerConnectionIceEvent = {
-  candidate: RtcIceCandidateInitWire | null;
+  candidate: {
+    toJSON?: () => unknown;
+    candidate: string;
+    sdpMid?: string | null;
+    sdpMLineIndex?: number | null;
+    usernameFragment?: string | null;
+  } | null;
 };
 
 export interface RtcPeerConnectionIceErrorEvent {
@@ -16,7 +20,7 @@ export type RtcPeerConnection = {
   onicecandidate: ((e: RtcPeerConnectionIceEvent) => void) | null;
   onicecandidateerror: ((e: RtcPeerConnectionIceErrorEvent) => void) | null;
   oniceconnectionstatechange: ((e?: unknown) => void) | null;
-  ontrack: ((e: unknown) => void) | null;
+  ontrack: ((e: RtcTrackEvent) => void) | null;
 
   connectionState:
     | "new"
@@ -52,13 +56,13 @@ export type RtcPeerConnection = {
   setLocalDescription(desc: unknown): Promise<void> | void;
   setRemoteDescription(desc: unknown): Promise<void> | void;
   addIceCandidate(cand: unknown): Promise<void> | void;
-  addTrack(track: any, stream: any): any;
+  addTrack(track: RtcMediaStreamTrack, stream: RtcMediaStream): unknown;
   close(): void;
 };
 
 export interface RtcConfig {
   iceServers?: RtcIceServer[];
-  iceTransportPolicy?: string;
+  iceTransportPolicy?: "all" | "relay";
 }
 
 export interface RtcIceServer {
@@ -66,3 +70,24 @@ export interface RtcIceServer {
   credential?: string;
   username?: string;
 }
+
+export type RtcMediaStreamTrack = {
+  kind?: string;
+  id?: string;
+  enabled?: boolean;
+  muted?: boolean;
+  readyState?: "live" | "ended";
+  stop?: () => void;
+};
+
+export type RtcMediaStream = {
+  id?: string;
+  addTrack: (track: RtcMediaStreamTrack) => void;
+  removeTrack?: (track: RtcMediaStreamTrack) => void;
+  getTracks?: () => RtcMediaStreamTrack[];
+};
+
+export type RtcTrackEvent = {
+  track?: RtcMediaStreamTrack;
+  streams?: RtcMediaStream[];
+};

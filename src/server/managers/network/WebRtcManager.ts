@@ -5,6 +5,7 @@ import type {
   RtcPeerConnection,
   RtcPeerConnectionIceErrorEvent,
   RtcPeerConnectionIceEvent,
+  RtcTrackEvent,
   TrackAndStream,
 } from "../../types/index.js";
 import type {
@@ -232,7 +233,7 @@ export class WebRtcManager implements IWebRtcManager {
       );
     };
 
-    pc.ontrack = (event) => {
+    pc.ontrack = (event: RtcTrackEvent) => {
       this.handlePeerConnectionOnTrack(clientId, pc, event);
     };
   }
@@ -322,10 +323,20 @@ export class WebRtcManager implements IWebRtcManager {
     event: RtcPeerConnectionIceEvent,
   ): void {
     const pcInfo = this.clients.get(clientId);
-    if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed || !event.candidate)
-      return;
+    const { candidate: c } = event;
 
-    this.activeHandlers.onRtcIceCandidate(clientId, event.candidate);
+    if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed || !c) {
+      return;
+    }
+
+    const wire: RtcIceCandidateInitWire = {
+      candidate: c.candidate,
+      sdpMLineIndex: c.sdpMLineIndex ?? null,
+      sdpMid: c.sdpMid ?? null,
+      usernameFragment: c.usernameFragment ?? null,
+    };
+
+    this.activeHandlers.onRtcIceCandidate(clientId, wire);
   }
 
   private handlePeerConnectionIceCandidateError(
@@ -344,7 +355,7 @@ export class WebRtcManager implements IWebRtcManager {
   private handlePeerConnectionOnTrack(
     clientId: string,
     pc: RtcPeerConnection,
-    event: any,
+    event: RtcTrackEvent,
   ): void {
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed) return;

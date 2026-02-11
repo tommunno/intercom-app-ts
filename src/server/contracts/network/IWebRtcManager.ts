@@ -2,7 +2,7 @@ import type { RtcAnswerWire } from "../../../shared/types/RtcAnswerWire.js";
 import type { RtcIceCandidateInitWire } from "../../../shared/types/RtcIceCandidateInitWire.js";
 import type { RtcOfferWire } from "../../../shared/types/RtcOfferWire.js";
 import type { TurnServerCredentials } from "../../../shared/types/TurnServerCredentials.js";
-import type { TrackAndStream } from "../../types/TrackAndStream.js";
+import type { TrackAndStream, RtcMediaStreamTrack } from "../../types/index.js";
 
 export interface WebRtcHandlers {
   onRtcConnected: (clientId: string) => void;
@@ -14,7 +14,7 @@ export interface WebRtcHandlers {
     clientId: string,
     candidate: RtcIceCandidateInitWire | null,
   ) => void;
-  onRtcTrack: (clientId: string, track: any) => void;
+  onRtcTrack: (clientId: string, track: RtcMediaStreamTrack) => void;
 }
 
 export interface IWebRtcManager {
