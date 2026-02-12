@@ -128,12 +128,9 @@ export class DataController implements IDataController {
 
   getAudioData(): AudioPopulateData {
     const audioData: AudioData = this.dataManager.getAudioData();
-
     return {
-      audioMatrixData: {
-        ...audioData.audioMatrixData,
-        numUsers: this.accountManager.numUsers,
-      },
+      ...audioData,
+      numUsers: this.accountManager.numUsers,
     };
   }
 }

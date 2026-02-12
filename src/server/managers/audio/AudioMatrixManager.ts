@@ -3,22 +3,20 @@ import type {
   PartylineInfo,
 } from "../../../shared/types/index.js";
 import type {
+  AudioMatrixConfig,
+  AudioMatrixPopulateConfig,
   IAudioMatrixManager,
   ILogger,
   IOutputPort,
   IPartyline,
 } from "../../contracts/index.js";
 import { OutputPort, Partyline } from "../../entities/index.js";
-import {
-  type AudioConfig,
-  type AudioMatrixData,
-  type AudioMatrixPopulateData,
-  type KeyPressInfo,
-} from "../../types/index.js";
+import { type KeyPressInfo } from "../../types/index.js";
 import { dataIsType } from "../../../shared/helpers.js";
 import {
   DEFAULT_NUM_PARTYLINES,
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
+  DEFAULT_NUM_USERS,
   MAX_NUM_PARTYLINES,
   MAX_NUM_SOUNDCARD_CHANNELS,
 } from "../../constants/serverConstants.js";
@@ -26,10 +24,8 @@ import {
 export class AudioMatrixManager implements IAudioMatrixManager {
   private status: ManagerStatus = "IDLE";
   private context: string = "AudioMatrixManager";
-  private config: AudioConfig = {
-    //numUsers will always be given to us from the AccountManager
-    //Because we need to shadow the AccountManager perfectly here
-    numUsers: 0,
+  private config: AudioMatrixConfig = {
+    numUsers: DEFAULT_NUM_USERS,
     numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
     numPartylines: DEFAULT_NUM_PARTYLINES,
   };
@@ -51,14 +47,14 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     this.status = "INITIALIZED";
   }
 
-  populate(data: AudioMatrixPopulateData): AudioConfig {
+  populate(config: AudioMatrixPopulateConfig): AudioMatrixConfig {
     if (this.status !== "INITIALIZED") {
       throw new Error(
         `Cannot populate the AudioMatrixManager whilst its status is ${this.status}`,
       );
     }
 
-    this.setAudioConfig(data);
+    this.setConfig(config);
     this.createPartylines();
     this.createOutputPorts();
 
@@ -145,27 +141,17 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     );
   }
 
-  private setAudioConfig(matrixData: AudioMatrixPopulateData): void {
+  private setConfig(config: AudioMatrixPopulateConfig): void {
     const {
       numUsers: nU,
       numSoundcardChannels: nSC,
       numPartylines: nP,
-    } = matrixData;
+    } = config;
 
-    //We trust numUsers because we're reliant on whatever the AccountManager gives us here - we have to shadow it
+    //We trust both numUsers and numSoundcardChannels here. These have been validated by the AccountManager and the AudioEngineManager respectively
     this.config.numUsers = nU;
+    this.config.numSoundcardChannels = nSC;
 
-    if (
-      !dataIsType("safeIntegerNum", nSC) ||
-      nSC < 1 ||
-      nSC > MAX_NUM_SOUNDCARD_CHANNELS
-    ) {
-      this.logger.error(
-        `numSoundcardChannels is invalid. Will fall back to the default value of ${DEFAULT_NUM_SOUNDCARD_CHANNELS}`,
-      );
-    } else {
-      this.config.numSoundcardChannels = nSC;
-    }
     if (
       !dataIsType("safeIntegerNum", nP) ||
       nP < 1 ||

@@ -100,7 +100,6 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
       );
       return false;
     }
-    this.logger.info(`After await`);
 
     for (const track of this.localStream.getTracks()) {
       pc.addTrack(track, this.localStream);

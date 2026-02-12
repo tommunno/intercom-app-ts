@@ -95,10 +95,9 @@ export class DataManager implements IDataManager {
 
     //Temporary data:
     return {
-      audioMatrixData: {
-        numSoundcardChannels: 9,
-        numPartylines: 7,
-      },
+      numSoundcardChannels: 1,
+      numPartylines: 7,
+      soundcardDeviceId: 3,
     };
   }
 

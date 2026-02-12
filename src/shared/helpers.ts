@@ -86,3 +86,11 @@ export function validateServerConstants(): void {
     );
   }
 }
+
+export function addIfDefined<T extends object, K extends keyof T>(
+  obj: Partial<T>,
+  key: K,
+  value: T[K] | undefined,
+) {
+  if (value !== undefined) obj[key] = value;
+}

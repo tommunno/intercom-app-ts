@@ -7,16 +7,17 @@ import type {
   ITailManager,
   ILogger,
   TailHandlers,
+  AudioMatrixConfig,
+  TailConfig,
 } from "../../contracts/index.js";
-import { type AudioConfig, type KeyPressInfo } from "../../types/index.js";
+import { type KeyPressInfo } from "../../types/index.js";
 
 export class TailManager implements ITailManager {
   private status: ManagerStatus = "IDLE";
   private handlers: TailHandlers | null = null;
   private context: string = "TailManager";
 
-  //TailManager is shadowing AudioMatrix. So during population, TailManager receives the AudioConfig from AudioMatrix
-  private config: AudioConfig = {
+  private config: TailConfig = {
     numUsers: 0,
     numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
     numPartylines: DEFAULT_NUM_PARTYLINES,
@@ -35,7 +36,7 @@ export class TailManager implements ITailManager {
     this.status = "INITIALIZED";
   }
 
-  populate(config: AudioConfig): void {
+  populate(config: TailConfig): void {
     if (this.status !== "INITIALIZED") {
       throw new Error(
         `Cannot populate the ${this.context} whilst its status is ${this.status}`,

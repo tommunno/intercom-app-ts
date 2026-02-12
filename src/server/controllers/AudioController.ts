@@ -1,9 +1,14 @@
+import { addIfDefined } from "../../shared/helpers.js";
 import type {
   AudioInfo,
   MergedPartylineInfo,
 } from "../../shared/types/index.js";
 import type {
+  AudioEngineConfig,
+  AudioEnginePopulateConfig,
   AudioHandlers,
+  AudioMatrixConfig,
+  AudioMatrixPopulateConfig,
   IAudioController,
   IAudioEngineManager,
   IAudioMatrixManager,
@@ -44,10 +49,39 @@ export class AudioController implements IAudioController {
   }
 
   populate(data: AudioPopulateData): void {
-    this.audioEngineManager.populate();
-    const audioConfig = this.audioMatrixManager.populate(data.audioMatrixData);
-    this.tailManager.populate(audioConfig);
-    this.webRtcMediaBridge.populate(audioConfig.numUsers);
+    const engineConfig = this.audioEngineManager.populate(
+      this.buildAudioEnginePopulateConfig(data),
+    );
+    const matrixConfig = this.audioMatrixManager.populate(
+      this.buildAudioMatrixPopulateConfig(data, engineConfig),
+    );
+    this.tailManager.populate(matrixConfig);
+    this.webRtcMediaBridge.populate(matrixConfig.numUsers);
+  }
+
+  private buildAudioEnginePopulateConfig(
+    data: AudioPopulateData,
+  ): AudioEnginePopulateConfig {
+    const {
+      numUsers,
+      numSoundcardChannels: nSC,
+      soundcardDeviceId: sDId,
+    } = data;
+    const conf: AudioEnginePopulateConfig = { numUsers };
+    if (nSC !== undefined) conf.numSoundcardChannels = nSC;
+    if (sDId !== undefined) conf.soundcardDeviceId = sDId;
+    return conf;
+  }
+
+  private buildAudioMatrixPopulateConfig(
+    data: AudioPopulateData,
+    engineConfig: AudioEngineConfig,
+  ): AudioMatrixPopulateConfig {
+    const { numPartylines: nP } = data;
+    const { numSoundcardChannels, numUsers } = engineConfig;
+    const conf: AudioMatrixPopulateConfig = { numUsers, numSoundcardChannels };
+    if (nP !== undefined) conf.numPartylines = nP;
+    return conf;
   }
 
   start(): void {

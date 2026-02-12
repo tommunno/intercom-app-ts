@@ -5,7 +5,6 @@ export * from "./WssMessageInfo.js";
 export * from "./WssUpstreamRequest.js";
 export * from "./WssSendMessage.js";
 export * from "./WssCommandMap.js";
-export * from "./AudioConfig.js";
 export * from "../../shared/types/KeyPressInfo.js";
 export * from "./CloseClientParams.js";
 export * from "./LogoutClientParams.js";
