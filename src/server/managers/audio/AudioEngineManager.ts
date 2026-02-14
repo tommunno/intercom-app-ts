@@ -11,10 +11,10 @@ import {
   type AudioEnginePopulateConfig,
   type IAudioEngineManager,
 } from "../../contracts/audio/IAudioEngineManager.js";
-import type { ILogger } from "../../contracts/index.js";
+import type { DeviceValidResponse, ILogger } from "../../contracts/index.js";
 
 //Native binding:
-import engine, { type AudioEngine } from "audio-engine";
+import engine, { type AudioEngine, type PortAudioDevice } from "audio-engine";
 
 export class AudioEngineManager implements IAudioEngineManager {
   private status: ManagerStatus = "IDLE";
@@ -22,9 +22,13 @@ export class AudioEngineManager implements IAudioEngineManager {
   private engine: AudioEngine = engine;
   private config: AudioEngineConfig = {
     numUsers: DEFAULT_NUM_USERS,
-    numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
-    soundcardDeviceId: 0,
+    requestedNumSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
+    requestedSoundcardId: null,
+    numSoundcardChannels: 0,
+    soundcardId: 0,
+    isReady: false,
   };
+  private device: PortAudioDevice | null = null;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AudioEngineManager" });
@@ -47,7 +51,10 @@ export class AudioEngineManager implements IAudioEngineManager {
         `Cannot populate the AudioEngineManager whilst its status is ${this.status}`,
       );
     }
-    this.setConfig(config);
+    const configSuccess = this.setConfig(config);
+    if (configSuccess) {
+      this.config.isReady = this.createEngine();
+    }
     this.status = "POPULATED";
     return this.config;
   }
@@ -60,7 +67,6 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-    this.createEngine();
     this.status = "RUNNING";
   }
 
@@ -68,43 +74,136 @@ export class AudioEngineManager implements IAudioEngineManager {
     this.handlers = handlers;
   }
 
-  //Add in real logic here, using help from native engine
-  private setConfig(config: AudioEnginePopulateConfig): void {
-    const {
-      numUsers: nU,
-      numSoundcardChannels: nSC,
-      soundcardDeviceId: sDId,
-    } = config;
-
+  //Returns true if success
+  private setConfig(config: AudioEnginePopulateConfig): boolean {
     //We trust numUsers here. It has been validated by the AccountManager
-    this.config.numUsers = nU;
+    this.config.numUsers = config.numUsers;
 
-    if (
-      !dataIsType("safeIntegerNum", nSC) ||
-      nSC < 1 ||
-      nSC > MAX_NUM_SOUNDCARD_CHANNELS
-    ) {
-      this.logger.error(
-        `numSoundcardChannels is invalid. Will fall back to the default value of ${DEFAULT_NUM_SOUNDCARD_CHANNELS}`,
-      );
-    } else {
-      this.config.numSoundcardChannels = nSC;
-    }
+    this.setRequestedNumSoundcardChannels(config.requestedNumSoundcardChannels);
 
-    //Test logic:
-    this.config.soundcardDeviceId = sDId ?? 0;
+    this.setRequestedSoundcardId(config.requestedSoundcardId);
+
+    const device = this.setSoundcardId();
+    if (!device) return false;
+
+    this.setNumSoundcardChannels(device);
+
+    return true;
   }
 
-  private createEngine(): void {
+  private setRequestedNumSoundcardChannels(num: number | undefined): void {
+    if (
+      !dataIsType("safeIntegerNum", num) ||
+      num < 1 ||
+      num > MAX_NUM_SOUNDCARD_CHANNELS
+    ) {
+      this.logger.error(
+        `requestedNumSoundcardChannels is invalid. Will fall back to the default value of ${DEFAULT_NUM_SOUNDCARD_CHANNELS}`,
+      );
+    } else {
+      this.config.requestedNumSoundcardChannels = num;
+    }
+  }
+
+  private setRequestedSoundcardId(id: number | undefined): void {
+    if (id === undefined) return;
+    if (!dataIsType("safeIntegerNum", id)) {
+      this.logger.error(
+        "requestedSoundcardId is not a valid integer. No requestedSoundcardId will be used",
+      );
+      return;
+    }
+    this.config.requestedSoundcardId = id;
+  }
+
+  //Returns the device associated with the ID if successful
+  private setSoundcardId(): PortAudioDevice | null {
+    const errMessage =
+      "The app requires at least one device with at least one input and one output. If necessary, you can create an aggregate device in Audio MIDI Setup";
+
+    const devices = this.engine.getPortAudioDevices();
+    if (devices.length === 0) {
+      this.logger.error("There are no soundcard devices. " + errMessage);
+      return null;
+    }
+    const { requestedSoundcardId } = this.config;
+
+    let device: PortAudioDevice | undefined;
+
+    //Try and use the requestedSoundcardId:
+    if (requestedSoundcardId !== null) {
+      device = devices.find((d) => d.id === requestedSoundcardId);
+      if (!device) {
+        this.logger.warn(
+          `No soundcard device found for ID ${requestedSoundcardId}. Will attempt to use another valid device...`,
+        );
+      } else {
+        const result = this.isDeviceValid(device);
+        if (!result.valid) {
+          this.logger.warn(
+            `Device ${device.name} (ID ${device.id}) is not valid: ${result.errMessage}. Will attempt to use another valid device...`,
+          );
+          device = undefined;
+        }
+      }
+    }
+
+    //If no device has been found, then attempt to use any other valid device:
+    if (!device) {
+      device = devices.find((d) => this.isDeviceValid(d).valid);
+      if (!device) {
+        this.logger.error(
+          "There are no valid soundcard devices. " + errMessage,
+        );
+        return null;
+      }
+    }
+
+    //We now have a valid device:
+    this.config.soundcardId = device.id;
+    this.device = device;
+    this.logger.success(
+      `Successfully set soundcard to ${this.device.name} (device ID: ${this.config.soundcardId})`,
+    );
+    return device;
+  }
+
+  private isDeviceValid(device: PortAudioDevice): DeviceValidResponse {
+    const { maxInputChannels: maxIC, maxOutputChannels: maxOC } = device;
+    if (maxIC < 1 || maxOC < 1) {
+      return {
+        valid: false,
+        errMessage: `The soundcard device needs to have at least one input and output channel. Currently the device only has ${maxIC} input channel${maxIC === 1 ? "" : "s"} and ${maxOC} output channel${maxOC === 1 ? "" : "s"}`,
+      };
+    }
+    return { valid: true };
+  }
+
+  private setNumSoundcardChannels(device: PortAudioDevice): void {
+    this.config.numSoundcardChannels = Math.min(
+      this.config.requestedNumSoundcardChannels,
+      device.maxInputChannels,
+      device.maxOutputChannels,
+    );
+  }
+
+  //Returns true if successful
+  private createEngine(): boolean {
     const {
-      numUsers: nU,
-      numSoundcardChannels: nSC,
-      soundcardDeviceId: sDId,
+      numUsers: numU,
+      numSoundcardChannels: numSC,
+      soundcardId: sCId,
     } = this.config;
     this.logger.info(
-      `Creating engine with numUsers: ${nU}, numSoundcardChannels: ${nSC}, soundcardDeviceId: ${sDId}`,
+      `Creating engine with numUsers: ${numU}, numSoundcardChannels: ${numSC}, soundcardId: ${sCId}`,
     );
-    // this.engine.createEngine(nU, nSC, nSC, sDId);
+    try {
+      this.engine.createEngine(numU, numSC, numSC, sCId);
+    } catch (err) {
+      this.logger.error("Error setting up Audio Engine", err);
+      return false;
+    }
+    return true;
   }
 
   private addAudioEngineLoggingCallback(): void {

@@ -64,12 +64,12 @@ export class AudioController implements IAudioController {
   ): AudioEnginePopulateConfig {
     const {
       numUsers,
-      numSoundcardChannels: nSC,
-      soundcardDeviceId: sDId,
+      requestedNumSoundcardChannels: rNumSC,
+      requestedSoundcardId: rSCId,
     } = data;
     const conf: AudioEnginePopulateConfig = { numUsers };
-    if (nSC !== undefined) conf.numSoundcardChannels = nSC;
-    if (sDId !== undefined) conf.soundcardDeviceId = sDId;
+    if (rNumSC !== undefined) conf.requestedNumSoundcardChannels = rNumSC;
+    if (rSCId !== undefined) conf.requestedSoundcardId = rSCId;
     return conf;
   }
 
@@ -77,10 +77,14 @@ export class AudioController implements IAudioController {
     data: AudioPopulateData,
     engineConfig: AudioEngineConfig,
   ): AudioMatrixPopulateConfig {
-    const { numPartylines: nP } = data;
-    const { numSoundcardChannels, numUsers } = engineConfig;
-    const conf: AudioMatrixPopulateConfig = { numUsers, numSoundcardChannels };
-    if (nP !== undefined) conf.numPartylines = nP;
+    const { numPartylines: numPl } = data;
+    const { requestedNumSoundcardChannels: rNumSC, numUsers } = engineConfig;
+    const conf: AudioMatrixPopulateConfig = {
+      numUsers,
+      //We build the audioMatrix based upon the requested number of soundcard channels, not how many channels are actually being used by the engine
+      numSoundcardChannels: rNumSC,
+    };
+    if (numPl !== undefined) conf.numPartylines = numPl;
     return conf;
   }
 

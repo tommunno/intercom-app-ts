@@ -134,9 +134,12 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       }
     }
 
-    this.logger.info(`Partyline portsTalking:`, partyline.state.portsTalking);
     this.logger.info(
-      `Partyline portsListening:`,
+      `Partyline ${partylineId} portsTalking:`,
+      partyline.state.portsTalking,
+    );
+    this.logger.info(
+      `Partyline ${partylineId} portsListening:`,
       partyline.state.portsListening,
     );
   }

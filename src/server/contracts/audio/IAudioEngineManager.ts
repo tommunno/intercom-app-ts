@@ -9,11 +9,22 @@ export const AudioLogTypes = {
 
 export interface AudioEngineConfig {
   numUsers: number;
+  requestedNumSoundcardChannels: number;
+  requestedSoundcardId: number | null;
   numSoundcardChannels: number;
-  soundcardDeviceId: number;
+  soundcardId: number;
+  isReady: boolean;
 }
-export type AudioEnginePopulateConfig = Pick<AudioEngineConfig, "numUsers"> &
-  Partial<Omit<AudioEngineConfig, "numUsers">>;
+
+export interface AudioEnginePopulateConfig {
+  numUsers: number;
+  requestedNumSoundcardChannels?: number;
+  requestedSoundcardId?: number;
+}
+
+export type DeviceValidResponse =
+  | { valid: true }
+  | { valid: false; errMessage: string };
 
 export interface AudioEngineHandlers {}
 

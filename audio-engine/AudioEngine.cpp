@@ -95,7 +95,7 @@ Napi::Value createEngine(const Napi::CallbackInfo &info)
             soundcardNumOutputChannels,
             soundcardDeviceId);
 
-        Logger::LOG("Successfully created Audio Engine", Logger::Types::INFO);
+        Logger::LOG("Successfully created Audio Engine", Logger::Types::SUCCESS);
         return Napi::Boolean::New(env, true); // or return the engine handle/object if you expose one
     }
     catch (const std::exception &e)
