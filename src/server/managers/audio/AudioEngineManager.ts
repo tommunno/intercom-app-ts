@@ -20,7 +20,7 @@ export class AudioEngineManager implements IAudioEngineManager {
   private status: ManagerStatus = "IDLE";
   private handlers: AudioEngineHandlers | null = null;
   private engine: AudioEngine = engine;
-  private config: AudioEngineConfig = {
+  private _config: AudioEngineConfig = {
     numUsers: DEFAULT_NUM_USERS,
     requestedNumSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
     requestedSoundcardId: null,
@@ -29,6 +29,8 @@ export class AudioEngineManager implements IAudioEngineManager {
     isReady: false,
   };
   private device: PortAudioDevice | null = null;
+  private pushAudioRunningErr: boolean = false;
+  private pushAudioChannelErrs: boolean[] = [];
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AudioEngineManager" });
@@ -40,7 +42,7 @@ export class AudioEngineManager implements IAudioEngineManager {
         `Cannot initialize the AudioEngineManager whilst its status is ${this.status}`,
       );
     }
-    this.addAudioEngineLoggingCallback();
+    this.addLoggingCallback();
     this.logger.info("PortAudio devices:", this.engine.getPortAudioDevices());
     this.status = "INITIALIZED";
   }
@@ -52,8 +54,9 @@ export class AudioEngineManager implements IAudioEngineManager {
       );
     }
     const configSuccess = this.setConfig(config);
+    this.createPushAudioChannelErrs();
     if (configSuccess) {
-      this.config.isReady = this.createEngine();
+      this._config.isReady = this.createEngine();
     }
     this.status = "POPULATED";
     return this.config;
@@ -65,8 +68,12 @@ export class AudioEngineManager implements IAudioEngineManager {
         `Cannot start the AudioEngineManager whilst its status is ${this.status}`,
       );
     }
+    if (!this.config.isReady) {
+      throw new Error(`Cannot start the AudioEngineManager: isReady is false`);
+    }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
+    this.addAudioCallback();
     this.status = "RUNNING";
   }
 
@@ -74,10 +81,97 @@ export class AudioEngineManager implements IAudioEngineManager {
     this.handlers = handlers;
   }
 
+  setChannelRouted(channelNum: number, routed: boolean): boolean {
+    const notRunning = this.checkAndWarnIfNotRunning("set channel routed");
+    if (notRunning) return false;
+    try {
+      const isRouted = this.engine.isBufferedInputRouted(channelNum);
+      //If we are trying to set the channel to a routed status:
+      if (routed) {
+        if (isRouted) {
+          throw new Error(`Channel is already routed`);
+        }
+        this.engine.setBufferedInputRouted(channelNum, true);
+        this.logger.success(`Set channel ${channelNum} routed`);
+        return true;
+      }
+      //If we are trying to set channel to an unrouted status:
+      if (!isRouted) {
+        this.logger.warn(
+          `Unable to set channelNum ${channelNum} to unrouted: the channel is already unrouted`,
+        );
+        return false;
+      }
+      this.engine.setBufferedInputRouted(channelNum, false);
+      this.logger.success(`Set channel ${channelNum} unrouted`);
+      return true;
+    } catch (err) {
+      this.logger.error(
+        `Unable to set channelNum ${channelNum} to ${routed ? "" : "un"}routed`,
+        err,
+      );
+      return false;
+    }
+  }
+
+  pushAudio(channelNum: number, samples: Int16Array): void {
+    if (this.status !== "RUNNING") {
+      if (this.pushAudioRunningErr) return;
+      this.logger.error(
+        `Unable to push audio because the status is ${this.status}`,
+      );
+      this.pushAudioRunningErr = true;
+      return;
+    }
+    this.pushAudioRunningErr = false;
+    try {
+      if (channelNum < 0 || channelNum >= this._config.numUsers) {
+        throw new Error(`channelNum invalid`);
+      }
+      this.engine.routeToBufferedInput(channelNum, samples);
+      this.pushAudioChannelErrs[channelNum] = false;
+    } catch (err) {
+      if (this.pushAudioChannelErrs[channelNum]) {
+        return;
+      }
+      this.logger.error(
+        `Unable to push audio for channelNum ${channelNum}`,
+        err,
+      );
+      this.pushAudioChannelErrs[channelNum] = true;
+    }
+  }
+
+  updateCrosspoint(
+    destChannelNum: number,
+    srcChannelNum: number,
+    state: boolean,
+  ): boolean {
+    const notRunning = this.checkAndWarnIfNotRunning("update crosspoint");
+    if (notRunning) return false;
+    try {
+      this.engine.updateMixerCrosspoint(destChannelNum, srcChannelNum, state);
+      this.logger.info(
+        `Crosspoint ${state ? "closed" : "opened"} for destChannelnum ${destChannelNum} and srcChannelNum ${srcChannelNum}`,
+      );
+      return true;
+    } catch (err) {
+      this.logger.error(
+        `Unable to ${state ? "close" : "open"} crosspoint for destChannelnum ${destChannelNum} and srcChannelNum ${srcChannelNum}`,
+        err,
+      );
+      return false;
+    }
+  }
+
+  get config(): AudioEngineConfig {
+    return { ...this._config };
+  }
+
   //Returns true if success
   private setConfig(config: AudioEnginePopulateConfig): boolean {
     //We trust numUsers here. It has been validated by the AccountManager
-    this.config.numUsers = config.numUsers;
+    this._config.numUsers = config.numUsers;
 
     this.setRequestedNumSoundcardChannels(config.requestedNumSoundcardChannels);
 
@@ -91,6 +185,13 @@ export class AudioEngineManager implements IAudioEngineManager {
     return true;
   }
 
+  private createPushAudioChannelErrs(): void {
+    this.pushAudioChannelErrs = Array.from(
+      { length: this._config.numUsers },
+      () => false,
+    );
+  }
+
   private setRequestedNumSoundcardChannels(num: number | undefined): void {
     if (
       !dataIsType("safeIntegerNum", num) ||
@@ -101,7 +202,7 @@ export class AudioEngineManager implements IAudioEngineManager {
         `requestedNumSoundcardChannels is invalid. Will fall back to the default value of ${DEFAULT_NUM_SOUNDCARD_CHANNELS}`,
       );
     } else {
-      this.config.requestedNumSoundcardChannels = num;
+      this._config.requestedNumSoundcardChannels = num;
     }
   }
 
@@ -113,7 +214,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       );
       return;
     }
-    this.config.requestedSoundcardId = id;
+    this._config.requestedSoundcardId = id;
   }
 
   //Returns the device associated with the ID if successful
@@ -126,7 +227,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       this.logger.error("There are no soundcard devices. " + errMessage);
       return null;
     }
-    const { requestedSoundcardId } = this.config;
+    const { requestedSoundcardId } = this._config;
 
     let device: PortAudioDevice | undefined;
 
@@ -160,10 +261,10 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
 
     //We now have a valid device:
-    this.config.soundcardId = device.id;
+    this._config.soundcardId = device.id;
     this.device = device;
     this.logger.success(
-      `Successfully set soundcard to ${this.device.name} (device ID: ${this.config.soundcardId})`,
+      `Successfully set soundcard to ${this.device.name} (device ID: ${this._config.soundcardId})`,
     );
     return device;
   }
@@ -180,8 +281,8 @@ export class AudioEngineManager implements IAudioEngineManager {
   }
 
   private setNumSoundcardChannels(device: PortAudioDevice): void {
-    this.config.numSoundcardChannels = Math.min(
-      this.config.requestedNumSoundcardChannels,
+    this._config.numSoundcardChannels = Math.min(
+      this._config.requestedNumSoundcardChannels,
       device.maxInputChannels,
       device.maxOutputChannels,
     );
@@ -193,7 +294,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       numUsers: numU,
       numSoundcardChannels: numSC,
       soundcardId: sCId,
-    } = this.config;
+    } = this._config;
     this.logger.info(
       `Creating engine with numUsers: ${numU}, numSoundcardChannels: ${numSC}, soundcardId: ${sCId}`,
     );
@@ -206,7 +307,15 @@ export class AudioEngineManager implements IAudioEngineManager {
     return true;
   }
 
-  private addAudioEngineLoggingCallback(): void {
+  private addAudioCallback(): void {
+    try {
+      this.engine.registerAudioCallback(this.activeHandlers.onAudio);
+    } catch (err) {
+      this.logger.error("Unable to add audio callback", err);
+    }
+  }
+
+  private addLoggingCallback(): void {
     try {
       this.engine.addLoggingCallback((message, type, toAdminPanel) => {
         if (

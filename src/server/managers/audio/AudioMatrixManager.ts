@@ -18,7 +18,6 @@ import {
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   DEFAULT_NUM_USERS,
   MAX_NUM_PARTYLINES,
-  MAX_NUM_SOUNDCARD_CHANNELS,
 } from "../../constants/serverConstants.js";
 
 export class AudioMatrixManager implements IAudioMatrixManager {

@@ -23,7 +23,7 @@ import type {
 } from "@roamhq/wrtc/types/nonstandard.js";
 
 export class WebRtcMediaBridge implements IWebRtcMediaBridge {
-  private status: ManagerStatus = "IDLE";
+  private _status: ManagerStatus = "IDLE";
   private handlers: MediaBridgeHandlers | null = null;
   private numChannels: number = 0;
   private channels: MediaBridgeChannel[] = [];
@@ -38,34 +38,34 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
   }
 
   init(): void {
-    if (this.status !== "IDLE") {
+    if (this._status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the WebRtcMediaBridge whilst its status is ${this.status}`,
+        `Cannot initialize the WebRtcMediaBridge whilst its status is ${this._status}`,
       );
     }
-    this.status = "INITIALIZED";
+    this._status = "INITIALIZED";
   }
 
   populate(numChannels: number): void {
-    if (this.status !== "INITIALIZED") {
+    if (this._status !== "INITIALIZED") {
       throw new Error(
-        `Cannot populate the WebRtcMediaBridge whilst its status is ${this.status}`,
+        `Cannot populate the WebRtcMediaBridge whilst its status is ${this._status}`,
       );
     }
     this.numChannels = numChannels;
     this.createChannels();
-    this.status = "POPULATED";
+    this._status = "POPULATED";
   }
 
   start(): void {
-    if (this.status !== "POPULATED") {
+    if (this._status !== "POPULATED") {
       throw new Error(
-        `Cannot start the WebRtcMediaBridge whilst its status is ${this.status}`,
+        `Cannot start the WebRtcMediaBridge whilst its status is ${this._status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-    this.status = "RUNNING";
+    this._status = "RUNNING";
   }
 
   setHandlers(handlers: MediaBridgeHandlers): void {
@@ -91,6 +91,13 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
       );
       return false;
     }
+    const success = this.activeHandlers.onChannelRoutedChange(channelNum, true);
+
+    if (!success) {
+      this.logger.error(`Cannot add RX track for channelNum ${channelNum}`);
+      return false;
+    }
+
     rx.rtcAudioSink = new RTCAudioSink(track);
     rx.track = track;
 
@@ -137,6 +144,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     this.logger.info(`Removed RX track for channelNum ${channelNum}`);
     rx.rtcAudioSink = null;
     rx.track = null;
+    this.activeHandlers.onChannelRoutedChange(channelNum, false);
     return true;
   }
 
@@ -155,10 +163,10 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
   }
 
   pushAudio(buffer: Buffer): void {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       if (this.pushAudioRunningErr) return;
       this.logger.error(
-        `Unable to push audio because the status is ${this.status}`,
+        `Unable to push audio because the status is ${this._status}`,
       );
       this.pushAudioRunningErr = true;
       return;
@@ -209,6 +217,10 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     this.pushAudioSourceErr = false;
   }
 
+  get status(): ManagerStatus {
+    return this._status;
+  }
+
   private createChannels(): void {
     this.channels.length = 0;
     this.txRtcAudioSources.length = 0;
@@ -243,9 +255,9 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       this.logger.error(
-        `Unable to ${action} because the status is ${this.status}`,
+        `Unable to ${action} because the status is ${this._status}`,
       );
       return true;
     }

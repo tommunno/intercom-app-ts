@@ -26,11 +26,21 @@ export type DeviceValidResponse =
   | { valid: true }
   | { valid: false; errMessage: string };
 
-export interface AudioEngineHandlers {}
+export interface AudioEngineHandlers {
+  onAudio: (buffer: Buffer) => void;
+}
 
 export interface IAudioEngineManager {
   init: () => void;
   populate: (config: AudioEnginePopulateConfig) => AudioEngineConfig;
   start: () => void;
   setHandlers: (handlers: AudioEngineHandlers) => void;
+  setChannelRouted: (channelNum: number, routed: boolean) => boolean;
+  pushAudio: (channelNum: number, samples: Int16Array) => void;
+  updateCrosspoint: (
+    destChannelNum: number,
+    srcChannelNum: number,
+    state: boolean,
+  ) => boolean;
+  config: AudioEngineConfig;
 }

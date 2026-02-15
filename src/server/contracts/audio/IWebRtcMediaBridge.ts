@@ -1,7 +1,9 @@
+import type { ManagerStatus } from "../../../shared/types/ManagerStatus.js";
 import type { TrackAndStream, RtcMediaStreamTrack } from "../../types/index.js";
 
 export interface MediaBridgeHandlers {
   onAudio: (channelNum: number, samples: Int16Array) => void;
+  onChannelRoutedChange: (channelNum: number, routed: boolean) => boolean;
 }
 
 export interface IWebRtcMediaBridge {
@@ -16,4 +18,6 @@ export interface IWebRtcMediaBridge {
   getTxTrackAndStream: (channelNum: number) => TrackAndStream | null;
 
   pushAudio: (buffer: Buffer) => void;
+
+  status: ManagerStatus;
 }

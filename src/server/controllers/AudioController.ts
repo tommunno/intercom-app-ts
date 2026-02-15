@@ -1,4 +1,4 @@
-import { addIfDefined } from "../../shared/helpers.js";
+//Types:
 import type {
   AudioInfo,
   MergedPartylineInfo,
@@ -7,7 +7,6 @@ import type {
   AudioEngineConfig,
   AudioEnginePopulateConfig,
   AudioHandlers,
-  AudioMatrixConfig,
   AudioMatrixPopulateConfig,
   IAudioController,
   IAudioEngineManager,
@@ -16,13 +15,16 @@ import type {
   ITailManager,
   IWebRtcMediaBridge,
 } from "../contracts/index.js";
-import { startSineTest, startSweepTest } from "../serverHelpers.js";
 import type {
   AudioPopulateData,
   KeyPressInfo,
   RtcMediaStreamTrack,
   TrackAndStream,
 } from "../types/index.js";
+//Helpers:
+import { addIfDefined } from "../../shared/helpers.js";
+import { startSineTest, startSweepTest } from "../serverHelpers.js";
+import { channel } from "node:diagnostics_channel";
 
 export class AudioController implements IAudioController {
   private handlers: AudioHandlers | null = null;
@@ -52,11 +54,15 @@ export class AudioController implements IAudioController {
     const engineConfig = this.audioEngineManager.populate(
       this.buildAudioEnginePopulateConfig(data),
     );
+    //We want this to be created regardless of whether the audioEngine is ready
     const matrixConfig = this.audioMatrixManager.populate(
       this.buildAudioMatrixPopulateConfig(data, engineConfig),
     );
     this.tailManager.populate(matrixConfig);
-    this.webRtcMediaBridge.populate(matrixConfig.numUsers);
+    //Only populate the webRtcMedia if the audioEngine is ready
+    if (engineConfig.isReady) {
+      this.webRtcMediaBridge.populate(engineConfig.numUsers);
+    }
   }
 
   private buildAudioEnginePopulateConfig(
@@ -91,10 +97,18 @@ export class AudioController implements IAudioController {
   start(): void {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-    this.audioEngineManager.start();
+    const { isReady } = this.audioEngineManager.config;
+    if (isReady) {
+      this.audioEngineManager.start();
+    }
     this.audioMatrixManager.start();
     this.tailManager.start();
-    this.webRtcMediaBridge.start();
+    if (isReady) {
+      this.webRtcMediaBridge.start();
+    }
+    //Test:
+    this.audioEngineManager.updateCrosspoint(0, 1, true);
+    //End test
     //Test:
     // startSweepTest(
     //   this.webRtcMediaBridge.pushAudio.bind(this.webRtcMediaBridge),
@@ -136,15 +150,33 @@ export class AudioController implements IAudioController {
   }
 
   addRxTrack(userId: number, track: RtcMediaStreamTrack): boolean {
+    if (this.webRtcMediaBridge.status !== "RUNNING") {
+      this.logger.warn(
+        `Will not add RX track for userId ${userId}: the WebRtcMediaBridge is not running.`,
+      );
+      return false;
+    }
     return this.webRtcMediaBridge.addRxTrack(userId, track);
   }
 
   removeRxTrack(userId: number): boolean {
+    if (this.webRtcMediaBridge.status !== "RUNNING") {
+      this.logger.warn(
+        `Will not remove RX track for userId ${userId}: the WebRtcMediaBridge is not running.`,
+      );
+      return false;
+    }
     return this.webRtcMediaBridge.removeRxTrack(userId);
   }
 
-  getTxTrackAndStream(channelNum: number): TrackAndStream | null {
-    return this.webRtcMediaBridge.getTxTrackAndStream(channelNum);
+  getTxTrackAndStream(userId: number): TrackAndStream | null {
+    if (this.webRtcMediaBridge.status !== "RUNNING") {
+      this.logger.warn(
+        `Can not get TX track and stream for userId ${userId}: the WebRtcMediaBridge is not running.`,
+      );
+      return null;
+    }
+    return this.webRtcMediaBridge.getTxTrackAndStream(userId);
   }
 
   //Private methods:
@@ -155,13 +187,26 @@ export class AudioController implements IAudioController {
   }
 
   private bindListeners(): void {
-    this.audioEngineManager.setHandlers({});
+    this.audioEngineManager.setHandlers({
+      onAudio: (b) => this.handleEngineAudio(b),
+    });
     this.tailManager.setHandlers({
       onKeyPress: (u, k) => this.handleTailManagerKeyPress(u, k),
     });
     this.webRtcMediaBridge.setHandlers({
       onAudio: (c, s) => this.handleBridgeAudio(c, s),
+      onChannelRoutedChange: (c, r) =>
+        this.handleBridgeChannelRoutedChange(c, r),
     });
+  }
+
+  //AudioEngineManager:
+
+  private handleEngineAudio(buffer: Buffer): void {
+    if (this.webRtcMediaBridge.status !== "RUNNING") {
+      return;
+    }
+    this.webRtcMediaBridge.pushAudio(buffer);
   }
 
   //TailManager:
@@ -179,6 +224,7 @@ export class AudioController implements IAudioController {
   //WebRtcMediaBridge:
 
   private handleBridgeAudio(channelNum: number, samples: Int16Array): void {
+    this.audioEngineManager.pushAudio(channelNum, samples);
     //Test:
     // if (this.logIndex === 0) {
     //   this.logger.info(`Bridge audio for channelNum ${channelNum}`, samples);
@@ -188,5 +234,12 @@ export class AudioController implements IAudioController {
     // }
     // this.logIndex++;
     //End test
+  }
+
+  private handleBridgeChannelRoutedChange(
+    channelNum: number,
+    routed: boolean,
+  ): boolean {
+    return this.audioEngineManager.setChannelRouted(channelNum, routed);
   }
 }

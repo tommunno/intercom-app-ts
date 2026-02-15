@@ -22,5 +22,5 @@ export interface IAudioController {
   processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
   addRxTrack: (userId: number, track: RtcMediaStreamTrack) => boolean;
   removeRxTrack: (userId: number) => boolean;
-  getTxTrackAndStream: (channelNum: number) => TrackAndStream | null;
+  getTxTrackAndStream: (userId: number) => TrackAndStream | null;
 }
