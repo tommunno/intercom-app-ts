@@ -13,4 +13,5 @@ export * from "./PeerConnectionInfo.js";
 export * from "./AccountData.js";
 export * from "./MediaBridgeChannel.js";
 export * from "./TrackAndStream.js";
+export * from "./CrosspointChange.js";
 export * from "./wrtcShimTypes.js";

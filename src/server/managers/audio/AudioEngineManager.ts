@@ -1,5 +1,6 @@
 import { dataIsType } from "../../../shared/helpers.js";
 import type { ManagerStatus } from "../../../shared/types/index.js";
+import type { CrosspointChange } from "../../types/index.js";
 import {
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   DEFAULT_NUM_USERS,
@@ -142,11 +143,11 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
   }
 
-  updateCrosspoint(
-    destChannelNum: number,
-    srcChannelNum: number,
-    state: boolean,
-  ): boolean {
+  updateCrosspoint({
+    destChannelNum,
+    srcChannelNum,
+    state,
+  }: CrosspointChange): boolean {
     const notRunning = this.checkAndWarnIfNotRunning("update crosspoint");
     if (notRunning) return false;
     try {

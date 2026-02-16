@@ -219,12 +219,21 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
   }
 
-  //Still to implement
   private createOutputPorts(): void {
-    // this.outputPorts = [];
-    // for (let i = 0; i < this.numPorts; i++) {
-    //   this.partylines.push(new OutputPort());
-    // }
+    this.outputPorts = [];
+    for (let i = 0; i < this.numPorts; i++) {
+      this.outputPorts.push(
+        new OutputPort(
+          {
+            id: i,
+            type: i < this.config.numUsers ? "WEB_RTC" : "SOUNDCARD",
+            pointToPointListens: new Set(),
+            plListens: new Set(),
+          },
+          this.logger,
+        ),
+      );
+    }
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {

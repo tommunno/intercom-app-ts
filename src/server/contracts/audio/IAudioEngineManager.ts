@@ -1,3 +1,4 @@
+import type { CrosspointChange } from "../../types/index.js";
 import type { AudioLogType } from "audio-engine";
 
 export const AudioLogTypes = {
@@ -37,10 +38,6 @@ export interface IAudioEngineManager {
   setHandlers: (handlers: AudioEngineHandlers) => void;
   setChannelRouted: (channelNum: number, routed: boolean) => boolean;
   pushAudio: (channelNum: number, samples: Int16Array) => void;
-  updateCrosspoint: (
-    destChannelNum: number,
-    srcChannelNum: number,
-    state: boolean,
-  ) => boolean;
+  updateCrosspoint: (crosspointChange: CrosspointChange) => boolean;
   config: AudioEngineConfig;
 }

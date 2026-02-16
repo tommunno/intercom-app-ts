@@ -107,7 +107,7 @@ export class AudioController implements IAudioController {
       this.webRtcMediaBridge.start();
     }
     //Test:
-    this.audioEngineManager.updateCrosspoint(0, 1, true);
+    // this.audioEngineManager.updateCrosspoint(0, 1, true);
     //End test
     //Test:
     // startSweepTest(

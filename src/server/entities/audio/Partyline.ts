@@ -1,29 +1,25 @@
 import type { SuccessMessage } from "../../../shared/types/SuccessMessage.js";
-import type { ILogger, IPartyline } from "../../contracts/index.js";
-
-export type PartylineState = {
-  id: number;
-  name: string;
-  numUsers: number;
-  numSoundcardChannels: number;
-  portsTalking: Set<number>;
-  portsListening: Set<number>;
-};
+import type {
+  ILogger,
+  IPartyline,
+  PartylineConfig,
+  PartylineState,
+} from "../../contracts/index.js";
 
 export class Partyline implements IPartyline {
   private _state: PartylineState;
 
   constructor(
-    init: PartylineState,
+    config: PartylineConfig,
     private logger: ILogger,
   ) {
     this._state = {
-      id: init.id,
-      name: init.name,
-      numUsers: init.numUsers,
-      numSoundcardChannels: init.numSoundcardChannels,
-      portsTalking: new Set(init.portsTalking),
-      portsListening: new Set(init.portsListening),
+      id: config.id,
+      name: config.name,
+      numUsers: config.numUsers,
+      numSoundcardChannels: config.numSoundcardChannels,
+      portsTalking: new Set(config.portsTalking),
+      portsListening: new Set(config.portsListening),
     };
     this.logger = this.logger.child({ context: `Partyline ${this._state.id}` });
   }

@@ -1,5 +1,15 @@
 import type { SuccessMessage } from "../../../shared/types/index.js";
-import type { PartylineState } from "../../entities/index.js";
+
+export interface PartylineState extends PartylineConfig {}
+
+export interface PartylineConfig {
+  id: number;
+  name: string;
+  numUsers: number;
+  numSoundcardChannels: number;
+  portsTalking: Set<number>;
+  portsListening: Set<number>;
+}
 
 export interface IPartyline {
   id: number;
