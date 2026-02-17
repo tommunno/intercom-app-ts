@@ -5,17 +5,18 @@ export interface PartylineState extends PartylineConfig {}
 export interface PartylineConfig {
   id: number;
   name: string;
-  numUsers: number;
-  numSoundcardChannels: number;
+  numPorts: number;
   portsTalking: Set<number>;
   portsListening: Set<number>;
 }
 
 export interface IPartyline {
   id: number;
+  portsTalking: ReadonlySet<number>;
+  portsListening: ReadonlySet<number>;
   state: PartylineState;
-  isUserTalking: (userId: number) => boolean;
-  isUserListening: (userId: number) => boolean;
-  setUserTalking: (userId: number, state: boolean) => SuccessMessage;
-  setUserListening: (userId: number, state: boolean) => SuccessMessage;
+  isPortTalking: (portNum: number) => boolean;
+  isPortListening: (portNum: number) => boolean;
+  setPortTalking: (portNum: number, state: boolean) => SuccessMessage;
+  setPortListening: (portNum: number, state: boolean) => SuccessMessage;
 }

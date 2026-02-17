@@ -1,5 +1,5 @@
 import type { PartylineInfo } from "../../../shared/types/index.js";
-import type { KeyPressInfo } from "../../types/index.js";
+import type { CrosspointChange, KeyPressInfo } from "../../types/index.js";
 
 export interface AudioMatrixConfig {
   numUsers: number;
@@ -13,11 +13,16 @@ export type AudioMatrixPopulateConfig = Omit<
 > &
   Partial<Pick<AudioMatrixConfig, "numPartylines">>;
 
+export interface AudioMatrixHandlers {
+  onCrosspointChange: (crosspointChange: CrosspointChange) => void;
+}
+
 export interface IAudioMatrixManager {
   init: () => void;
   populate: (config: AudioMatrixPopulateConfig) => AudioMatrixConfig;
   start: () => void;
   stop: () => void;
+  setHandlers: (handlers: AudioMatrixHandlers) => void;
   getPartylineInfos: (userId: number) => PartylineInfo[] | null;
-  processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
+  processKeyPress: (portNum: number, keyPressInfo: KeyPressInfo) => void;
 }

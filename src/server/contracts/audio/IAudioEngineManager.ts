@@ -13,6 +13,7 @@ export interface AudioEngineConfig {
   requestedNumSoundcardChannels: number;
   requestedSoundcardId: number | null;
   numSoundcardChannels: number;
+  numTotalChannels: number;
   soundcardId: number;
   isReady: boolean;
 }

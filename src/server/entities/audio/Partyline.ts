@@ -16,8 +16,7 @@ export class Partyline implements IPartyline {
     this._state = {
       id: config.id,
       name: config.name,
-      numUsers: config.numUsers,
-      numSoundcardChannels: config.numSoundcardChannels,
+      numPorts: config.numPorts,
       portsTalking: new Set(config.portsTalking),
       portsListening: new Set(config.portsListening),
     };
@@ -36,88 +35,96 @@ export class Partyline implements IPartyline {
     };
   }
 
-  isUserTalking(userId: number): boolean {
-    if (!this.isUserIdValid(userId, "isUserTalking")) {
+  isPortTalking(portNum: number): boolean {
+    if (!this.isPortNumValid(portNum, "isPortTalking")) {
       return false;
     }
 
-    return this._state.portsTalking.has(userId);
+    return this._state.portsTalking.has(portNum);
   }
 
-  isUserListening(userId: number): boolean {
-    if (!this.isUserIdValid(userId, "isUserListening")) {
+  isPortListening(portNum: number): boolean {
+    if (!this.isPortNumValid(portNum, "isPortListening")) {
       return false;
     }
-    return this._state.portsListening.has(userId);
+    return this._state.portsListening.has(portNum);
   }
 
-  setUserTalking(userId: number, state: boolean): SuccessMessage {
+  setPortTalking(portNum: number, state: boolean): SuccessMessage {
     const success = { success: true, message: "" };
 
-    if (!this.isUserIdValid(userId, "setUserTalking")) {
+    if (!this.isPortNumValid(portNum, "setPortTalking")) {
       return {
         success: false,
-        message: `userId ${userId} is invalid`,
+        message: `portNum ${portNum} is invalid`,
       };
     }
     //Talking:
     if (state) {
-      if (this._state.portsTalking.has(userId)) {
+      if (this._state.portsTalking.has(portNum)) {
         return {
           success: false,
-          message: `userId ${userId} is already talking`,
+          message: `portNum ${portNum} is already talking`,
         };
       }
-      this._state.portsTalking.add(userId);
+      this._state.portsTalking.add(portNum);
       return success;
     }
     //Not talking:
-    if (!this._state.portsTalking.delete(userId)) {
+    if (!this._state.portsTalking.delete(portNum)) {
       return {
         success: false,
-        message: `userId ${userId} is not talking`,
+        message: `portNum ${portNum} is not talking`,
       };
     }
     return success;
   }
 
-  setUserListening(userId: number, state: boolean): SuccessMessage {
+  setPortListening(portNum: number, state: boolean): SuccessMessage {
     const success = { success: true, message: "" };
 
-    if (!this.isUserIdValid(userId, "setUserListening")) {
+    if (!this.isPortNumValid(portNum, "setPortListening")) {
       return {
         success: false,
-        message: `userId ${userId} is invalid`,
+        message: `portNum ${portNum} is invalid`,
       };
     }
     //Listening:
     if (state) {
-      if (this._state.portsListening.has(userId)) {
+      if (this._state.portsListening.has(portNum)) {
         return {
           success: false,
-          message: `userId ${userId} is already listening`,
+          message: `portNum ${portNum} is already listening`,
         };
       }
-      this._state.portsListening.add(userId);
+      this._state.portsListening.add(portNum);
       return success;
     }
     //Not listening:
-    if (!this._state.portsListening.delete(userId)) {
+    if (!this._state.portsListening.delete(portNum)) {
       return {
         success: false,
-        message: `userId ${userId} is not listening`,
+        message: `portNum ${portNum} is not listening`,
       };
     }
     return success;
   }
 
-  private isUserIdValid(userId: number, errContext?: string): boolean {
+  get portsTalking(): ReadonlySet<number> {
+    return this._state.portsTalking;
+  }
+
+  get portsListening(): ReadonlySet<number> {
+    return this._state.portsListening;
+  }
+
+  private isPortNumValid(portNum: number, errContext?: string): boolean {
     const result =
-      Number.isSafeInteger(userId) &&
-      userId >= 0 &&
-      userId < this._state.numUsers;
+      Number.isSafeInteger(portNum) &&
+      portNum >= 0 &&
+      portNum < this._state.numPorts;
     if (!result && errContext) {
-      this.logger.error(`userId ${userId} is not valid in ${errContext}`);
+      this.logger.error(`portNum ${portNum} is not valid in ${errContext}`);
     }
     return result;
   }

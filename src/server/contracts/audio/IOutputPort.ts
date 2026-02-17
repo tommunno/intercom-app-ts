@@ -14,21 +14,10 @@ export interface OutputPortConfig {
 
 export interface IOutputPort {
   id: number;
-  plListens: ReadonlySet<number>;
   state: OutputPortState;
-  update: (allPlTalkers: ReadonlySet<number>) => CrosspointChange[];
+  update: () => CrosspointChange[];
   updateForPlTalkAdd: (plNum: number, portNum: number) => CrosspointChange[];
-  updateForPlTalkRemove: (
-    plNum: number,
-    portNum: number,
-    allPlTalkers: ReadonlySet<number>,
-  ) => CrosspointChange[];
-  updateForPlListenAdd: (
-    plNum: number,
-    plTalkers: ReadonlySet<number>,
-  ) => CrosspointChange[];
-  updateForPlListenRemove: (
-    plNum: number,
-    allPlTalkers: ReadonlySet<number>,
-  ) => CrosspointChange[];
+  updateForPlTalkRemove: (plNum: number, portNum: number) => CrosspointChange[];
+  updateForPlListenAdd: (plNum: number) => CrosspointChange[];
+  updateForPlListenRemove: (plNum: number) => CrosspointChange[];
 }

@@ -4,6 +4,7 @@ import type {
 } from "../../../shared/types/index.js";
 import type {
   AudioMatrixConfig,
+  AudioMatrixHandlers,
   AudioMatrixPopulateConfig,
   IAudioMatrixManager,
   ILogger,
@@ -11,7 +12,7 @@ import type {
   IPartyline,
 } from "../../contracts/index.js";
 import { OutputPort, Partyline } from "../../entities/index.js";
-import { type KeyPressInfo } from "../../types/index.js";
+import { type CrosspointChange, type KeyPressInfo } from "../../types/index.js";
 import { dataIsType } from "../../../shared/helpers.js";
 import {
   DEFAULT_NUM_PARTYLINES,
@@ -22,6 +23,7 @@ import {
 
 export class AudioMatrixManager implements IAudioMatrixManager {
   private status: ManagerStatus = "IDLE";
+  private handlers: AudioMatrixHandlers | null = null;
   private context: string = "AudioMatrixManager";
   private config: AudioMatrixConfig = {
     numUsers: DEFAULT_NUM_USERS,
@@ -67,7 +69,10 @@ export class AudioMatrixManager implements IAudioMatrixManager {
         `Cannot start the ${this.context} whilst its status is ${this.status}`,
       );
     }
+    // Trigger the check to ensure we are ready to roll
+    void this.activeHandlers;
     this.status = "RUNNING";
+    this.setSoundcardPartylines();
   }
 
   stop(): void {
@@ -78,6 +83,10 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       return;
     }
     this.status = "IDLE";
+  }
+
+  setHandlers(handlers: AudioMatrixHandlers): void {
+    this.handlers = handlers;
   }
 
   getPartylineInfos(userId: number): PartylineInfo[] | null {
@@ -98,18 +107,23 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       return {
         id: state.id,
         name: state.name,
-        talk: pl.isUserTalking(userId) ? "ON" : "OFF",
-        listen: pl.isUserListening(userId) ? "ON" : "OFF",
+        talk: pl.isPortTalking(userId) ? "ON" : "OFF",
+        listen: pl.isPortListening(userId) ? "ON" : "OFF",
       };
     });
   }
 
-  processKeyPress(userId: number, keyPressInfo: KeyPressInfo): void {
-    if (this.checkAndWarnIfNotRunning("process key request")) {
+  processKeyPress(portNum: number, keyPressInfo: KeyPressInfo): void {
+    if (this.checkAndWarnIfNotRunning("process key press")) {
+      return;
+    }
+    if (!this.isPortNumValid(portNum)) {
+      this.logger.warn(
+        `portNum ${portNum} is invalid. Will not process key press`,
+      );
       return;
     }
 
-    this.logger.info(`Processing key press...`);
     const { type, id: partylineId, setState } = keyPressInfo;
     const state = setState === "ON" ? true : false;
 
@@ -122,25 +136,12 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
     //TALK:
     if (type === "TALK") {
-      if (this.handleTalkKeyRequest(partyline, userId, state) === false) {
-        return;
-      }
+      this.handleTalkKeyRequest(partyline, portNum, state);
     }
     //LISTEN:
     else {
-      if (this.handleListenKeyRequest(partyline, userId, state) === false) {
-        return;
-      }
+      this.handleListenKeyRequest(partyline, portNum, state);
     }
-
-    this.logger.info(
-      `Partyline ${partylineId} portsTalking:`,
-      partyline.state.portsTalking,
-    );
-    this.logger.info(
-      `Partyline ${partylineId} portsListening:`,
-      partyline.state.portsListening,
-    );
   }
 
   private setConfig(config: AudioMatrixPopulateConfig): void {
@@ -171,33 +172,71 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   //Returns true if successful
   private handleTalkKeyRequest(
     partyline: IPartyline,
-    userId: number,
+    portNum: number,
     state: boolean,
   ): boolean {
-    const { success, message } = partyline.setUserTalking(userId, state);
+    const { success, message } = partyline.setPortTalking(portNum, state);
     if (!success) {
       this.logger.warn(
-        `Unable to set user ${userId} talk state on partyline ${partyline.id}, because ${message}`,
+        `Unable to set port ${portNum} talk state on partyline ${partyline.id}, because ${message}`,
       );
-      return false;
+      return success;
     }
-    return true;
+
+    //Only process crosspoint changes for ports that are listening to the partyline:
+    partyline.portsListening.forEach((listeningPortNum) => {
+      const port = this.outputPorts[listeningPortNum];
+      if (!port) {
+        this.logger.error(
+          `Invariant violation: No port found for listeningPortNum ${listeningPortNum} in handleTalkKeyRequest`,
+        );
+        return;
+      }
+      //If talk key is being turned on:
+      if (state) {
+        this.processCrosspointChanges(
+          port.updateForPlTalkAdd(partyline.id, portNum),
+        );
+        return;
+      }
+      //If talk key is being turned off:
+      this.processCrosspointChanges(
+        port.updateForPlTalkRemove(partyline.id, portNum),
+      );
+    });
+    return success;
   }
 
   //Returns true if successful
   private handleListenKeyRequest(
     partyline: IPartyline,
-    userId: number,
+    portNum: number,
     state: boolean,
   ): boolean {
-    const { success, message } = partyline.setUserListening(userId, state);
+    const { success, message } = partyline.setPortListening(portNum, state);
     if (!success) {
       this.logger.warn(
-        `Unable to set user ${userId} listen state on partyline ${partyline.id}, because ${message}`,
+        `Unable to set port ${portNum} listen state on partyline ${partyline.id}, because ${message}`,
       );
-      return false;
+      return success;
     }
-    return true;
+    const port = this.outputPorts[portNum];
+    if (!port) {
+      this.logger.error(
+        `Invariant violation: No port found for portNum ${portNum} in handleListenKeyRequest`,
+      );
+      return success;
+    }
+
+    //Only process crosspoint changes for the one port that's listening to the partyline:
+    //If listen key is being turned on:
+    if (state) {
+      this.processCrosspointChanges(port.updateForPlListenAdd(partyline.id));
+      return success;
+    }
+    //If listen key is being turned off:
+    this.processCrosspointChanges(port.updateForPlListenRemove(partyline.id));
+    return success;
   }
 
   private createPartylines(): void {
@@ -208,8 +247,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
           {
             id: i,
             name: `${i + 1}`,
-            numUsers: this.config.numUsers,
-            numSoundcardChannels: this.config.numSoundcardChannels,
+            numPorts: this.numPorts,
             portsTalking: new Set(),
             portsListening: new Set(),
           },
@@ -230,10 +268,54 @@ export class AudioMatrixManager implements IAudioMatrixManager {
             pointToPointListens: new Set(),
             plListens: new Set(),
           },
+          this.getPlTalks.bind(this),
           this.logger,
         ),
       );
     }
+  }
+
+  private getPlTalks(plNum: number): ReadonlySet<number> | null {
+    const pl = this.partylines[plNum];
+    if (!pl) {
+      this.logger.error(`getPlTalks: unable to find pl for plNum ${plNum}`);
+      return null;
+    }
+    return pl.portsTalking;
+  }
+
+  private setSoundcardPartylines(): void {
+    for (let i = 0; i < this.config.numSoundcardChannels; i++) {
+      if (i >= this.config.numPartylines) break;
+      this.processKeyPress(i + this.config.numUsers, {
+        type: "TALK",
+        id: i,
+        setState: "ON",
+      });
+      this.processKeyPress(i + this.config.numUsers, {
+        type: "LISTEN",
+        id: i,
+        setState: "ON",
+      });
+    }
+  }
+
+  private processCrosspointChanges(changes: CrosspointChange[]) {
+    changes.forEach((change) => {
+      this.activeHandlers.onCrosspointChange(change);
+    });
+  }
+
+  private isPortNumValid(portNum: number): boolean {
+    return (
+      Number.isSafeInteger(portNum) && portNum >= 0 && portNum < this.numPorts
+    );
+  }
+
+  private get activeHandlers(): AudioMatrixHandlers {
+    if (!this.handlers)
+      throw new Error("AudioMatrixManager handlers not initialized!");
+    return this.handlers;
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {

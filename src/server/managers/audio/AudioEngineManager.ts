@@ -26,6 +26,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     requestedNumSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
     requestedSoundcardId: null,
     numSoundcardChannels: 0,
+    numTotalChannels: 0,
     soundcardId: 0,
     isReady: false,
   };
@@ -182,6 +183,9 @@ export class AudioEngineManager implements IAudioEngineManager {
     if (!device) return false;
 
     this.setNumSoundcardChannels(device);
+
+    this._config.numTotalChannels =
+      this._config.numUsers + this._config.numSoundcardChannels;
 
     return true;
   }

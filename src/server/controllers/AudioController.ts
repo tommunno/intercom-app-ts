@@ -17,6 +17,7 @@ import type {
 } from "../contracts/index.js";
 import type {
   AudioPopulateData,
+  CrosspointChange,
   KeyPressInfo,
   RtcMediaStreamTrack,
   TrackAndStream,
@@ -190,6 +191,9 @@ export class AudioController implements IAudioController {
     this.audioEngineManager.setHandlers({
       onAudio: (b) => this.handleEngineAudio(b),
     });
+    this.audioMatrixManager.setHandlers({
+      onCrosspointChange: (c) => this.handleMatrixCrosspointChange(c),
+    });
     this.tailManager.setHandlers({
       onKeyPress: (u, k) => this.handleTailManagerKeyPress(u, k),
     });
@@ -207,6 +211,21 @@ export class AudioController implements IAudioController {
       return;
     }
     this.webRtcMediaBridge.pushAudio(buffer);
+  }
+
+  //AudioMatrixManager:
+
+  private handleMatrixCrosspointChange(change: CrosspointChange) {
+    const { isReady, numTotalChannels: numTC } = this.audioEngineManager.config;
+    // Guard: only apply crosspoints when the engine is ready and the dest/src channels exist.
+    // The matrix may include virtual ports beyond the available hardware channel count.
+    if (
+      isReady &&
+      change.destChannelNum < numTC &&
+      change.srcChannelNum < numTC
+    ) {
+      this.audioEngineManager.updateCrosspoint(change);
+    }
   }
 
   //TailManager:
