@@ -36,6 +36,7 @@ export interface IDataController {
   isUserIdLoggedIn: (userId: number) => string | null;
   getUserInfo: (userId: number) => UserInfo | null;
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
+  getLoggedInUserClientIds: () => string[];
 
   getNetworkData: () => NetworkData;
   getAudioData: () => AudioPopulateData;

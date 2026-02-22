@@ -4,4 +4,5 @@ export interface LogoutClientParams {
   notifyClient?: boolean;
   loginTakeover?: boolean;
   closeRtc?: boolean;
+  afterAudioRestart?: boolean;
 }

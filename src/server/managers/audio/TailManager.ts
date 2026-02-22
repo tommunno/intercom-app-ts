@@ -7,54 +7,55 @@ import type {
   ITailManager,
   ILogger,
   TailHandlers,
-  AudioMatrixConfig,
   TailConfig,
 } from "../../contracts/index.js";
 import { type KeyPressInfo } from "../../types/index.js";
 
+const BLANK_TAIL_CONFIG: TailConfig = {
+  numUsers: 0,
+  numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
+  numPartylines: DEFAULT_NUM_PARTYLINES,
+};
+
 export class TailManager implements ITailManager {
-  private status: ManagerStatus = "IDLE";
+  private _status: ManagerStatus = "IDLE";
   private handlers: TailHandlers | null = null;
   private context: string = "TailManager";
 
-  private config: TailConfig = {
-    numUsers: 0,
-    numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
-    numPartylines: DEFAULT_NUM_PARTYLINES,
-  };
+  private config: TailConfig = { ...BLANK_TAIL_CONFIG };
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: this.context });
   }
 
   init(): void {
-    if (this.status !== "IDLE") {
+    if (this._status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the ${this.context} whilst its status is ${this.status}`,
+        `Cannot initialize the ${this.context} whilst its status is ${this._status}`,
       );
     }
-    this.status = "INITIALIZED";
+    this._status = "INITIALIZED";
   }
 
   populate(config: TailConfig): void {
-    if (this.status !== "INITIALIZED") {
+    if (this._status !== "INITIALIZED") {
       throw new Error(
-        `Cannot populate the ${this.context} whilst its status is ${this.status}`,
+        `Cannot populate the ${this.context} whilst its status is ${this._status}`,
       );
     }
-    this.config = { ...this.config };
-    this.status = "POPULATED";
+    this.config = { ...config };
+    this._status = "POPULATED";
   }
 
   start(): void {
-    if (this.status !== "POPULATED") {
+    if (this._status !== "POPULATED") {
       throw new Error(
-        `Cannot start the ${this.context} whilst its status is ${this.status}`,
+        `Cannot start the ${this.context} whilst its status is ${this._status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-    this.status = "RUNNING";
+    this._status = "RUNNING";
   }
 
   setHandlers(handlers: TailHandlers): void {
@@ -68,13 +69,11 @@ export class TailManager implements ITailManager {
   }
 
   stop(): void {
-    if (this.status !== "RUNNING") {
-      this.logger.warn(
-        `Cannot stop the ${this.context} whilst its status is ${this.status}`,
-      );
+    if (this._status === "IDLE" || this._status === "INITIALIZED") {
       return;
     }
-    this.status = "IDLE";
+    this._status = "INITIALIZED";
+    this.resetRuntimeFields();
   }
 
   //Still need to implement
@@ -86,6 +85,10 @@ export class TailManager implements ITailManager {
     return "NONE";
   }
 
+  get status(): ManagerStatus {
+    return this._status;
+  }
+
   //Still need to implement. For now it's just passing data through
   //This provides the virtualized layer in front of the audio matrix, where we can control tails etc
   processKeyPress(userId: number, keyPressInfo: KeyPressInfo): void {
@@ -95,10 +98,14 @@ export class TailManager implements ITailManager {
     this.activeHandlers.onKeyPress(userId, keyPressInfo);
   }
 
+  private resetRuntimeFields(): void {
+    this.config = { ...BLANK_TAIL_CONFIG };
+  }
+
   private checkAndWarnIfNotRunning(action: string): boolean {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       this.logger.error(
-        `Unable to ${action} because the status is ${this.status}`,
+        `Unable to ${action} because the status is ${this._status}`,
       );
       return true;
     }

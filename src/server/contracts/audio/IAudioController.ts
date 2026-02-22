@@ -8,6 +8,7 @@ import type {
 
 export interface AudioHandlers {
   onAudioInfoUpdate: (userId: number, audioInfo: AudioInfo) => void;
+  onAudioRestart: () => void;
 }
 
 export interface IAudioController {
@@ -16,11 +17,10 @@ export interface IAudioController {
   start: () => void;
   setHandlers: (handlers: AudioHandlers) => void;
 
-  connectUser: (userId: number, clientId: string) => boolean;
-  disconnectUser: (userId: number) => boolean;
   getAudioInfo: (userId: number) => AudioInfo | null;
   processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
   addRxTrack: (userId: number, track: RtcMediaStreamTrack) => boolean;
   removeRxTrack: (userId: number) => boolean;
   getTxTrackAndStream: (userId: number) => TrackAndStream | null;
+  setRequestedSoundcardId: (id: number) => boolean;
 }

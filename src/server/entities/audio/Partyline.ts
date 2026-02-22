@@ -3,6 +3,7 @@ import type {
   ILogger,
   IPartyline,
   PartylineConfig,
+  PartylineSnapshot,
   PartylineState,
 } from "../../contracts/index.js";
 
@@ -108,6 +109,11 @@ export class Partyline implements IPartyline {
       };
     }
     return success;
+  }
+
+  getSnapshot(): PartylineSnapshot {
+    const { name, portsTalking, portsListening } = this._state;
+    return { name, portsTalking, portsListening };
   }
 
   get portsTalking(): ReadonlySet<number> {

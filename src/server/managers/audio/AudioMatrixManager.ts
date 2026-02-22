@@ -6,10 +6,13 @@ import type {
   AudioMatrixConfig,
   AudioMatrixHandlers,
   AudioMatrixPopulateConfig,
+  AudioMatrixSnapshot,
+  AudioMatrixStopResult,
   IAudioMatrixManager,
   ILogger,
   IOutputPort,
   IPartyline,
+  PartylineSnapshot,
 } from "../../contracts/index.js";
 import { OutputPort, Partyline } from "../../entities/index.js";
 import { type CrosspointChange, type KeyPressInfo } from "../../types/index.js";
@@ -21,14 +24,18 @@ import {
   MAX_NUM_PARTYLINES,
 } from "../../constants/serverConstants.js";
 
+const BLANK_AUDIO_MATRIX_CONFIG: AudioMatrixConfig = {
+  numUsers: DEFAULT_NUM_USERS,
+  numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
+  numPartylines: DEFAULT_NUM_PARTYLINES,
+};
+
 export class AudioMatrixManager implements IAudioMatrixManager {
-  private status: ManagerStatus = "IDLE";
+  private _status: ManagerStatus = "IDLE";
   private handlers: AudioMatrixHandlers | null = null;
   private context: string = "AudioMatrixManager";
   private config: AudioMatrixConfig = {
-    numUsers: DEFAULT_NUM_USERS,
-    numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
-    numPartylines: DEFAULT_NUM_PARTYLINES,
+    ...BLANK_AUDIO_MATRIX_CONFIG,
   };
   private numPorts: number = 0;
   private partylines: IPartyline[] = [];
@@ -39,50 +46,63 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   }
 
   init(): void {
-    if (this.status !== "IDLE") {
+    if (this._status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the ${this.context} whilst its status is ${this.status}`,
+        `Cannot initialize the ${this.context} whilst its status is ${this._status}`,
       );
     }
 
-    this.status = "INITIALIZED";
+    this._status = "INITIALIZED";
   }
 
-  populate(config: AudioMatrixPopulateConfig): AudioMatrixConfig {
-    if (this.status !== "INITIALIZED") {
+  populate(
+    config: AudioMatrixPopulateConfig,
+    snapshot: AudioMatrixSnapshot | null,
+  ): AudioMatrixConfig {
+    if (this._status !== "INITIALIZED") {
       throw new Error(
-        `Cannot populate the AudioMatrixManager whilst its status is ${this.status}`,
+        `Cannot populate the AudioMatrixManager whilst its status is ${this._status}`,
       );
     }
 
     this.setConfig(config);
-    this.createPartylines();
-    this.createOutputPorts();
 
-    this.status = "POPULATED";
+    if (snapshot) {
+      this.createPartylines(snapshot.partylineSnapshots);
+      this.createOutputPorts();
+    } else {
+      this.createPartylines();
+      this.createOutputPorts();
+    }
+
+    this._status = "POPULATED";
     return { ...this.config };
   }
 
   start(): void {
-    if (this.status !== "POPULATED") {
+    if (this._status !== "POPULATED") {
       throw new Error(
-        `Cannot start the ${this.context} whilst its status is ${this.status}`,
+        `Cannot start the ${this.context} whilst its status is ${this._status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-    this.status = "RUNNING";
-    this.setSoundcardPartylines();
+    this._status = "RUNNING";
+    this.updateOutputCrosspoints();
   }
 
-  stop(): void {
-    if (this.status !== "RUNNING") {
-      this.logger.warn(
-        `Cannot stop the ${this.context} whilst its status is ${this.status}`,
-      );
-      return;
+  //Return no snapshot if AudioMatrix is already stopped
+  stop(): AudioMatrixStopResult {
+    const config = { ...this.config };
+
+    if (this._status === "IDLE" || this._status === "INITIALIZED") {
+      return { config, snapshot: null };
     }
-    this.status = "IDLE";
+    const snapshot = this.getSnapshot();
+
+    this.resetRuntimeFields();
+    this._status = "INITIALIZED";
+    return { config, snapshot };
   }
 
   setHandlers(handlers: AudioMatrixHandlers): void {
@@ -142,6 +162,10 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     else {
       this.handleListenKeyRequest(partyline, portNum, state);
     }
+  }
+
+  get status(): ManagerStatus {
+    return this._status;
   }
 
   private setConfig(config: AudioMatrixPopulateConfig): void {
@@ -239,17 +263,62 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return success;
   }
 
-  private createPartylines(): void {
+  private createPartylines(snapshots?: PartylineSnapshot[]): void {
     this.partylines = [];
+
     for (let i = 0; i < this.config.numPartylines; i++) {
+      //In the case of a snapshot being used, we only restore the listens and the SOUNDCARD talks. This is a design choice.
+      //Ie, on a restart of the matrix, all USER talk keys are turned off (prevents sticky talk keys from a momentary key press or a tail from the TailManager).
+      const snap = snapshots?.[i];
+      let portsL: Set<number> | null = null;
+      let soundcardPortsT: Set<number> | null = null;
+      if (snap) {
+        portsL = new Set();
+        for (const num of snap.portsListening) {
+          if (this.isPortNumValid(num)) {
+            portsL.add(num);
+          }
+        }
+        soundcardPortsT = new Set();
+        for (const num of snap.portsTalking) {
+          if (this.isPortNumSoundcard(num)) {
+            soundcardPortsT.add(num);
+          }
+        }
+      }
+
+      //We want to ensure soundcard channel 1 talks and listens to partyline 1, 2 to 2 etc
+      //This variable gives the portNum that would need to talk and listen to the partyline to achieve this
+      const soundcardPortNum = i + this.config.numUsers;
+      //soundcardPortNum can go over the number of available ports
+      //So we clamp it here. If it's above, it becomes null
+      const clampedSoundcardPortNum =
+        soundcardPortNum >= this.numPorts ? null : soundcardPortNum;
+
       this.partylines.push(
         new Partyline(
           {
             id: i,
-            name: `${i + 1}`,
+            name: snap?.name ?? `${i + 1}`,
             numPorts: this.numPorts,
-            portsTalking: new Set(),
-            portsListening: new Set(),
+            portsTalking:
+              //Use the soundcard filtered portsTalking snapshot if it exists:
+              soundcardPortsT ??
+              new Set(
+                //Otherwise add in the soundcard port num if it exists:
+                clampedSoundcardPortNum !== null
+                  ? [clampedSoundcardPortNum]
+                  : [],
+              ),
+            portsListening:
+              //Use the portsListening snapshot if it exists:
+              portsL ??
+              //Otherwise add in the soundcard port num if it exists:
+              new Set(
+                clampedSoundcardPortNum !== null
+                  ? [clampedSoundcardPortNum]
+                  : [],
+              ),
           },
           this.logger,
         ),
@@ -259,14 +328,22 @@ export class AudioMatrixManager implements IAudioMatrixManager {
 
   private createOutputPorts(): void {
     this.outputPorts = [];
+
     for (let i = 0; i < this.numPorts; i++) {
+      const plListens: Set<number> = new Set();
+      this.partylines.forEach((pl) => {
+        if (pl.portsListening.has(i)) {
+          plListens.add(pl.id);
+        }
+      });
+
       this.outputPorts.push(
         new OutputPort(
           {
             id: i,
             type: i < this.config.numUsers ? "WEB_RTC" : "SOUNDCARD",
             pointToPointListens: new Set(),
-            plListens: new Set(),
+            plListens,
           },
           this.getPlTalks.bind(this),
           this.logger,
@@ -284,20 +361,10 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return pl.portsTalking;
   }
 
-  private setSoundcardPartylines(): void {
-    for (let i = 0; i < this.config.numSoundcardChannels; i++) {
-      if (i >= this.config.numPartylines) break;
-      this.processKeyPress(i + this.config.numUsers, {
-        type: "TALK",
-        id: i,
-        setState: "ON",
-      });
-      this.processKeyPress(i + this.config.numUsers, {
-        type: "LISTEN",
-        id: i,
-        setState: "ON",
-      });
-    }
+  private updateOutputCrosspoints(): void {
+    this.outputPorts.forEach((port) => {
+      this.processCrosspointChanges(port.update());
+    });
   }
 
   private processCrosspointChanges(changes: CrosspointChange[]) {
@@ -312,6 +379,27 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     );
   }
 
+  private isPortNumSoundcard(portNum: number): boolean {
+    return (
+      Number.isSafeInteger(portNum) &&
+      portNum >= this.config.numUsers &&
+      portNum < this.numPorts
+    );
+  }
+
+  private getSnapshot(): AudioMatrixSnapshot {
+    const partylineSnapshots: PartylineSnapshot[] = [];
+    this.partylines.forEach((pl) => partylineSnapshots.push(pl.getSnapshot()));
+    return { partylineSnapshots };
+  }
+
+  private resetRuntimeFields(): void {
+    this.config = { ...BLANK_AUDIO_MATRIX_CONFIG };
+    this.numPorts = 0;
+    this.partylines = [];
+    this.outputPorts = [];
+  }
+
   private get activeHandlers(): AudioMatrixHandlers {
     if (!this.handlers)
       throw new Error("AudioMatrixManager handlers not initialized!");
@@ -319,9 +407,9 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       this.logger.error(
-        `Unable to ${action} because the status is ${this.status}`,
+        `Unable to ${action} because the status is ${this._status}`,
       );
       return true;
     }

@@ -1,3 +1,4 @@
+import type { ManagerStatus } from "../../../shared/types/index.js";
 import type { CrosspointChange } from "../../types/index.js";
 import type { AudioLogType } from "audio-engine";
 
@@ -36,9 +37,11 @@ export interface IAudioEngineManager {
   init: () => void;
   populate: (config: AudioEnginePopulateConfig) => AudioEngineConfig;
   start: () => void;
+  stop: () => AudioEngineConfig;
   setHandlers: (handlers: AudioEngineHandlers) => void;
   setChannelRouted: (channelNum: number, routed: boolean) => boolean;
   pushAudio: (channelNum: number, samples: Int16Array) => void;
   updateCrosspoint: (crosspointChange: CrosspointChange) => boolean;
+  status: ManagerStatus;
   config: AudioEngineConfig;
 }

@@ -38,6 +38,7 @@ export class PanelController implements IPanelController {
         credential: "",
       },
     },
+    attemptingAutomaticLogin: false,
   };
   private readonly wssCommands: WssClientCommandMap = {
     HEARTBEAT_REQUEST: this.handleHeartbeatRequest.bind(this),
@@ -109,6 +110,7 @@ export class PanelController implements IPanelController {
       history.replaceState(null, "", url.toString());
       return;
     }
+    this.state.attemptingAutomaticLogin = true;
     //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
     this.attemptFullLogin({
       username: null,
@@ -150,11 +152,13 @@ export class PanelController implements IPanelController {
           this.guiManager.shakeLogin();
         }
         this.guiManager.setLoginLoading(false);
+        this.state.attemptingAutomaticLogin = false;
         return;
       }
 
       //Success:
       this.guiManager.setLoginError(null);
+      this.logger.info("Attempting hard login");
       this.attemptHardLogin();
     } catch (error) {
       this.logger.error("Critical Login Error", error);
@@ -165,6 +169,7 @@ export class PanelController implements IPanelController {
         this.guiManager.shakeLogin();
       }
       this.guiManager.setLoginLoading(false);
+      this.state.attemptingAutomaticLogin = false;
     }
   }
 
@@ -264,7 +269,11 @@ export class PanelController implements IPanelController {
 
     if (!success) {
       this.guiManager.setLoginError(message);
-      this.guiManager.shakeLogin();
+      if (!this.state.attemptingAutomaticLogin) {
+        this.guiManager.shakeLogin();
+      } else {
+        this.state.attemptingAutomaticLogin = false;
+      }
       return;
     }
     if (!userInfo || !audioInfo || !turnServerInfo) {
@@ -273,6 +282,7 @@ export class PanelController implements IPanelController {
       this.logger.error(
         `Login state violation: Server returned success: true, but userInfo, audioInfo or turnServerInfo is missing from the payload`,
       );
+      this.state.attemptingAutomaticLogin = false;
       return;
     }
     //Success:
@@ -289,6 +299,7 @@ export class PanelController implements IPanelController {
     this.wssManager.monitorHeartbeatWatchdog(true);
     this.webRtcManager.connect(turnServerInfo);
     this.reloadOtherTabs();
+    this.state.attemptingAutomaticLogin = false;
   }
 
   private handleForceLogout({

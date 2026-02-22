@@ -52,6 +52,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
         `Cannot populate the WebRtcMediaBridge whilst its status is ${this._status}`,
       );
     }
+    //We trust this, as we are shadowing the audioEngineManager for this:
     this.numChannels = numChannels;
     this.createChannels();
     this._status = "POPULATED";
@@ -66,6 +67,33 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
     this._status = "RUNNING";
+  }
+
+  stop(): void {
+    if (this._status === "IDLE" || this._status === "INITIALIZED") {
+      return;
+    }
+    this.channels.forEach((channel, i) => {
+      const { rtcAudioSink } = channel.rx;
+      if (rtcAudioSink) {
+        this.stopRtcAudioSink(rtcAudioSink, i);
+      }
+      try {
+        channel.tx.track.stop?.();
+      } catch (err) {
+        this.logger.warn(`Unable to stop TX track for channel ${i}`, err);
+      }
+      try {
+        channel.tx.stream.removeTrack?.(channel.tx.track);
+      } catch (err) {
+        this.logger.warn(
+          `Unable to remove TX track from stream for channel ${i}`,
+          err,
+        );
+      }
+    });
+    this.resetRuntimeFields();
+    this._status = "INITIALIZED";
   }
 
   setHandlers(handlers: MediaBridgeHandlers): void {
@@ -124,23 +152,9 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     const { rx } = channel;
 
     if (rx.rtcAudioSink) {
-      try {
-        rx.rtcAudioSink.ondata = null;
-      } catch (err) {
-        this.logger.warn(
-          `Unable to set rtcAudioSink.ondata to null for channelNum ${channelNum}`,
-          err,
-        );
-      }
-      try {
-        rx.rtcAudioSink.stop();
-      } catch (err) {
-        this.logger.warn(
-          `Unable to stop rtcAudioSink for channelNum ${channelNum}`,
-          err,
-        );
-      }
+      this.stopRtcAudioSink(rx.rtcAudioSink, channelNum);
     }
+
     this.logger.info(`Removed RX track for channelNum ${channelNum}`);
     rx.rtcAudioSink = null;
     rx.track = null;
@@ -246,6 +260,37 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
       stream,
       rtcAudioSource,
     };
+  }
+
+  private stopRtcAudioSink(
+    rtcAudioSink: RTCAudioSinkType,
+    channelNum: number,
+  ): void {
+    try {
+      rtcAudioSink.ondata = null;
+    } catch (err) {
+      this.logger.warn(
+        `Unable to set rtcAudioSink.ondata to null for channelNum ${channelNum}`,
+        err,
+      );
+    }
+    try {
+      rtcAudioSink.stop();
+    } catch (err) {
+      this.logger.warn(
+        `Unable to stop rtcAudioSink for channelNum ${channelNum}`,
+        err,
+      );
+    }
+  }
+
+  private resetRuntimeFields(): void {
+    this.numChannels = 0;
+    this.channels = [];
+    this.txRtcAudioSources = [];
+    this.pushAudioRunningErr = false;
+    this.pushAudioLengthErr = false;
+    this.pushAudioSourceErr = false;
   }
 
   private get activeHandlers(): MediaBridgeHandlers {

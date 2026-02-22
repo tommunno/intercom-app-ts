@@ -10,6 +10,7 @@ export interface IWebRtcMediaBridge {
   init: () => void;
   populate: (numChannels: number) => void;
   start: () => void;
+  stop: () => void;
   setHandlers: (handlers: MediaBridgeHandlers) => void;
 
   addRxTrack: (channelNum: number, track: RtcMediaStreamTrack) => boolean;

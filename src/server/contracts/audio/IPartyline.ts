@@ -10,6 +10,12 @@ export interface PartylineConfig {
   portsListening: Set<number>;
 }
 
+export interface PartylineSnapshot {
+  name: string;
+  portsTalking: ReadonlySet<number>;
+  portsListening: ReadonlySet<number>;
+}
+
 export interface IPartyline {
   id: number;
   portsTalking: ReadonlySet<number>;
@@ -19,4 +25,5 @@ export interface IPartyline {
   isPortListening: (portNum: number) => boolean;
   setPortTalking: (portNum: number, state: boolean) => SuccessMessage;
   setPortListening: (portNum: number, state: boolean) => SuccessMessage;
+  getSnapshot: () => PartylineSnapshot;
 }

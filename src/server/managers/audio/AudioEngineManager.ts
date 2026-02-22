@@ -17,21 +17,24 @@ import type { DeviceValidResponse, ILogger } from "../../contracts/index.js";
 //Native binding:
 import engine, { type AudioEngine, type PortAudioDevice } from "audio-engine";
 
+const BLANK_AUDIO_ENGINE_CONFIG: AudioEngineConfig = {
+  numUsers: DEFAULT_NUM_USERS,
+  requestedNumSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
+  requestedSoundcardId: null,
+  numSoundcardChannels: 0,
+  numTotalChannels: 0,
+  soundcardId: 0,
+  isReady: false,
+};
+
 export class AudioEngineManager implements IAudioEngineManager {
-  private status: ManagerStatus = "IDLE";
+  private _status: ManagerStatus = "IDLE";
   private handlers: AudioEngineHandlers | null = null;
   private engine: AudioEngine = engine;
-  private _config: AudioEngineConfig = {
-    numUsers: DEFAULT_NUM_USERS,
-    requestedNumSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
-    requestedSoundcardId: null,
-    numSoundcardChannels: 0,
-    numTotalChannels: 0,
-    soundcardId: 0,
-    isReady: false,
-  };
+  private _config: AudioEngineConfig = { ...BLANK_AUDIO_ENGINE_CONFIG };
   private device: PortAudioDevice | null = null;
   private pushAudioRunningErr: boolean = false;
+  private engineCreated: boolean = false;
   private pushAudioChannelErrs: boolean[] = [];
 
   constructor(private logger: ILogger) {
@@ -39,20 +42,20 @@ export class AudioEngineManager implements IAudioEngineManager {
   }
 
   init(): void {
-    if (this.status !== "IDLE") {
+    if (this._status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the AudioEngineManager whilst its status is ${this.status}`,
+        `Cannot initialize the AudioEngineManager whilst its status is ${this._status}`,
       );
     }
     this.addLoggingCallback();
     this.logger.info("PortAudio devices:", this.engine.getPortAudioDevices());
-    this.status = "INITIALIZED";
+    this._status = "INITIALIZED";
   }
 
   populate(config: AudioEnginePopulateConfig): AudioEngineConfig {
-    if (this.status !== "INITIALIZED") {
+    if (this._status !== "INITIALIZED") {
       throw new Error(
-        `Cannot populate the AudioEngineManager whilst its status is ${this.status}`,
+        `Cannot populate the AudioEngineManager whilst its status is ${this._status}`,
       );
     }
     const configSuccess = this.setConfig(config);
@@ -60,23 +63,51 @@ export class AudioEngineManager implements IAudioEngineManager {
     if (configSuccess) {
       this._config.isReady = this.createEngine();
     }
-    this.status = "POPULATED";
+    this._status = "POPULATED";
     return this.config;
   }
 
   start(): void {
-    if (this.status !== "POPULATED") {
+    if (this._status !== "POPULATED") {
       throw new Error(
-        `Cannot start the AudioEngineManager whilst its status is ${this.status}`,
+        `Cannot start the AudioEngineManager whilst its status is ${this._status}`,
       );
     }
     if (!this.config.isReady) {
       throw new Error(`Cannot start the AudioEngineManager: isReady is false`);
     }
+    if (!this.engineCreated) {
+      throw new Error(
+        "Invariant broken: start() called but engineCreated is false",
+      );
+    }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
     this.addAudioCallback();
-    this.status = "RUNNING";
+    this._status = "RUNNING";
+  }
+
+  stop(): AudioEngineConfig {
+    const config = { ...this._config };
+
+    if (this._status === "IDLE" || this._status === "INITIALIZED") {
+      return config;
+    }
+
+    // Only try to stop engine if it was created in the first place
+    if (this.engineCreated) {
+      try {
+        //PortAudio will be terminated if terminatePortAudio is true
+        this.engine.stopEngine(true);
+      } catch (error) {
+        this.logger.error("Error stopping AudioEngine", error);
+      }
+    }
+
+    this.resetRuntimeFields();
+
+    this._status = "INITIALIZED";
+    return config;
   }
 
   setHandlers(handlers: AudioEngineHandlers): void {
@@ -117,10 +148,10 @@ export class AudioEngineManager implements IAudioEngineManager {
   }
 
   pushAudio(channelNum: number, samples: Int16Array): void {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       if (this.pushAudioRunningErr) return;
       this.logger.error(
-        `Unable to push audio because the status is ${this.status}`,
+        `Unable to push audio because the status is ${this._status}`,
       );
       this.pushAudioRunningErr = true;
       return;
@@ -164,6 +195,10 @@ export class AudioEngineManager implements IAudioEngineManager {
       );
       return false;
     }
+  }
+
+  get status(): ManagerStatus {
+    return this._status;
   }
 
   get config(): AudioEngineConfig {
@@ -305,6 +340,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     );
     try {
       this.engine.createEngine(numU, numSC, numSC, sCId);
+      this.engineCreated = true;
     } catch (err) {
       this.logger.error("Error setting up Audio Engine", err);
       return false;
@@ -361,6 +397,14 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
   }
 
+  private resetRuntimeFields(): void {
+    this._config = { ...BLANK_AUDIO_ENGINE_CONFIG };
+    this.device = null;
+    this.engineCreated = false;
+    this.pushAudioRunningErr = false;
+    this.pushAudioChannelErrs = [];
+  }
+
   private get activeHandlers(): AudioEngineHandlers {
     if (!this.handlers)
       throw new Error("AudioEngineManager handlers not initialized!");
@@ -368,9 +412,9 @@ export class AudioEngineManager implements IAudioEngineManager {
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       this.logger.error(
-        `Unable to ${action} because the status is ${this.status}`,
+        `Unable to ${action} because the status is ${this._status}`,
       );
       return true;
     }

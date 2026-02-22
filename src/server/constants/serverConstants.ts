@@ -20,7 +20,7 @@ export const SALT_ROUNDS = 10;
 //Audio:
 export const MAX_NUM_SOUNDCARD_CHANNELS = 64;
 export const DEFAULT_NUM_SOUNDCARD_CHANNELS = 16;
-export const MAX_NUM_PARTYLINES = 64;
+export const MAX_NUM_PARTYLINES = 5000;
 export const DEFAULT_NUM_PARTYLINES = 16;
 export const CHUNK_SIZE = 480;
 

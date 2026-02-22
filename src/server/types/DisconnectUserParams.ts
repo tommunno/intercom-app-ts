@@ -4,6 +4,7 @@ export type DisconnectUserParams = {
   loginTakeover?: boolean;
   clientId: string;
   closeRtc?: boolean;
+  afterAudioRestart?: boolean;
 };
 // | {
 //     userId: number;

@@ -10,4 +10,5 @@ export interface PanelState {
   userInfo: UserInfo;
   audioInfo: AudioInfo;
   turnServerInfo: TurnServerInfo;
+  attemptingAutomaticLogin: boolean;
 }

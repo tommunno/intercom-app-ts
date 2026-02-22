@@ -99,6 +99,10 @@ export class DataController implements IDataController {
     this.accountManager.processHeartbeatResponse(timestamp, clientId);
   }
 
+  getLoggedInUserClientIds(): string[] {
+    return this.accountManager.getLoggedInUserClientIds();
+  }
+
   private bindListeners(): void {
     this.dataManager.setHandlers({});
 

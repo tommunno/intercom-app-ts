@@ -7,7 +7,9 @@ import type {
   AudioEngineConfig,
   AudioEnginePopulateConfig,
   AudioHandlers,
+  AudioMatrixConfig,
   AudioMatrixPopulateConfig,
+  AudioMatrixSnapshot,
   IAudioController,
   IAudioEngineManager,
   IAudioMatrixManager,
@@ -22,16 +24,9 @@ import type {
   RtcMediaStreamTrack,
   TrackAndStream,
 } from "../types/index.js";
-//Helpers:
-import { addIfDefined } from "../../shared/helpers.js";
-import { startSineTest, startSweepTest } from "../serverHelpers.js";
-import { channel } from "node:diagnostics_channel";
 
 export class AudioController implements IAudioController {
   private handlers: AudioHandlers | null = null;
-  //Test:
-  // private logIndex: number = 0;
-  //End test
 
   constructor(
     private audioEngineManager: IAudioEngineManager,
@@ -52,18 +47,7 @@ export class AudioController implements IAudioController {
   }
 
   populate(data: AudioPopulateData): void {
-    const engineConfig = this.audioEngineManager.populate(
-      this.buildAudioEnginePopulateConfig(data),
-    );
-    //We want this to be created regardless of whether the audioEngine is ready
-    const matrixConfig = this.audioMatrixManager.populate(
-      this.buildAudioMatrixPopulateConfig(data, engineConfig),
-    );
-    this.tailManager.populate(matrixConfig);
-    //Only populate the webRtcMedia if the audioEngine is ready
-    if (engineConfig.isReady) {
-      this.webRtcMediaBridge.populate(engineConfig.numUsers);
-    }
+    this.populateManagers(data, null);
   }
 
   private buildAudioEnginePopulateConfig(
@@ -98,42 +82,20 @@ export class AudioController implements IAudioController {
   start(): void {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-    const { isReady } = this.audioEngineManager.config;
-    if (isReady) {
-      this.audioEngineManager.start();
-    }
-    this.audioMatrixManager.start();
-    this.tailManager.start();
-    if (isReady) {
-      this.webRtcMediaBridge.start();
-    }
-    //Test:
-    // this.audioEngineManager.updateCrosspoint(0, 1, true);
-    //End test
-    //Test:
-    // startSweepTest(
-    //   this.webRtcMediaBridge.pushAudio.bind(this.webRtcMediaBridge),
-    // );
-    //End test
+    this.startManagers();
   }
 
   setHandlers(handlers: AudioHandlers): void {
     this.handlers = handlers;
   }
 
-  connectUser(userId: number, clientId: string): boolean {
-    this.logger.info(
-      `Connected user with userId of ${userId} and clientId of ${clientId}`,
-    );
-    return true;
-  }
-
-  disconnectUser(userId: number): boolean {
-    this.logger.info(`Disconnected user with userId of ${userId}`);
-    return true;
-  }
-
   getAudioInfo(userId: number): AudioInfo | null {
+    if (this.audioMatrixManager.status !== "RUNNING") {
+      this.logger.error(
+        `Unable to get AudioInfo: audioMatrixManager is not running`,
+      );
+      return null;
+    }
     const partylineInfos = this.audioMatrixManager.getPartylineInfos(userId);
     if (partylineInfos === null) return null;
 
@@ -147,6 +109,12 @@ export class AudioController implements IAudioController {
   }
 
   processKeyPress(userId: number, keyPressInfo: KeyPressInfo): void {
+    if (this.tailManager.status !== "RUNNING") {
+      this.logger.warn(
+        `Unable to process key press for userId ${userId}: tailManager is not running`,
+      );
+      return;
+    }
     this.tailManager.processKeyPress(userId, keyPressInfo);
   }
 
@@ -172,12 +140,26 @@ export class AudioController implements IAudioController {
 
   getTxTrackAndStream(userId: number): TrackAndStream | null {
     if (this.webRtcMediaBridge.status !== "RUNNING") {
-      this.logger.warn(
+      this.logger.error(
         `Can not get TX track and stream for userId ${userId}: the WebRtcMediaBridge is not running.`,
       );
       return null;
     }
     return this.webRtcMediaBridge.getTxTrackAndStream(userId);
+  }
+
+  setRequestedSoundcardId(id: number): boolean {
+    const { status, config } = this.audioEngineManager;
+    //If we're already successfully using the passed in ID, then we don't need to do anything:
+    if (status === "RUNNING" && id === config.soundcardId) {
+      return true;
+    }
+    const { audioPopulateData, snapshot } = this.stopManagers();
+    audioPopulateData.requestedSoundcardId = id;
+    this.populateManagers(audioPopulateData, snapshot);
+    const success = this.startManagers();
+    this.activeHandlers.onAudioRestart();
+    return success;
   }
 
   //Private methods:
@@ -204,6 +186,76 @@ export class AudioController implements IAudioController {
     });
   }
 
+  private populateManagers(
+    data: AudioPopulateData,
+    snapshot: AudioMatrixSnapshot | null,
+  ): void {
+    const engineConfig = this.audioEngineManager.populate(
+      this.buildAudioEnginePopulateConfig(data),
+    );
+    //We want this to be created regardless of whether the audioEngine is ready:
+    const matrixConfig = this.audioMatrixManager.populate(
+      this.buildAudioMatrixPopulateConfig(data, engineConfig),
+      snapshot,
+    );
+    this.tailManager.populate(matrixConfig);
+    //Only populate the webRtcMediaBridge if the audioEngine is ready:
+    if (engineConfig.isReady) {
+      this.webRtcMediaBridge.populate(engineConfig.numUsers);
+    }
+  }
+
+  //Returns success
+  private startManagers(): boolean {
+    const { isReady } = this.audioEngineManager.config;
+    if (isReady) {
+      this.audioEngineManager.start();
+    }
+    this.audioMatrixManager.start();
+    this.tailManager.start();
+    if (isReady) {
+      this.webRtcMediaBridge.start();
+    }
+    return isReady;
+  }
+
+  private stopManagers(): {
+    audioPopulateData: AudioPopulateData;
+    snapshot: AudioMatrixSnapshot | null;
+  } {
+    const engineConfig = this.audioEngineManager.stop();
+    const { config, snapshot } = this.audioMatrixManager.stop();
+    this.tailManager.stop();
+    this.webRtcMediaBridge.stop();
+    return {
+      audioPopulateData: this.createAudioPopulateData(engineConfig, config),
+      snapshot,
+    };
+  }
+
+  private createAudioPopulateData(
+    engineConfig: AudioEngineConfig,
+    matrixConfig: AudioMatrixConfig,
+  ): AudioPopulateData {
+    const {
+      numUsers,
+      requestedNumSoundcardChannels,
+      requestedSoundcardId: rSCId,
+    } = engineConfig;
+
+    const { numPartylines } = matrixConfig;
+
+    const audioPopulateData: AudioPopulateData = {
+      numUsers,
+      requestedNumSoundcardChannels,
+      numPartylines,
+    };
+    if (rSCId !== null) {
+      audioPopulateData.requestedSoundcardId = rSCId;
+    }
+    return audioPopulateData;
+  }
+
   //AudioEngineManager:
 
   private handleEngineAudio(buffer: Buffer): void {
@@ -216,11 +268,11 @@ export class AudioController implements IAudioController {
   //AudioMatrixManager:
 
   private handleMatrixCrosspointChange(change: CrosspointChange) {
-    const { isReady, numTotalChannels: numTC } = this.audioEngineManager.config;
-    // Guard: only apply crosspoints when the engine is ready and the dest/src channels exist.
+    const { numTotalChannels: numTC } = this.audioEngineManager.config;
+    // Guard: only apply crosspoints when the engine is running and the dest/src channels exist.
     // The matrix may include virtual ports beyond the available hardware channel count.
     if (
-      isReady &&
+      this.audioEngineManager.status === "RUNNING" &&
       change.destChannelNum < numTC &&
       change.srcChannelNum < numTC
     ) {
@@ -234,6 +286,12 @@ export class AudioController implements IAudioController {
     userId: number,
     keyPressInfo: KeyPressInfo,
   ): void {
+    if (this.audioMatrixManager.status !== "RUNNING") {
+      this.logger.warn(
+        `Unable to handle TailManager key press: audioMatrixManager is not running`,
+      );
+      return;
+    }
     this.audioMatrixManager.processKeyPress(userId, keyPressInfo);
     const audioInfo = this.getAudioInfo(userId);
     if (!audioInfo) return;
@@ -243,22 +301,21 @@ export class AudioController implements IAudioController {
   //WebRtcMediaBridge:
 
   private handleBridgeAudio(channelNum: number, samples: Int16Array): void {
-    this.audioEngineManager.pushAudio(channelNum, samples);
-    //Test:
-    // if (this.logIndex === 0) {
-    //   this.logger.info(`Bridge audio for channelNum ${channelNum}`, samples);
-    // } else if (this.logIndex === 50) {
-    //   this.logIndex = 0;
-    //   return;
-    // }
-    // this.logIndex++;
-    //End test
+    if (this.audioEngineManager.status === "RUNNING") {
+      this.audioEngineManager.pushAudio(channelNum, samples);
+    }
   }
 
   private handleBridgeChannelRoutedChange(
     channelNum: number,
     routed: boolean,
   ): boolean {
+    if (this.audioEngineManager.status !== "RUNNING") {
+      this.logger.warn(
+        `Unable to handle bridge channel routed change: audioEngineManager is not running`,
+      );
+      return false;
+    }
     return this.audioEngineManager.setChannelRouted(channelNum, routed);
   }
 }

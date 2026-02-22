@@ -59,6 +59,7 @@ export interface IAccountManager {
   updateUsers: (updates: AdminUserUpdate[]) => Promise<void>;
   getUserInfo: (userId: number) => UserInfo | null;
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
+  getLoggedInUserClientIds: () => string[];
 
   numUsers: number;
 }

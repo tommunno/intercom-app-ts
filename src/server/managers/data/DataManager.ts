@@ -95,9 +95,9 @@ export class DataManager implements IDataManager {
 
     //Temporary data:
     return {
-      requestedNumSoundcardChannels: 10,
-      numPartylines: 7,
-      requestedSoundcardId: 3,
+      requestedNumSoundcardChannels: 64,
+      numPartylines: 8,
+      requestedSoundcardId: 4,
     };
   }
 

@@ -1,3 +1,4 @@
+import type { ManagerStatus } from "../../../shared/types/ManagerStatus.js";
 import type { TailState } from "../../../shared/types/TailState.js";
 import type { KeyPressInfo } from "../../types/index.js";
 import type { AudioMatrixConfig } from "./IAudioMatrixManager.js";
@@ -17,4 +18,5 @@ export interface ITailManager {
   setHandlers: (handlers: TailHandlers) => void;
   getTailState: (userId: number, plId: number) => TailState;
   processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
+  status: ManagerStatus;
 }

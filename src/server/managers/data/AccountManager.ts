@@ -733,6 +733,16 @@ export class AccountManager implements IAccountManager {
     user.lastHeartbeatResponse = Date.now();
   }
 
+  getLoggedInUserClientIds(): string[] {
+    const clientIds: string[] = [];
+    this.users.forEach((user) => {
+      if (user.loggedIn && user.clientId !== null) {
+        clientIds.push(user.clientId);
+      }
+    });
+    return clientIds;
+  }
+
   get numUsers(): number {
     if (this.status === "IDLE" || this.status === "INITIALIZED") {
       this.logger.error(
