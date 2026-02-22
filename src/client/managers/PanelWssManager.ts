@@ -6,7 +6,6 @@ import type {
 import type { ManagerStatus } from "../../shared/types/index.js";
 import {
   payloadIsValidForType,
-  WSS_DOWNSTREAM,
   type WssDownstream,
   type WssPayloads,
   type WssUpstream,

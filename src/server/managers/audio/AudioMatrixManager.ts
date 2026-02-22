@@ -21,8 +21,10 @@ import {
   DEFAULT_NUM_PARTYLINES,
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   DEFAULT_NUM_USERS,
+  ENABLE_DEV_MATRIX_VIEW,
   MAX_NUM_PARTYLINES,
 } from "../../constants/serverConstants.js";
+import { devLogCrosspoints } from "../../serverHelpers.js";
 
 const BLANK_AUDIO_MATRIX_CONFIG: AudioMatrixConfig = {
   numUsers: DEFAULT_NUM_USERS,
@@ -162,6 +164,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     else {
       this.handleListenKeyRequest(partyline, portNum, state);
     }
+    this.logCrosspoints();
   }
 
   get status(): ManagerStatus {
@@ -365,6 +368,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     this.outputPorts.forEach((port) => {
       this.processCrosspointChanges(port.update());
     });
+    this.logCrosspoints();
   }
 
   private processCrosspointChanges(changes: CrosspointChange[]) {
@@ -398,6 +402,12 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     this.numPorts = 0;
     this.partylines = [];
     this.outputPorts = [];
+  }
+
+  //If ENABLE_DEV_MATRIX_VIEW is set true in serverConstants, you can run tail -f dev_matrix_view.txt in terminal to see a live updating view of crosspoints
+  private logCrosspoints(): void {
+    if (!ENABLE_DEV_MATRIX_VIEW) return;
+    devLogCrosspoints(this.partylines, this.outputPorts, this.logger);
   }
 
   private get activeHandlers(): AudioMatrixHandlers {

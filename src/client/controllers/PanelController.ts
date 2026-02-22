@@ -175,7 +175,12 @@ export class PanelController implements IPanelController {
 
   private attemptHardLogin(): void {
     this.logger.info("Attempting hard login");
-    if (!this.wssManager.isRunning) this.wssManager.start();
+    if (!this.wssManager.isRunning) {
+      //USER_LOGIN message is sent straight away once the websocket is open
+      this.wssManager.start();
+      return;
+    }
+    this.wssManager.sendMessage("USER_LOGIN", null);
   }
 
   //If sendRequest is true, the client sends a logout request to the server

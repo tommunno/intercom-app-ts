@@ -1,3 +1,6 @@
+//Set to true and run tail -f dev_matrix_view.txt in terminal to see a live updating view of crosspoints
+export const ENABLE_DEV_MATRIX_VIEW = true;
+
 //Web Server:
 export const DEFAULT_HTTP_PORT = 4321;
 export const DEFAULT_HTTPS_PORT = 4322;
@@ -20,7 +23,7 @@ export const SALT_ROUNDS = 10;
 //Audio:
 export const MAX_NUM_SOUNDCARD_CHANNELS = 64;
 export const DEFAULT_NUM_SOUNDCARD_CHANNELS = 16;
-export const MAX_NUM_PARTYLINES = 5000;
+export const MAX_NUM_PARTYLINES = 64;
 export const DEFAULT_NUM_PARTYLINES = 16;
 export const CHUNK_SIZE = 480;
 

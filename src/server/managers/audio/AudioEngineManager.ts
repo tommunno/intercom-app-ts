@@ -88,6 +88,8 @@ export class AudioEngineManager implements IAudioEngineManager {
   }
 
   stop(): AudioEngineConfig {
+    //The native engine logging callback is TSFN. So don't be concerned if you see native stop logs happening 'after' JS start logs when restarting the engine!
+    //The log messages are queued, and get executed after the JS block of code has run
     const config = { ...this._config };
 
     if (this._status === "IDLE" || this._status === "INITIALIZED") {
