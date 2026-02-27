@@ -14,7 +14,11 @@ import type {
   TailHandlers,
   TailConfig,
 } from "../../contracts/index.js";
-import type { LongTailInfo, ShortTailInfo } from "../../types/index.js";
+import type {
+  LongTailInfo,
+  ShortTailInfo,
+  TailInfo,
+} from "../../types/index.js";
 
 const BLANK_TAIL_CONFIG: TailConfig = {
   numUsers: 0,
@@ -29,9 +33,8 @@ export class TailManager implements ITailManager {
 
   private config: TailConfig = { ...BLANK_TAIL_CONFIG };
   private numPorts: number = 0;
-  private longTails: (LongTailInfo | null)[] = [];
-  //An array of shortTailInfos for each port. A shortTailInfo for each partyline:
-  private shortTails: (ShortTailInfo | null)[][] = [];
+  //An array of TailInfos for each port. A TailInfo for each partyline:
+  private tails: TailInfo[][] = [];
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: this.context });
@@ -54,8 +57,7 @@ export class TailManager implements ITailManager {
     }
     this.config = { ...config };
     this.numPorts = this.config.numUsers + this.config.numSoundcardChannels;
-    this.createLongTails();
-    this.createShortTails();
+    this.createTails();
     this._status = "POPULATED";
   }
 
@@ -89,26 +91,12 @@ export class TailManager implements ITailManager {
     }
     const errMessage = `Unable to get tail state for userId ${userId} and plNum ${plNum}`;
 
-    const longTail = this.longTails[userId];
-    const shortTail = this.shortTails[userId]?.[plNum];
-    if (longTail === undefined) {
-      this.logger.error(errMessage + ": Cannot find longTail");
+    const tail = this.tails[userId]?.[plNum];
+    if (tail === undefined) {
+      this.logger.error(errMessage + ": Cannot find tail");
       return "NONE";
     }
-    if (shortTail === undefined) {
-      this.logger.error(errMessage + ": Cannot find shortTail");
-      return "NONE";
-    }
-    if (longTail?.plNum === plNum && shortTail?.plNum === plNum) {
-      this.logger.error(
-        `getTailState: Invariant violation: longTail and shortTail both exist for userId ${userId} and plNum ${plNum}. Will return the long tail only`,
-      );
-    }
-    return longTail?.plNum === plNum
-      ? "LONG"
-      : shortTail?.plNum === plNum
-        ? "SHORT"
-        : "NONE";
+    return tail.type;
   }
 
   //This provides the virtualized layer in front of the audio matrix, where we can control tails etc
@@ -123,26 +111,20 @@ export class TailManager implements ITailManager {
       return;
     }
 
-    const longTail = this.longTails[portNum];
-    if (longTail === undefined) {
+    const portTails = this.tails[portNum];
+    if (portTails === undefined) {
       this.logger.error(
         errMessage +
-          `: Invariant violation: unable to find longTail. Will do nothing`,
+          `: Invariant violation: unable to find portTails. Will do nothing`,
       );
       return;
     }
-    const shortTail = this.shortTails[portNum]?.[id];
-    if (shortTail === undefined) {
+
+    const tail = portTails[id];
+    if (tail === undefined) {
       this.logger.error(
         errMessage +
-          `: Invariant violation: unable to find shortTail. Will do nothing`,
-      );
-      return;
-    }
-    if (longTail && shortTail) {
-      this.logger.error(
-        errMessage +
-          `: Invariant violation: longTail and shortTail both exist. Will do nothing`,
+          `: Invariant violation: unable to find tail. Will do nothing`,
       );
       return;
     }
@@ -153,54 +135,79 @@ export class TailManager implements ITailManager {
       return;
     }
     //type === TALK:
+    //TURNING TALK KEY ON:
+    if (setState === "ON") {
+      this.processTalkKeyOn(portNum, keyPressInfo, tail, portTails, errMessage);
+      return;
+    }
+    //TURNING TALK KEY OFF:
+    this.processTalkKeyOff(portNum, keyPressInfo, tail, portTails, errMessage);
+  }
+
+  private processTalkKeyOn(
+    portNum: number,
+    keyPressInfo: KeyPressInfo,
+    tail: TailInfo,
+    portTails: TailInfo[],
+    errMessage: string,
+  ): void {
+    const { id } = keyPressInfo;
+
     const portCurrentlyTalking = this.activeHandlers.onIsPortTalkingToPartyline(
       portNum,
       id,
     );
-
-    //TURNING TALK KEY ON:
-    if (setState === "ON") {
-      if (portCurrentlyTalking) {
-        //If the port is already talking, and the longTail for this port is not relating to this partyline, and there's no shortTail, do nothing:
-        if (longTail?.plNum !== id && !shortTail) {
-          this.logger.warn(
-            errMessage + ": port is already talking to partyline",
-          );
-          return;
-        }
-        if (longTail) {
-          //If the port is already talking, and the longTail relates to this partyline, then we want to remove the longTail, but we don't want to turn off the key:
-          this.removeLongTail(longTail, false);
-          this.activeHandlers.onUpdateAudioInfo(portNum);
-          return;
-        }
-        if (shortTail) {
-          //If the port is already talking, and there is a shortTail, then we want to remove the shortTail, but we don't want to turn off the key:
-          this.removeShortTail(shortTail, false);
-          this.activeHandlers.onUpdateAudioInfo(portNum);
-          return;
-        }
+    if (portCurrentlyTalking) {
+      //If the port is already talking, and there is no tail, do nothing:
+      if (tail.type === "NONE") {
+        this.logger.warn(errMessage + ": port is already talking to partyline");
+        return;
       }
-      //Otherwise we remove the longTail if it exists, which includes turning off the key it related to:
-      if (longTail) {
-        this.removeLongTail(longTail);
+      if (tail.type === "LONG") {
+        //If the port is already talking, and there is a longTail, then we want to remove all longTails for the port, and we pass in the tail that we DON'T want the key to be turned off for:
+        this.removeAllLongTailsForPort(portTails, tail);
+        this.activeHandlers.onUpdateAudioInfo(portNum);
+        return;
       }
-      //And same thing for the shortTail:
-      if (shortTail) {
-        this.removeShortTail(shortTail);
-      }
-
-      //Then we turn on the key!
-      this.activeHandlers.onKeyPress(portNum, keyPressInfo);
+      //SHORT:
+      //If the port is already talking, and there is a shortTail, then we want to remove the shortTail, but we don't want to turn off the key:
+      this.removeShortTail(tail, portTails, false);
+      //And we also remove all longTails for the port:
+      this.removeAllLongTailsForPort(portTails);
       this.activeHandlers.onUpdateAudioInfo(portNum);
       return;
     }
+    //Otherwise we remove all longTails for the port:
+    this.removeAllLongTailsForPort(portTails);
 
-    //TURNING TALK KEY OFF:
+    //And we remove the short tail if it exists:
+    if (tail.type === "SHORT") {
+      this.removeShortTail(tail, portTails);
+    }
+
+    //Then we turn on the key!
+    this.activeHandlers.onKeyPress(portNum, keyPressInfo);
+    this.activeHandlers.onUpdateAudioInfo(portNum);
+    return;
+  }
+
+  private processTalkKeyOff(
+    portNum: number,
+    keyPressInfo: KeyPressInfo,
+    tail: TailInfo,
+    portTails: TailInfo[],
+    errMessage: string,
+  ): void {
+    const { id } = keyPressInfo;
+
+    const portCurrentlyTalking = this.activeHandlers.onIsPortTalkingToPartyline(
+      portNum,
+      id,
+    );
     if (!portCurrentlyTalking) {
       this.logger.warn(errMessage + ": port is not talking to partyline");
       return;
-    } else if (longTail) {
+    } else if (tail.type === "LONG") {
       this.logger.warn(
         errMessage + ": a longTail is active for this port and partyline",
       );
@@ -211,27 +218,51 @@ export class TailManager implements ITailManager {
       portNum,
       id,
     );
-    this.logger.info("onlyKey:", onlyKey);
     //If this is the only talk key that's currently active for this port, we add a long tail:
     if (onlyKey) {
-      this.addLongTail(portNum, id);
+      this.addLongTail(portNum, id, portTails);
       this.activeHandlers.onUpdateAudioInfo(portNum);
       return;
     }
     //Otherwise we add a short tail:
-    this.addShortTail(portNum, id);
+    this.addShortTail(portNum, id, portTails);
     this.activeHandlers.onUpdateAudioInfo(portNum);
   }
 
-  private removeLongTail(longTail: LongTailInfo, turnOffKey: boolean = true) {
+  //If a tail is passed in, the tail will be removed, but the key will NOT be removed for that tail:
+  private removeAllLongTailsForPort(
+    portTails: TailInfo[],
+    tail?: TailInfo,
+  ): void {
+    portTails.forEach((portTail) => {
+      if (portTail.type === "LONG") {
+        if (portTail === tail) {
+          this.removeLongTail(portTail, portTails, false);
+          return;
+        }
+        this.removeLongTail(portTail, portTails);
+      }
+    });
+  }
+
+  private removeLongTail(
+    longTail: LongTailInfo,
+    portTails: TailInfo[],
+    turnOffKey: boolean = true,
+  ) {
     const { portNum, plNum, startTimestamp } = longTail;
     if (turnOffKey) {
       //If less time has elapsed than the duration of a short tail, then add a short tail for the remaining duration
       //This ensures that a long tail never ends up being shorter than a regular short tail in practice:
       const timeElapsed = Date.now() - startTimestamp;
       if (timeElapsed < SHORT_TAIL_TIME_MS) {
-        this.addShortTail(portNum, plNum, SHORT_TAIL_TIME_MS - timeElapsed);
-        this.longTails[portNum] = null;
+        portTails[longTail.plNum] = { type: "NONE" };
+        this.addShortTail(
+          portNum,
+          plNum,
+          portTails,
+          SHORT_TAIL_TIME_MS - timeElapsed,
+        );
         return;
       }
       //Otherwise, turn off the talk key
@@ -241,11 +272,12 @@ export class TailManager implements ITailManager {
         setState: "OFF",
       });
     }
-    this.longTails[portNum] = null;
+    portTails[longTail.plNum] = { type: "NONE" };
   }
 
   private removeShortTail(
     shortTail: ShortTailInfo,
+    portTails: TailInfo[],
     turnOffKey: boolean = true,
   ) {
     const { portNum, plNum, timeoutId } = shortTail;
@@ -257,34 +289,41 @@ export class TailManager implements ITailManager {
         setState: "OFF",
       });
     }
-    const shortTails = this.shortTails[portNum];
-    if (!shortTails) {
-      this.logger.error(
-        `removeShortTail: Invariant violation: shortTails doesn't exist. The key has been turned off but the shortTail info will not be removed`,
-      );
-      return;
-    }
-    shortTails[plNum] = null;
+    portTails[plNum] = { type: "NONE" };
   }
 
   get status(): ManagerStatus {
     return this._status;
   }
 
-  private addLongTail(portNum: number, plNum: number): void {
+  private addLongTail(
+    portNum: number,
+    plNum: number,
+    portTails: TailInfo[],
+  ): void {
     const errMessage = `Unable to add long tail for portNum ${portNum} and plNum ${plNum}`;
 
     if (!this.isPortNumAndPlNumValid(portNum, plNum, errMessage)) {
       return;
     }
 
-    if (this.longTails[portNum]) {
+    const tail = portTails[plNum];
+    if (!tail) {
       this.logger.error(
-        `addLongTail: Invariant violation: a long tail already exists for portNum ${portNum} and plNum ${plNum}. Will remove the old longTail and add the new one`,
+        `addLongTail: Invariant violation: tail does not exist. Will do nothing`,
       );
+      return;
     }
 
-    this.longTails[portNum] = {
+    if (tail.type !== "NONE") {
+      this.logger.error(
+        `addLongTail: Tail already exists (type ${tail.type}). Will do nothing`,
+      );
+      return;
+    }
+
+    portTails[plNum] = {
+      type: "LONG",
       portNum,
       plNum,
       startTimestamp: Date.now(),
@@ -294,6 +333,7 @@ export class TailManager implements ITailManager {
   private addShortTail(
     portNum: number,
     plNum: number,
+    portTails: TailInfo[],
     timeMs: number = SHORT_TAIL_TIME_MS,
   ): void {
     const errMessage = `Unable to add short tail for portNum ${portNum} and plNum ${plNum}`;
@@ -302,28 +342,28 @@ export class TailManager implements ITailManager {
       return;
     }
 
-    const shortTails = this.shortTails[portNum];
-    const tail = shortTails?.[plNum];
-    if (!shortTails || tail === undefined) {
+    const tail = portTails[plNum];
+    if (!tail) {
       this.logger.error(
         errMessage +
           `: addShortTail: Invariant violation: unable to find tail slot`,
       );
       return;
     }
-    if (tail !== null) {
+    if (tail.type !== "NONE") {
       this.logger.error(
         errMessage +
-          `: addShortTail: There already is a shortTail for the port and PL. Will do nothing`,
+          `: addShortTail: There already is a tail for the port and PL. Will do nothing`,
       );
       return;
     }
     const timeoutId = setTimeout(
-      () => this.handleShortTailEnd(portNum, plNum),
+      () => this.handleShortTailEnd(portNum, plNum, portTails),
       timeMs,
     );
 
-    shortTails[plNum] = {
+    portTails[plNum] = {
+      type: "SHORT",
       portNum,
       plNum,
       startTimestamp: Date.now(),
@@ -331,22 +371,34 @@ export class TailManager implements ITailManager {
     };
   }
 
-  private handleShortTailEnd(portNum: number, plNum: number): void {
-    const shortTails = this.shortTails[portNum];
-    if (!shortTails) {
+  private handleShortTailEnd(
+    portNum: number,
+    plNum: number,
+    portTails: TailInfo[],
+  ): void {
+    const tail = portTails[plNum];
+
+    if (!tail) {
       this.logger.error(
-        `handleShortTailEnd: Invariant violation: unable to find shortTails. Will do nothing`,
+        `handleShortTailEnd: Invariant violation: No tail exists for portNum ${portNum} and plNum ${plNum}. Will do nothing`,
       );
       return;
     }
-    shortTails[plNum] = null;
+    if (tail.type !== "SHORT") {
+      this.logger.error(
+        `handleShortTailEnd: Invariant violation: Tail type is ${tail.type} for portNum ${portNum} and plNum ${plNum}. Will do nothing`,
+      );
+      return;
+    }
+
+    portTails[plNum] = { type: "NONE" };
     const onlyKey = this.activeHandlers.onIsSoleActiveTalkKeyForPort(
       portNum,
       plNum,
     );
     //If this is the only talk key that's currently active for this port, we add a long tail:
     if (onlyKey) {
-      this.addLongTail(portNum, plNum);
+      this.addLongTail(portNum, plNum, portTails);
       this.activeHandlers.onUpdateAudioInfo(portNum);
       return;
     }
@@ -359,13 +411,13 @@ export class TailManager implements ITailManager {
     this.activeHandlers.onUpdateAudioInfo(portNum);
   }
 
-  private createLongTails(): void {
-    this.longTails = Array.from({ length: this.numPorts }, () => null);
-  }
-
-  private createShortTails(): void {
-    this.shortTails = Array.from({ length: this.numPorts }, () => {
-      return Array.from({ length: this.config.numPartylines }, () => null);
+  private createTails(): void {
+    this.tails = Array.from({ length: this.numPorts }, () => {
+      return Array.from({ length: this.config.numPartylines }, () => {
+        return {
+          type: "NONE",
+        };
+      });
     });
   }
 
@@ -401,8 +453,7 @@ export class TailManager implements ITailManager {
 
   private resetRuntimeFields(): void {
     this.config = { ...BLANK_TAIL_CONFIG };
-    this.longTails = [];
-    this.shortTails = [];
+    this.createTails();
   }
 
   private get activeHandlers(): TailHandlers {
