@@ -1,4 +1,3 @@
-//Types:
 import {
   WSS_DOWNSTREAM,
   type WssDownstream,
@@ -7,7 +6,9 @@ import {
 import type {
   HeartbeatRequestPayload,
   HttpLoginResponse,
+  KeyPressInfo,
   KeyState,
+  MergedPartylineInfo,
   RtcIceCandidateInitWire,
   RtcOfferWire,
 } from "../../shared/types/index.js";
@@ -39,6 +40,7 @@ export class PanelController implements IPanelController {
       },
     },
     attemptingAutomaticLogin: false,
+    userMicMuted: false,
   };
   private readonly wssCommands: WssClientCommandMap = {
     HEARTBEAT_REQUEST: this.handleHeartbeatRequest.bind(this),
@@ -211,6 +213,46 @@ export class PanelController implements IPanelController {
     );
   }
 
+  //If keyPressInfo is included, the mic mute will be calculated optimistically:
+  private calculateMicMute(keyPressInfo?: KeyPressInfo): boolean {
+    const { userMicMuted } = this.state;
+    let muted = true;
+    let pls: MergedPartylineInfo[];
+    if (keyPressInfo) {
+      if (keyPressInfo.setState === "ON") {
+        return userMicMuted;
+      }
+      //OFF:
+      pls = this.copyPartylines();
+      const info = pls[keyPressInfo.id];
+      if (!info) {
+        console.error(
+          `calculateMicMute: Invariant: 'info' does not exist. Will not calculate mic mute optimistically`,
+        );
+      } else {
+        info.talk = "OFF";
+      }
+    } else {
+      pls = this.copyPartylines();
+    }
+
+    for (const pl of pls) {
+      if (pl.talk === "ON" && pl.tailState === "NONE" && !userMicMuted) {
+        muted = false;
+        break;
+      }
+    }
+    return muted;
+  }
+
+  private copyPartylines(): MergedPartylineInfo[] {
+    const pls: MergedPartylineInfo[] = [];
+    this.state.audioInfo.partylines.forEach((pl) => {
+      pls.push({ ...pl });
+    });
+    return pls;
+  }
+
   //WSS Handlers:
 
   private handleWssOpen() {
@@ -302,6 +344,7 @@ export class PanelController implements IPanelController {
       autoHide: false,
     });
     this.wssManager.monitorHeartbeatWatchdog(true);
+    this.webRtcManager.setMicMute(this.calculateMicMute());
     this.webRtcManager.connect(turnServerInfo);
     this.reloadOtherTabs();
     this.state.attemptingAutomaticLogin = false;
@@ -319,6 +362,7 @@ export class PanelController implements IPanelController {
     this.logger.info("Handling audio info update:", audioInfo);
     this.state.audioInfo = audioInfo;
     this.guiManager.displayAudioInfo(this.state.audioInfo);
+    this.webRtcManager.setMicMute(this.calculateMicMute());
   }
 
   private handleWebRtcAnswer(
@@ -348,7 +392,7 @@ export class PanelController implements IPanelController {
   private handleKeyPress(params: KeyPressParams): void {
     const { type, id, currState } = params;
     const setState: KeyState = currState === "ON" ? "OFF" : "ON";
-    const payload = {
+    const keyPressInfo: KeyPressInfo = {
       type,
       id,
       setState,
@@ -356,12 +400,17 @@ export class PanelController implements IPanelController {
 
     //LISTEN:
     if (type === "LISTEN") {
-      this.wssManager.sendMessage("KEY_PRESS", payload);
+      this.wssManager.sendMessage("KEY_PRESS", keyPressInfo);
       return;
     }
     //TALK:
     const { tailState } = params;
-    this.wssManager.sendMessage("KEY_PRESS", payload);
+    //If there is a longTail or a shortTail, this essentially means the key is off. So we want to turn it on:
+    if (tailState !== "NONE") {
+      keyPressInfo.setState = "ON";
+    }
+    this.wssManager.sendMessage("KEY_PRESS", keyPressInfo);
+    this.webRtcManager.setMicMute(this.calculateMicMute(keyPressInfo));
   }
 
   private handleLogoutBtnClick(): void {

@@ -23,6 +23,8 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
   private disconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private audioEl: HTMLAudioElement | null = null;
   private localStream: MediaStream | null = null;
+  //Mic starts off muted (true). If the localStream is not created by the time a mute request is received, then pendingMicMute will be set to the new mute state, and set once the localStream is created:
+  private pendingMicMute: boolean = true;
 
   constructor(private logger: IClientLogger) {
     this.logger = this.logger.child({ context: "PanelWebRtcManager" });
@@ -72,6 +74,27 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     await this.sendOffer();
   }
 
+  setMicMute(muted: boolean): void {
+    const message = `set mic ${muted ? "muted" : "unmuted"}`;
+    const notRunning = this.checkAndWarnIfNotRunning(message);
+    if (notRunning) return;
+
+    if (!this.localStream) {
+      this.logger.info(
+        `setMicMute: local stream does not exist yet. Request to ${muted ? "" : "un"}mute mic will be queued`,
+      );
+      this.pendingMicMute = muted;
+      return;
+    }
+    const audioTrack = this.localStream.getAudioTracks()[0]; // Get the first audio track (microphone)
+    if (!audioTrack) {
+      this.logger.error(`Unable to ${message}: there is no audio track`);
+      return;
+    }
+    this.logger.info(`${muted ? "M" : "Unm"}uting microphone`);
+    audioTrack.enabled = !muted;
+  }
+
   private ensureAudioEl(): HTMLAudioElement {
     if (this.audioEl) return this.audioEl;
 
@@ -93,6 +116,7 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
         video: false,
         audio: true,
       });
+      this.setMicMute(this.pendingMicMute);
     } catch (err) {
       this.logger.error("Error in getting user media", err);
       this.activeHandlers.onErrorMessage(

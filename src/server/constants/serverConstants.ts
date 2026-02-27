@@ -1,3 +1,4 @@
+//Debugging:
 //Set to true and run tail -f dev_matrix_view.txt in terminal to see a live updating view of crosspoints
 export const ENABLE_DEV_MATRIX_VIEW = true;
 
@@ -26,6 +27,7 @@ export const DEFAULT_NUM_SOUNDCARD_CHANNELS = 16;
 export const MAX_NUM_PARTYLINES = 64;
 export const DEFAULT_NUM_PARTYLINES = 16;
 export const CHUNK_SIZE = 480;
+export const SHORT_TAIL_TIME_MS = 500;
 
 //WebRtc:
 export const WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;

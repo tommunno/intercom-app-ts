@@ -11,4 +11,5 @@ export interface PanelState {
   audioInfo: AudioInfo;
   turnServerInfo: TurnServerInfo;
   attemptingAutomaticLogin: boolean;
+  userMicMuted: boolean;
 }

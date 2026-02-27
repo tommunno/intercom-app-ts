@@ -13,11 +13,11 @@ export class Logger implements ILogger {
 
   success(message: string, data?: any): void {
     console.log(`${this.prefix}${chalk.green.bold("SUCCESS:")} ${message}`);
-    if (data) console.log(data);
+    if (data !== undefined) console.log(data);
   }
   warn(message: string, data?: any): void {
     console.warn(`${this.prefix}${chalk.yellow.bold("WARN:")} ${message}`);
-    if (data) console.log(data);
+    if (data !== undefined) console.log(data);
   }
   error(message: string, error?: unknown): void {
     const errorMessage = error ? ": " + this.getErrorMessage(error) : "";
@@ -29,7 +29,7 @@ export class Logger implements ILogger {
     console.log(
       `${this.prefix}${chalk.hex("#007FFF").bold("INFO:")} ${message}`,
     );
-    if (data) console.log(data);
+    if (data !== undefined) console.log(data);
   }
   child(options: ChildLoggerOptions): ILogger {
     return new Logger(options);

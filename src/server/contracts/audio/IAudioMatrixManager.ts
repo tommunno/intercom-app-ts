@@ -1,8 +1,9 @@
 import type {
+  KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
 } from "../../../shared/types/index.js";
-import type { CrosspointChange, KeyPressInfo } from "../../types/index.js";
+import type { CrosspointChange } from "../../types/index.js";
 import type { PartylineSnapshot } from "./IPartyline.js";
 
 export interface AudioMatrixConfig {
@@ -41,5 +42,8 @@ export interface IAudioMatrixManager {
   setHandlers: (handlers: AudioMatrixHandlers) => void;
   getPartylineInfos: (userId: number) => PartylineInfo[] | null;
   processKeyPress: (portNum: number, keyPressInfo: KeyPressInfo) => void;
+  //Is the specified port only talking to the specified partyline and no other partylines:
+  isSoleActiveTalkKeyForPort: (portNum: number, plNum: number) => boolean;
+  isPortTalkingToPartyline: (portNum: number, plNum: number) => boolean;
   status: ManagerStatus;
 }

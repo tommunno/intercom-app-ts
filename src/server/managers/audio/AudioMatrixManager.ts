@@ -1,4 +1,5 @@
 import type {
+  KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
 } from "../../../shared/types/index.js";
@@ -15,7 +16,7 @@ import type {
   PartylineSnapshot,
 } from "../../contracts/index.js";
 import { OutputPort, Partyline } from "../../entities/index.js";
-import { type CrosspointChange, type KeyPressInfo } from "../../types/index.js";
+import { type CrosspointChange } from "../../types/index.js";
 import { dataIsType } from "../../../shared/helpers.js";
 import {
   DEFAULT_NUM_PARTYLINES,
@@ -165,6 +166,50 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       this.handleListenKeyRequest(partyline, portNum, state);
     }
     this.logCrosspoints();
+  }
+
+  //Is the specified port only talking to the specified partyline and no other partylines:
+  isSoleActiveTalkKeyForPort(portNum: number, plNum: number): boolean {
+    if (!this.isPortNumValid(portNum)) {
+      this.logger.error(
+        `isSoleActiveTalkKeyForPort: portNum ${portNum} is invalid. Will return false`,
+      );
+      return false;
+    }
+    const specifiedPl = this.partylines[plNum];
+    if (!specifiedPl) {
+      this.logger.error(
+        `isSoleActiveTalkKeyForPort: No partyline found for plNum ${plNum}. Will return false`,
+      );
+      return false;
+    }
+    if (!specifiedPl.isPortTalking(portNum)) {
+      this.logger.error(
+        `isSoleActiveTalkKeyForPort: The specified PL (plNum ${plNum}) does not have port ${portNum} talking to it. Will return false`,
+      );
+      return false;
+    }
+    const anyOtherTalkKeys = this.partylines.some(
+      (pl) => pl !== specifiedPl && pl.isPortTalking(portNum),
+    );
+    return !anyOtherTalkKeys;
+  }
+
+  isPortTalkingToPartyline(portNum: number, plNum: number): boolean {
+    if (!this.isPortNumValid(portNum)) {
+      this.logger.error(
+        `isPortTalkingToPartyline: portNum ${portNum} is invalid. Will return false`,
+      );
+      return false;
+    }
+    const pl = this.partylines[plNum];
+    if (!pl) {
+      this.logger.error(
+        `isPortTalkingToPartyline:  No partyline found for plNum ${plNum}. Will return false`,
+      );
+      return false;
+    }
+    return pl.isPortTalking(portNum);
   }
 
   get status(): ManagerStatus {

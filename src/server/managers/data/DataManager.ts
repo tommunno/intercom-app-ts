@@ -85,8 +85,8 @@ export class DataManager implements IDataManager {
 
     //Temporary data:
     return {
-      webServerData: { httpPort: 80, httpsPort: 443 },
-      turnServerData: { port: 4052, ip: "192.168.86.183" },
+      webServerData: { httpPort: 5051, httpsPort: 5052 },
+      turnServerData: { port: 3478, ip: "192.168.86.183" },
     };
   }
 

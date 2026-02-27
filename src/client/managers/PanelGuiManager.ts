@@ -13,6 +13,7 @@ import {
   type UserInfo,
 } from "../../shared/types/index.js";
 import { type DisplayPopupParams, type PanelState } from "../types/index.js";
+import { TAIL_DEBUG_MODE } from "../constants/clientConstants.js";
 
 export class PanelGuiManager implements IPanelGuiManager {
   private status: ManagerStatus = "IDLE";
@@ -304,9 +305,13 @@ export class PanelGuiManager implements IPanelGuiManager {
       );
       return;
     }
+    const { tailState } = partyline;
+
+    //If there is a shortTail or longTail, we should display to the user that the key is off:
+    const displayTalk = partyline.talk === "ON" && tailState === "NONE";
 
     plNameEl.textContent = partyline.name;
-    talkBtnEl.classList.toggle("talk-btn-active", partyline.talk === "ON");
+    talkBtnEl.classList.toggle("talk-btn-active", displayTalk);
     talkBtnEl.dataset.id = String(partyline.id);
     talkBtnEl.dataset.state = partyline.talk;
     talkBtnEl.dataset.tailState = partyline.tailState;
@@ -316,6 +321,18 @@ export class PanelGuiManager implements IPanelGuiManager {
     );
     listenBtnEl.dataset.id = String(partyline.id);
     listenBtnEl.dataset.state = partyline.listen;
+
+    //If TAIL_DEBUG_MODE in clientConstants is set to true, tails will be displayed visually for debug purposes:
+    //Long tails will be displayed as blue, short tails will be displayed as yellow
+    if (TAIL_DEBUG_MODE) {
+      talkBtnEl.classList.remove("talk-btn-long-tail");
+      talkBtnEl.classList.remove("talk-btn-short-tail");
+      if (tailState === "LONG") {
+        talkBtnEl.classList.add("talk-btn-long-tail");
+      } else if (tailState === "SHORT") {
+        talkBtnEl.classList.add("talk-btn-short-tail");
+      }
+    }
   }
 
   //More to implement in here, eg focus trapping

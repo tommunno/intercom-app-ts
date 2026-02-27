@@ -1,6 +1,7 @@
 //Types:
 import type {
   AudioInfo,
+  KeyPressInfo,
   MergedPartylineInfo,
 } from "../../shared/types/index.js";
 import type {
@@ -20,7 +21,6 @@ import type {
 import type {
   AudioPopulateData,
   CrosspointChange,
-  KeyPressInfo,
   RtcMediaStreamTrack,
   TrackAndStream,
 } from "../types/index.js";
@@ -177,7 +177,12 @@ export class AudioController implements IAudioController {
       onCrosspointChange: (c) => this.handleMatrixCrosspointChange(c),
     });
     this.tailManager.setHandlers({
-      onKeyPress: (u, k) => this.handleTailManagerKeyPress(u, k),
+      onKeyPress: (p, k) => this.handleTailManagerKeyPress(p, k),
+      onUpdateAudioInfo: (p) => this.handleTailManagerUpdateAudioInfo(p),
+      onIsSoleActiveTalkKeyForPort: (p, pl) =>
+        this.handleIsSoleActiveTalkKeyForPort(p, pl),
+      onIsPortTalkingToPartyline: (p, pl) =>
+        this.handleIsPortTalkingToPartyline(p, pl),
     });
     this.webRtcMediaBridge.setHandlers({
       onAudio: (c, s) => this.handleBridgeAudio(c, s),
@@ -283,7 +288,7 @@ export class AudioController implements IAudioController {
   //TailManager:
 
   private handleTailManagerKeyPress(
-    userId: number,
+    portNum: number,
     keyPressInfo: KeyPressInfo,
   ): void {
     if (this.audioMatrixManager.status !== "RUNNING") {
@@ -292,10 +297,24 @@ export class AudioController implements IAudioController {
       );
       return;
     }
-    this.audioMatrixManager.processKeyPress(userId, keyPressInfo);
-    const audioInfo = this.getAudioInfo(userId);
+    this.audioMatrixManager.processKeyPress(portNum, keyPressInfo);
+    // const audioInfo = this.getAudioInfo(portNum);
+    // if (!audioInfo) return;
+    // this.activeHandlers.onAudioInfoUpdate(portNum, audioInfo);
+  }
+
+  private handleTailManagerUpdateAudioInfo(portNum: number): void {
+    const audioInfo = this.getAudioInfo(portNum);
     if (!audioInfo) return;
-    this.activeHandlers.onAudioInfoUpdate(userId, audioInfo);
+    this.activeHandlers.onAudioInfoUpdate(portNum, audioInfo);
+  }
+
+  handleIsSoleActiveTalkKeyForPort(portNum: number, plNum: number): boolean {
+    return this.audioMatrixManager.isSoleActiveTalkKeyForPort(portNum, plNum);
+  }
+
+  handleIsPortTalkingToPartyline(portNum: number, plNum: number): boolean {
+    return this.audioMatrixManager.isPortTalkingToPartyline(portNum, plNum);
   }
 
   //WebRtcMediaBridge:

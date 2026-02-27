@@ -1,7 +1,10 @@
-import type { AudioInfo, PartylineInfo } from "../../../shared/types/index.js";
+import type {
+  AudioInfo,
+  KeyPressInfo,
+  PartylineInfo,
+} from "../../../shared/types/index.js";
 import type {
   AudioPopulateData,
-  KeyPressInfo,
   RtcMediaStreamTrack,
   TrackAndStream,
 } from "../../types/index.js";

@@ -20,6 +20,7 @@ export interface IPanelWebRtcManager {
   start: () => void;
   setHandlers: (handlers: PanelWebRtcHandlers) => void;
   connect: (turnServerInfo: TurnServerInfo) => Promise<void>;
+  setMicMute: (muted: boolean) => void;
   processRemoteAnswer: (answer: RtcAnswerWire) => Promise<void>;
   processRemoteIceCandidate: (
     candidate: RtcIceCandidateInitWire | null,
