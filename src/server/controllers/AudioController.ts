@@ -183,6 +183,8 @@ export class AudioController implements IAudioController {
         this.handleIsSoleActiveTalkKeyForPort(p, pl),
       onIsPortTalkingToPartyline: (p, pl) =>
         this.handleIsPortTalkingToPartyline(p, pl),
+      onAreAnyOtherTalkKeysActiveForPort: (p, pl) =>
+        this.handleAreAnyOtherTalkKeysActiveForPort(p, pl),
     });
     this.webRtcMediaBridge.setHandlers({
       onAudio: (c, s) => this.handleBridgeAudio(c, s),
@@ -315,6 +317,16 @@ export class AudioController implements IAudioController {
 
   handleIsPortTalkingToPartyline(portNum: number, plNum: number): boolean {
     return this.audioMatrixManager.isPortTalkingToPartyline(portNum, plNum);
+  }
+
+  handleAreAnyOtherTalkKeysActiveForPort(
+    portNum: number,
+    plNums: ReadonlySet<number>,
+  ): boolean {
+    return this.audioMatrixManager.areAnyOtherTalkKeysActiveForPort(
+      portNum,
+      plNums,
+    );
   }
 
   //WebRtcMediaBridge:

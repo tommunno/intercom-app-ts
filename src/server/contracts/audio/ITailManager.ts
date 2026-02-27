@@ -8,6 +8,10 @@ export interface TailHandlers {
   onUpdateAudioInfo(portNum: number): void;
   onIsSoleActiveTalkKeyForPort(portNum: number, plNum: number): boolean;
   onIsPortTalkingToPartyline(portNum: number, plNum: number): boolean;
+  onAreAnyOtherTalkKeysActiveForPort(
+    portNum: number,
+    plNums: ReadonlySet<number>,
+  ): boolean;
 }
 
 //TailManager shadows the AudioMatrixConfig:

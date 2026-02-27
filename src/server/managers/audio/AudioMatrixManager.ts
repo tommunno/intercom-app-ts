@@ -212,6 +212,22 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return pl.isPortTalking(portNum);
   }
 
+  //Is the specified port talking to any partylines OTHER than the ones passed in:
+  areAnyOtherTalkKeysActiveForPort(
+    portNum: number,
+    plNums: ReadonlySet<number>,
+  ): boolean {
+    let anyOtherTalkKeys = false;
+    const filteredPls = this.partylines.filter((pl) => !plNums.has(pl.id));
+    for (const pl of filteredPls) {
+      if (pl.isPortTalking(portNum)) {
+        anyOtherTalkKeys = true;
+        break;
+      }
+    }
+    return anyOtherTalkKeys;
+  }
+
   get status(): ManagerStatus {
     return this._status;
   }

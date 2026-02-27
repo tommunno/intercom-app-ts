@@ -1,3 +1,4 @@
+//Types:
 import type {
   KeyPressInfo,
   ManagerStatus,
@@ -19,12 +20,32 @@ import type {
   ShortTailInfo,
   TailInfo,
 } from "../../types/index.js";
+//Other Imports:
+import { performance } from "node:perf_hooks";
 
 const BLANK_TAIL_CONFIG: TailConfig = {
   numUsers: 0,
   numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
   numPartylines: DEFAULT_NUM_PARTYLINES,
 };
+
+//The idea behind this Manager is to help mitigate client latency issues.
+//Without this layer in front of the AudioMatrixManager, if a client turned off a talk key, with that command arriving at the server practically straight away, but the audio arriving for example a second later,
+//the end of the audio would be cut off, because we would have opened the crosspoint before the audio had finished.
+//To solve/mitigate this, the below logic is implemented:
+//If only one talk key is active, and the user wants to turn it off,
+//What actually happens is that the client locally mutes its mic, and the crosspoint stays open on the server (in 'LongTail' state)
+//This means that no audio is cut off, even if it arrived multiple seconds late.
+//LongTails are cancelled as soon as any talk key is pressed (at which point the client mic is locally unmuted)
+//If more than one talk key is on, and we turn off one of those keys, we can't locally mute the client mic, because it's needed for the other talk keys.
+//So instead, we put that talk key into a 'ShortTail' state. This means that the crosspoint is still closed,
+//But a timer is set with the duration of the SHORT_TAIL_TIME_MS serverConstant.
+//Once the timer finishes, the tail expires to no tail IF no other keys that AREN'T in short or longTail mode are currently pressed
+//Otherwise it expires to a LongTail (because the client mic can now be muted, so we get all the benefits of a longTail)
+//The final point of note is that, if a longTail that has been active for a duration of LESS than that of a shortTail is about to be turned off, we instead convert it into a shortTail, set with a duration to ensure the entire tail time matches that of a short tail. This way, we can't have any tail being shorter than a shortTail.
+
+//Practically, this means that a lot of the time when a user stops talking, audio goes to LongTail state which means no audio will be clipped even if on bad internet
+//However, if a user stops talking on one partyline whilst still talking on another, then the audio for that partyline just gets turned off SHORT_TAIL_TIME_MS later, to account for audio delay and to help reduce the chance of audio getting cut off.
 
 export class TailManager implements ITailManager {
   private _status: ManagerStatus = "IDLE";
@@ -76,13 +97,13 @@ export class TailManager implements ITailManager {
     this.handlers = handlers;
   }
 
-  //Make sure to clear timeouts in here!
   stop(): void {
     if (this._status === "IDLE" || this._status === "INITIALIZED") {
       return;
     }
-    this._status = "INITIALIZED";
+    this.clearShortTailTimeouts();
     this.resetRuntimeFields();
+    this._status = "INITIALIZED";
   }
 
   getTailState(userId: number, plNum: number): TailState {
@@ -232,11 +253,11 @@ export class TailManager implements ITailManager {
   //If a tail is passed in, the tail will be removed, but the key will NOT be removed for that tail:
   private removeAllLongTailsForPort(
     portTails: TailInfo[],
-    tail?: TailInfo,
+    exemptKeyTurnOffForTail?: LongTailInfo,
   ): void {
     portTails.forEach((portTail) => {
       if (portTail.type === "LONG") {
-        if (portTail === tail) {
+        if (portTail === exemptKeyTurnOffForTail) {
           this.removeLongTail(portTail, portTails, false);
           return;
         }
@@ -254,14 +275,15 @@ export class TailManager implements ITailManager {
     if (turnOffKey) {
       //If less time has elapsed than the duration of a short tail, then add a short tail for the remaining duration
       //This ensures that a long tail never ends up being shorter than a regular short tail in practice:
-      const timeElapsed = Date.now() - startTimestamp;
+      const timeElapsed = performance.now() - startTimestamp;
+
       if (timeElapsed < SHORT_TAIL_TIME_MS) {
         portTails[longTail.plNum] = { type: "NONE" };
         this.addShortTail(
           portNum,
           plNum,
           portTails,
-          SHORT_TAIL_TIME_MS - timeElapsed,
+          Math.max(0, SHORT_TAIL_TIME_MS - timeElapsed),
         );
         return;
       }
@@ -326,7 +348,7 @@ export class TailManager implements ITailManager {
       type: "LONG",
       portNum,
       plNum,
-      startTimestamp: Date.now(),
+      startTimestamp: performance.now(),
     };
   }
 
@@ -366,7 +388,7 @@ export class TailManager implements ITailManager {
       type: "SHORT",
       portNum,
       plNum,
-      startTimestamp: Date.now(),
+      startTimestamp: performance.now(),
       timeoutId,
     };
   }
@@ -391,13 +413,23 @@ export class TailManager implements ITailManager {
       return;
     }
 
+    const plsWithTails: Set<number> = new Set();
+    portTails.forEach((tail) => {
+      if (tail.type === "LONG" || tail.type === "SHORT") {
+        plsWithTails.add(tail.plNum);
+      }
+    });
+
+    //If there are no talk keys active for this port OTHER than any talk keys with a tail, this becomes true:
+    const anyOtherTalkKeysActive =
+      this.activeHandlers.onAreAnyOtherTalkKeysActiveForPort(
+        portNum,
+        plsWithTails,
+      );
+
     portTails[plNum] = { type: "NONE" };
-    const onlyKey = this.activeHandlers.onIsSoleActiveTalkKeyForPort(
-      portNum,
-      plNum,
-    );
-    //If this is the only talk key that's currently active for this port, we add a long tail:
-    if (onlyKey) {
+    //If the only talk keys that are active for this port are the ones that have long or short tails, then add a longTail:
+    if (!anyOtherTalkKeysActive) {
       this.addLongTail(portNum, plNum, portTails);
       this.activeHandlers.onUpdateAudioInfo(portNum);
       return;
@@ -451,8 +483,19 @@ export class TailManager implements ITailManager {
     );
   }
 
+  private clearShortTailTimeouts(): void {
+    this.tails.forEach((portTail) => {
+      portTail.forEach((tail) => {
+        if (tail.type === "SHORT") {
+          clearTimeout(tail.timeoutId);
+        }
+      });
+    });
+  }
+
   private resetRuntimeFields(): void {
     this.config = { ...BLANK_TAIL_CONFIG };
+    this.numPorts = 0;
     this.createTails();
   }
 
