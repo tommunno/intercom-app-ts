@@ -63,8 +63,8 @@ export class Controller implements IController {
     this.audioController.populate(audioData);
     this.audioController.start();
     //Test:
-    // setTimeout(() => this.audioController.setRequestedSoundcardId(3), 5000);
-    // setTimeout(() => this.audioController.setRequestedSoundcardId(4), 10000);
+    setTimeout(() => this.audioController.setRequestedSoundcardId(3), 5000);
+    setTimeout(() => this.audioController.setRequestedSoundcardId(4), 10000);
     //End test
   }
 

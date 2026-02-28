@@ -1,6 +1,7 @@
 import type { KeyPressInfo } from "../../../shared/types/KeyPressInfo.js";
 import type { ManagerStatus } from "../../../shared/types/ManagerStatus.js";
 import type { TailState } from "../../../shared/types/TailState.js";
+import type { TailInfo } from "../../types/TailInfo.js";
 import type { AudioMatrixConfig } from "./IAudioMatrixManager.js";
 
 export interface TailHandlers {
@@ -17,11 +18,14 @@ export interface TailHandlers {
 //TailManager shadows the AudioMatrixConfig:
 export type TailConfig = AudioMatrixConfig;
 
+//An array of TailInfos for each port. A TailInfo for each partyline:
+export type TailSnapshot = TailInfo[][];
+
 export interface ITailManager {
   init: () => void;
   start: () => void;
   populate: (config: TailConfig) => void;
-  stop: () => void;
+  stop: () => TailSnapshot;
   setHandlers: (handlers: TailHandlers) => void;
   getTailState: (userId: number, plNum: number) => TailState;
   processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;

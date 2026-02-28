@@ -17,6 +17,8 @@ import type {
   ILogger,
   ITailManager,
   IWebRtcMediaBridge,
+  PartylineSnapshot,
+  TailSnapshot,
 } from "../contracts/index.js";
 import type {
   AudioPopulateData,
@@ -183,8 +185,8 @@ export class AudioController implements IAudioController {
         this.handleIsSoleActiveTalkKeyForPort(p, pl),
       onIsPortTalkingToPartyline: (p, pl) =>
         this.handleIsPortTalkingToPartyline(p, pl),
-      onAreAnyOtherTalkKeysActiveForPort: (p, pl) =>
-        this.handleAreAnyOtherTalkKeysActiveForPort(p, pl),
+      onAreAnyOtherTalkKeysActiveForPort: (p, pls) =>
+        this.handleAreAnyOtherTalkKeysActiveForPort(p, pls),
     });
     this.webRtcMediaBridge.setHandlers({
       onAudio: (c, s) => this.handleBridgeAudio(c, s),
@@ -232,11 +234,11 @@ export class AudioController implements IAudioController {
   } {
     const engineConfig = this.audioEngineManager.stop();
     const { config, snapshot } = this.audioMatrixManager.stop();
-    this.tailManager.stop();
+    const tailSnapshot = this.tailManager.stop();
     this.webRtcMediaBridge.stop();
     return {
       audioPopulateData: this.createAudioPopulateData(engineConfig, config),
-      snapshot,
+      snapshot: this.createAudioMatrixSnapshot(snapshot, tailSnapshot),
     };
   }
 
@@ -261,6 +263,34 @@ export class AudioController implements IAudioController {
       audioPopulateData.requestedSoundcardId = rSCId;
     }
     return audioPopulateData;
+  }
+
+  private createAudioMatrixSnapshot(
+    matrixSnap: AudioMatrixSnapshot | null,
+    tailSnap: TailSnapshot,
+  ): AudioMatrixSnapshot | null {
+    if (!matrixSnap) return null;
+
+    const partylineSnapshots: PartylineSnapshot[] =
+      matrixSnap.partylineSnapshots.map((plSnap, plNum) => {
+        const { name, portsTalking: pT, portsListening } = plSnap;
+        const portsTalking: Set<number> = new Set();
+        pT.forEach((portNum) => {
+          const tail = tailSnap[portNum]?.[plNum];
+          if (!tail) {
+            this.logger.error(
+              `createAudioMatrixSnapshot: No tail found for portNum ${portNum} and plNum ${plNum}. Will not add the port to the partyline's talks`,
+            );
+            return;
+          }
+          //Only add the port as a talker if it is not the result of a tail:
+          if (tail.type === "NONE") {
+            portsTalking.add(portNum);
+          }
+        });
+        return { name, portsTalking, portsListening };
+      });
+    return { partylineSnapshots };
   }
 
   //AudioEngineManager:

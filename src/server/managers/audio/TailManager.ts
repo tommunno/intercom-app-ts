@@ -14,6 +14,7 @@ import type {
   ILogger,
   TailHandlers,
   TailConfig,
+  TailSnapshot,
 } from "../../contracts/index.js";
 import type {
   LongTailInfo,
@@ -97,13 +98,15 @@ export class TailManager implements ITailManager {
     this.handlers = handlers;
   }
 
-  stop(): void {
+  stop(): TailSnapshot {
     if (this._status === "IDLE" || this._status === "INITIALIZED") {
-      return;
+      return this.createTailSnapshot();
     }
+    const snap = this.createTailSnapshot();
     this.clearShortTailTimeouts();
     this.resetRuntimeFields();
     this._status = "INITIALIZED";
+    return snap;
   }
 
   getTailState(userId: number, plNum: number): TailState {
@@ -491,6 +494,19 @@ export class TailManager implements ITailManager {
         }
       });
     });
+  }
+
+  private createTailSnapshot(): TailSnapshot {
+    const snap: TailSnapshot = [];
+    let portTail: TailInfo[];
+    this.tails.forEach((portTails) => {
+      portTail = [];
+      portTails.forEach((tail) => {
+        portTail.push({ ...tail });
+      });
+      snap.push(portTail);
+    });
+    return snap;
   }
 
   private resetRuntimeFields(): void {
