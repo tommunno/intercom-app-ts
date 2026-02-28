@@ -12,8 +12,15 @@ import {
   type MergedPartylineInfo,
   type UserInfo,
 } from "../../shared/types/index.js";
-import { type DisplayPopupParams, type PanelState } from "../types/index.js";
-import { TAIL_DEBUG_MODE } from "../constants/clientConstants.js";
+import {
+  type DisplayPopupParams,
+  type MomentaryTime,
+  type PanelState,
+} from "../types/index.js";
+import {
+  MOMENTARY_KEY_PRESS_TIME_MS,
+  TAIL_DEBUG_MODE,
+} from "../constants/clientConstants.js";
 
 export class PanelGuiManager implements IPanelGuiManager {
   private status: ManagerStatus = "IDLE";
@@ -59,6 +66,8 @@ export class PanelGuiManager implements IPanelGuiManager {
   private loginLoading: boolean = true;
   private hidePopupTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private popupVisible: boolean = false;
+  //pointerId as key:
+  private momentaryTimes: Map<number, MomentaryTime> = new Map();
 
   constructor(private logger: IClientLogger) {
     this.logger = this.logger.child({ context: "PanelGuiManager" });
@@ -409,6 +418,13 @@ export class PanelGuiManager implements IPanelGuiManager {
     plsList.addEventListener("pointerdown", (e) =>
       this.handlePlsListPointerDown(e),
     );
+
+    window.addEventListener("pointerup", (e) =>
+      this.handlePlsListPointerUpOrCancel(e),
+    );
+    window.addEventListener("pointercancel", (e) =>
+      this.handlePlsListPointerUpOrCancel(e),
+    );
   }
 
   private handlePlsListPointerDown(e: PointerEvent): void {
@@ -428,7 +444,7 @@ export class PanelGuiManager implements IPanelGuiManager {
 
     const id = Number(btn.dataset.id);
     const currState = btn.dataset.state;
-    const tailState = btn.dataset.tailState;
+    const isActive = this.isPlButtonActive(btn);
 
     if (Number.isNaN(id) || !dataIsKeyState(currState)) {
       this.logger.error(
@@ -436,17 +452,82 @@ export class PanelGuiManager implements IPanelGuiManager {
       );
       return;
     }
+
+    if (!isActive) {
+      const pointerId = e.pointerId;
+      this.momentaryTimes.set(pointerId, {
+        pointerId,
+        type,
+        btnId: id,
+        startTime: Date.now(),
+      });
+    }
+
     if (type === "TALK") {
+      const { tailState } = btn.dataset;
       if (!dataIsTailState(tailState)) {
         this.logger.error(
-          `Invalid data retrieved from DOM in handlePlsListPointerDown: id: ${id}, tailState: ${tailState}`,
+          `Invalid data retrieved from DOM in handlePlsListPointerDown: tailState: ${tailState}`,
         );
         return;
       }
       this.activeHandlers.onKeyPress({ type, id, currState, tailState });
       return;
     }
+    //LISTEN:
     this.activeHandlers.onKeyPress({ type, id, currState });
+  }
+
+  private handlePlsListPointerUpOrCancel(e: PointerEvent): void {
+    const momentaryTime = this.momentaryTimes.get(e.pointerId);
+    if (!momentaryTime) return;
+
+    const { type, btnId, startTime } = momentaryTime;
+    this.momentaryTimes.delete(e.pointerId);
+    const duration = Date.now() - startTime;
+
+    if (duration < MOMENTARY_KEY_PRESS_TIME_MS) return;
+
+    const btnEl = document.querySelector<HTMLButtonElement>(
+      `.${type === "TALK" ? "talk" : "listen"}-btn[data-id="${btnId}"]`,
+    );
+    if (!btnEl) {
+      this.logger.error(
+        `handlePlsListPointerUpOrCancel: no btnEl found for type ${type} and btnId ${btnId}. Will do nothing`,
+      );
+      return;
+    }
+    const currState = btnEl.dataset.state;
+    const isActive = this.isPlButtonActive(btnEl);
+
+    if (!dataIsKeyState(currState)) {
+      this.logger.error(
+        `Invalid data retrieved from DOM in handlePlsListPointerUpOrCancel: currState: ${currState}. Will do nothing`,
+      );
+      return;
+    }
+    if (!isActive) return;
+
+    if (type === "TALK") {
+      const { tailState } = btnEl.dataset;
+      if (!dataIsTailState(tailState)) {
+        this.logger.error(
+          `Invalid data retrieved from DOM in handlePlsListPointerUpOrCancel: tailState: ${tailState}. Will do nothing`,
+        );
+        return;
+      }
+      this.activeHandlers.onKeyPress({ type, id: btnId, currState, tailState });
+      return;
+    }
+    //LISTEN:
+    this.activeHandlers.onKeyPress({ type, id: btnId, currState });
+  }
+
+  private isPlButtonActive(btn: HTMLButtonElement): boolean {
+    return (
+      btn.classList.contains("talk-btn-active") ||
+      btn.classList.contains("listen-btn-active")
+    );
   }
 
   private get activeHandlers(): PanelGuiManagerHandlers {
