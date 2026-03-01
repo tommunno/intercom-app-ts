@@ -12,7 +12,7 @@ export interface WebServerHandlers {
 }
 
 export interface IWebServerManager {
-  init: () => Servers;
+  init: () => Promise<Servers>;
   populate: (data: WebServerData) => void;
   start: () => void;
   setHandlers: (handlers: WebServerHandlers) => void;

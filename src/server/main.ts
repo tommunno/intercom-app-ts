@@ -57,7 +57,6 @@ const turnServerManager: ITurnServerManager = new TurnServerManager(logger);
 const accountManager: IAccountManager = new AccountManager(logger);
 const dataManager: IDataManager = new DataManager(logger);
 
-
 const audioController: IAudioController = new AudioController(
   audioEngineManager,
   audioMatrixManager,
@@ -87,5 +86,5 @@ const controller: IController = new Controller(
   logger,
 );
 
-controller.init();
+await controller.init();
 controller.start();

@@ -1,4 +1,4 @@
 export interface IController {
-  init: () => void;
+  init: () => Promise<void>;
   start: () => void;
 }

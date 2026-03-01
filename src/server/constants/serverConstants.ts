@@ -2,12 +2,17 @@
 //Set to true and run tail -f dev_matrix_view.txt in terminal to see a live updating view of crosspoints
 export const ENABLE_DEV_MATRIX_VIEW = true;
 
+//Global:
+export const APP_NAME = "WebCom";
+
 //Web Server:
 export const DEFAULT_HTTP_PORT = 4321;
 export const DEFAULT_HTTPS_PORT = 4322;
 export const CERT_DIR = "certs";
 export const KEY_FILE = "server.key";
 export const CERT_FILE = "server.cert";
+export const GENERATED_KEY_FILE = "generated-server.key";
+export const GENERATED_CERT_FILE = "generated-server.cert";
 export const WEB_SERVER_DIR = "public";
 
 //AccountManager:

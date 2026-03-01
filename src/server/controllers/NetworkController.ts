@@ -37,9 +37,9 @@ export class NetworkController implements INetworkController {
     this.logger = this.logger.child({ context: "NetworkController" });
   }
 
-  init(): void {
+  async init(): Promise<void> {
     this.bindListeners();
-    const servers = this.webServerManager.init();
+    const servers = await this.webServerManager.init();
     this.wssManager.init(servers);
     const serverCreds = this.turnServerManager.init();
     this.webRtcManager.init(serverCreds);

@@ -16,7 +16,7 @@ export interface NetworkHandlers
   extends WebServerHandlers, WssHandlers, WebRtcHandlers {}
 
 export interface INetworkController {
-  init: () => void;
+  init: () => Promise<void>;
   populate: (data: NetworkData) => void;
   start: () => void;
   setHandlers: (handlers: NetworkHandlers) => void;

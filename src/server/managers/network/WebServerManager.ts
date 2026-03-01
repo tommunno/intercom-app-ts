@@ -28,6 +28,9 @@ import {
   SESSION_DURATION_MS,
   DEFAULT_HTTPS_PORT,
   DEFAULT_HTTP_PORT,
+  GENERATED_KEY_FILE,
+  GENERATED_CERT_FILE,
+  APP_NAME,
 } from "../../constants/serverConstants.js";
 
 //External Libraries:
@@ -40,9 +43,11 @@ import express, {
 import cookieParser from "cookie-parser";
 import path from "path";
 import http from "http";
-import https from "https";
+import https, { type ServerOptions } from "https";
 import fs from "fs";
 import { TLSSocket } from "tls";
+import selfsigned, { type CertificateField } from "selfsigned";
+import crypto from "crypto";
 
 export class WebServerManager implements IWebServerManager {
   private status: ManagerStatus = "IDLE";
@@ -51,7 +56,6 @@ export class WebServerManager implements IWebServerManager {
   private app: Express = express();
   private httpPort: number = DEFAULT_HTTP_PORT;
   private httpsPort: number = DEFAULT_HTTPS_PORT;
-  private isRunning: boolean = false;
 
   private httpServer: http.Server | null = null;
   private httpsServer: https.Server | null = null;
@@ -61,7 +65,7 @@ export class WebServerManager implements IWebServerManager {
     this.logger = this.logger.child({ context: "WebServerManager" });
   }
 
-  init(): Servers {
+  async init(): Promise<Servers> {
     if (this.status !== "IDLE") {
       throw new Error(
         `Cannot initialize the WebServerManager whilst its status is ${this.status}`,
@@ -92,8 +96,8 @@ export class WebServerManager implements IWebServerManager {
       this.handleErrors(e, rq, rs, n),
     );
 
+    await this.attemptHttpsInit();
     this.httpServer = http.createServer(this.app);
-    this.attemptHttpsInit();
     this.status = "INITIALIZED";
     return {
       http: this.httpServer,
@@ -141,25 +145,132 @@ export class WebServerManager implements IWebServerManager {
     this.handlers = handlers;
   }
 
-  private attemptHttpsInit(): void {
+  private async attemptHttpsInit(): Promise<void> {
     try {
       const keyPath = path.join(this.certPath, KEY_FILE);
       const certPath = path.join(this.certPath, CERT_FILE);
 
       if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
-        const options = {
+        const options: ServerOptions = {
           key: fs.readFileSync(keyPath),
           cert: fs.readFileSync(certPath),
         };
-
         this.httpsServer = https.createServer(options, this.app);
+        this.logger.success("User provided SSL files are valid");
+        return;
       } else {
         this.logger.warn(
-          `HTTPS skipped: Certificates not found in ${CERT_DIR} folder: ${this.certPath}`,
+          `User provided SSL files not found in ${CERT_DIR} folder: ${this.certPath}. Falling back to self-signed...`,
         );
       }
     } catch (error) {
-      this.logger.error("Failed to initialize HTTPS server", error);
+      this.logger.error(
+        "Provided SSL certificate failed to load/parse. Falling back to self-signed...",
+        error,
+      );
+    }
+
+    const genKeyPath = path.join(this.certPath, GENERATED_KEY_FILE);
+    const genCertPath = path.join(this.certPath, GENERATED_CERT_FILE);
+    const existingGenCertSuccess = this.attemptGeneratedCert(
+      genKeyPath,
+      genCertPath,
+    );
+    if (existingGenCertSuccess) return;
+    this.logger.warn(
+      "No valid SSL certificates found. Generating new self-signed certificate...",
+    );
+    const newGenCertSuccess = await this.generateNewCert(
+      genKeyPath,
+      genCertPath,
+    );
+    if (newGenCertSuccess) return;
+    this.logger.error("Unable to start HTTPS server");
+  }
+
+  //Returns success
+  private attemptGeneratedCert(
+    generatedKeyPath: string,
+    generatedCertPath: string,
+  ): boolean {
+    try {
+      if (
+        fs.existsSync(generatedKeyPath) &&
+        fs.existsSync(generatedCertPath) &&
+        !this.isCertExpired(generatedCertPath)
+      ) {
+        const options: ServerOptions = {
+          key: fs.readFileSync(generatedKeyPath),
+          cert: fs.readFileSync(generatedCertPath),
+        };
+        this.httpsServer = https.createServer(options, this.app);
+        this.logger.warn(
+          "Valid self-signed certificate loaded. For full browser trust, please install your own trusted certificate",
+        );
+        return true;
+      }
+      return false;
+    } catch (error) {
+      this.logger.error(
+        "Generated self-signed certificate could not be used",
+        error,
+      );
+      return false;
+    }
+  }
+
+  private isCertExpired(certPath: string): boolean {
+    try {
+      const certPem = fs.readFileSync(certPath, "utf8");
+      const x509 = new crypto.X509Certificate(certPem);
+      const now = new Date();
+      const expiry = new Date(x509.validTo);
+      return expiry < now;
+    } catch (err) {
+      this.logger.error("Failed to check certificate expiration");
+      return true; // Assume invalid if unreadable or broken
+    }
+  }
+
+  private async generateNewCert(
+    generatedKeyPath: string,
+    generatedCertPath: string,
+  ): Promise<boolean> {
+    try {
+      if (!fs.existsSync(this.certPath)) {
+        fs.mkdirSync(this.certPath, { recursive: true });
+      }
+      const attrs: CertificateField[] = [
+        { name: "commonName", value: "localhost" },
+        { name: "organizationName", value: APP_NAME },
+      ];
+      //Defaults to keySize of 2048, expires in 365 days:
+      const pems = await selfsigned.generate(attrs, {
+        algorithm: "sha256",
+        extensions: [
+          {
+            name: "subjectAltName",
+            altNames: [
+              { type: 2, value: "localhost" }, // DNS
+              { type: 7, ip: "127.0.0.1" }, // IP
+            ],
+          },
+        ],
+      });
+      const key = pems.private;
+      const cert = pems.cert;
+
+      fs.writeFileSync(generatedKeyPath, key);
+      fs.writeFileSync(generatedCertPath, cert);
+      this.logger.success("Saved generated self-signed certificate");
+      this.httpsServer = https.createServer({ key, cert }, this.app);
+      this.logger.warn(
+        "Valid self-signed certificate being used. For full browser trust, please install your own trusted certificate",
+      );
+      return true;
+    } catch (error) {
+      this.logger.error("Unable to generate a new certificate", error);
+      return false;
     }
   }
 

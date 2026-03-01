@@ -45,12 +45,12 @@ export class Controller implements IController {
     this.logger = this.logger.child({ context: "Controller" });
   }
 
-  init(): void {
+  async init(): Promise<void> {
     this.logger.info("Initializing");
     validateServerConstants();
     this.bindListeners();
     this.dataController.init();
-    this.networkController.init();
+    await this.networkController.init();
     this.audioController.init();
   }
   start(): void {
