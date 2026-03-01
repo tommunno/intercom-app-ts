@@ -55,9 +55,14 @@ export class WssManager implements IWssManager {
         `No HTTPS server was passed into the WssManager during initialization.`,
       );
     }
-    if (servers.http) this.ws = new WebSocketServer({ server: servers.http });
-    if (servers.https)
+    if (servers.http) {
+      this.ws = new WebSocketServer({ server: servers.http });
+      this.ws.on("error", (err) => this.handleListenError("WS", err));
+    }
+    if (servers.https) {
       this.wss = new WebSocketServer({ server: servers.https });
+      this.wss.on("error", (err) => this.handleListenError("WSS", err));
+    }
     this.status = "INITIALIZED";
   }
 
@@ -120,6 +125,19 @@ export class WssManager implements IWssManager {
   private get activeHandlers(): WssHandlers {
     if (!this.handlers) throw new Error("WssManager handlers not initialized!");
     return this.handlers;
+  }
+
+  private handleListenError(
+    label: "WS" | "WSS",
+    err: NodeJS.ErrnoException,
+  ): void {
+    if (err.code === "EADDRINUSE") {
+      this.logger.error(
+        `${label} server failed to listen: port is already in use.`,
+      );
+      return;
+    }
+    this.logger.error(`${label} server listen error`, err);
   }
 
   private attachWebSocketHandlers(wsServer: WebSocketServer) {

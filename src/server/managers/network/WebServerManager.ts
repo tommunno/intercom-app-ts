@@ -126,6 +126,7 @@ export class WebServerManager implements IWebServerManager {
     this.status = "RUNNING";
 
     if (this.httpServer) {
+      this.httpServer.on("error", (err) => this.handleListenError("HTTP", err));
       this.httpServer.listen(this.httpPort, () => {
         this.logger.info(
           `HTTP Server running at http://localhost:${this.httpPort}`,
@@ -133,6 +134,9 @@ export class WebServerManager implements IWebServerManager {
       });
     }
     if (this.httpsServer) {
+      this.httpsServer.on("error", (err) =>
+        this.handleListenError("HTTPS", err),
+      );
       this.httpsServer.listen(this.httpsPort, () => {
         this.logger.info(
           `HTTPS Server running at https://localhost:${this.httpsPort}`,
@@ -294,6 +298,19 @@ export class WebServerManager implements IWebServerManager {
       );
     }
     next();
+  }
+
+  private handleListenError(
+    label: "HTTP" | "HTTPS",
+    err: NodeJS.ErrnoException,
+  ): void {
+    if (err.code === "EADDRINUSE") {
+      this.logger.error(
+        `${label} server failed to listen: port ${label === "HTTP" ? this.httpPort : this.httpsPort} is already in use.`,
+      );
+      return;
+    }
+    this.logger.error(`${label} server listen error`, err);
   }
 
   private async handleUserLoginRequest(
