@@ -56,7 +56,7 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     this.handlers = handlers;
   }
 
-  async connect(info: TurnServerInfo): Promise<void> {
+  async connect(info: TurnServerInfo | null): Promise<void> {
     const notRunning = this.checkAndWarnIfNotRunning("connect");
     if (notRunning) return;
 
@@ -145,23 +145,19 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
     return true;
   }
 
-  private createRtcConfig(info: TurnServerInfo): RTCConfiguration {
-    const { username, credential } = info.credentials;
+  private createRtcConfig(info: TurnServerInfo | null): RTCConfiguration {
+    const iceServers: RTCIceServer[] = [...ICE_SERVERS];
 
-    const rtcConfig: RTCConfiguration = {
-      iceServers: [
-        ...ICE_SERVERS,
-        {
-          urls: [`turn:${window.location.hostname}:${info.port}`],
-          username,
-          credential,
-        },
-      ],
-      //Test: for forcing to turn server
-      // iceTransportPolicy: "relay",
-      //End test
-    };
-    return rtcConfig;
+    if (info) {
+      const { username, credential } = info.credentials;
+      iceServers.push({
+        urls: [`turn:${window.location.hostname}:${info.port}`],
+        username,
+        credential,
+      });
+    }
+
+    return { iceServers };
   }
 
   private attachPeerConnectionHandlers(): void {

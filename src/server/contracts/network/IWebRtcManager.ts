@@ -19,7 +19,7 @@ export interface WebRtcHandlers {
 
 export interface IWebRtcManager {
   init: (turnServerCredentials: TurnServerCredentials) => void;
-  populate: (turnServerUrl: string) => void;
+  populate: (turnServerUrl: string | null) => void;
   start: () => void;
   setHandlers: (handlers: WebRtcHandlers) => void;
   createPeerConnection: (clientId: string) => void;

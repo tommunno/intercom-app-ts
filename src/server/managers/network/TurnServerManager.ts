@@ -1,4 +1,3 @@
-import { validatePort } from "../../../shared/helpers.js";
 import type { ManagerStatus } from "../../../shared/types/ManagerStatus.js";
 import type { TurnServerCredentials } from "../../../shared/types/TurnServerCredentials.js";
 import {
@@ -10,10 +9,10 @@ import type {
   ILogger,
   TurnServerHandlers,
 } from "../../contracts/index.js";
-import type { TurnServerData } from "../../types/NetworkData.js";
+import type { TurnServerResolvedData } from "../../types/NetworkData.js";
 
 export class TurnServerManager implements ITurnServerManager {
-  private status: ManagerStatus = "IDLE";
+  private _status: ManagerStatus = "IDLE";
   private handlers: TurnServerHandlers | null = null;
   private _port: number = DEFAULT_TURN_SERVER_PORT;
   private _ip: string = DEFAULT_TURN_SERVER_IP;
@@ -23,35 +22,35 @@ export class TurnServerManager implements ITurnServerManager {
   }
 
   init(): TurnServerCredentials {
-    if (this.status !== "IDLE") {
+    if (this._status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the TurnServerManager whilst its status is ${this.status}`,
+        `Cannot initialize the TurnServerManager whilst its status is ${this._status}`,
       );
     }
-    this.status = "INITIALIZED";
+    this._status = "INITIALIZED";
     return this.createServerCredentials();
   }
 
-  populate({ port, ip }: TurnServerData): string {
-    if (this.status !== "INITIALIZED") {
+  populate({ port, ip }: TurnServerResolvedData): string {
+    if (this._status !== "INITIALIZED") {
       throw new Error(
-        `Cannot populate the TurnServerManager whilst its status is ${this.status}`,
+        `Cannot populate the TurnServerManager whilst its status is ${this._status}`,
       );
     }
     this.setPortAndIp(port, ip);
-    this.status = "POPULATED";
+    this._status = "POPULATED";
     return this._url;
   }
 
   start(): void {
-    if (this.status !== "POPULATED") {
+    if (this._status !== "POPULATED") {
       throw new Error(
-        `Cannot start the TurnServerManager whilst its status is ${this.status}`,
+        `Cannot start the TurnServerManager whilst its status is ${this._status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
-    this.status = "RUNNING";
+    this._status = "RUNNING";
   }
 
   setHandlers(handlers: TurnServerHandlers): void {
@@ -67,7 +66,16 @@ export class TurnServerManager implements ITurnServerManager {
     return { username: "client-test", credential: "client-test-credential" };
   }
 
+  get status(): ManagerStatus {
+    return this._status;
+  }
+
   get port(): number {
+    if (this._status === "IDLE" || this._status === "INITIALIZED") {
+      this.logger.warn(
+        `get port: status is ${this._status}; port may not be initialized yet`,
+      );
+    }
     return this._port;
   }
 
@@ -79,20 +87,15 @@ export class TurnServerManager implements ITurnServerManager {
     };
   }
 
-  //Do more in depth port validation logic here if necessary
-  private setPortAndIp(port?: number, ip?: string) {
-    if (validatePort(port)) {
-      this._port = port;
-    } else {
-      this.logger.warn(
-        `Invalid port provided. Will use default port ${DEFAULT_TURN_SERVER_PORT}`,
-      );
-    }
+  //Do more in depth IP validation here if necessary:
+  private setPortAndIp(port: number, ip?: string) {
+    //Port is validated in NetworkController:
+    this._port = port;
     if (ip) {
       this._ip = ip;
     } else {
       this.logger.warn(
-        `Invalid IP provided. Will use default IP ${DEFAULT_TURN_SERVER_IP}`,
+        `No TURN IP provided. Will use default IP ${DEFAULT_TURN_SERVER_IP}`,
       );
     }
     this.createUrl();
@@ -109,9 +112,9 @@ export class TurnServerManager implements ITurnServerManager {
   }
 
   private checkAndWarnIfNotRunning(action: string): boolean {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       this.logger.error(
-        `Unable to ${action} because the status is ${this.status}`,
+        `Unable to ${action} because the status is ${this._status}`,
       );
       return true;
     }

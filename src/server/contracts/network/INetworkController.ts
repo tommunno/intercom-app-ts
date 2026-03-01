@@ -17,7 +17,7 @@ export interface NetworkHandlers
 
 export interface INetworkController {
   init: () => Promise<void>;
-  populate: (data: NetworkData) => void;
+  populate: (data: NetworkData) => Promise<void>;
   start: () => void;
   setHandlers: (handlers: NetworkHandlers) => void;
 

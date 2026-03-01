@@ -47,7 +47,7 @@ export class WebRtcManager implements IWebRtcManager {
     this.status = "INITIALIZED";
   }
 
-  populate(turnServerUrl: string): void {
+  populate(turnServerUrl: string | null): void {
     if (this.status !== "INITIALIZED") {
       throw new Error(
         `Cannot populate the WebRtcManager whilst its status is ${this.status}`,
@@ -101,16 +101,26 @@ export class WebRtcManager implements IWebRtcManager {
     this.attachPeerConnectionHandlers(clientId, pc);
   }
 
-  private createRtcConfig(turnServerUrl: string): void {
-    this.rtcConfig = {
-      iceServers: [
-        ...ICE_SERVERS,
-        { urls: [turnServerUrl], ...this.turnServerCredentials },
-      ],
-      //Test: for forcing to turn server
-      // iceTransportPolicy: "relay",
-      //End test
-    };
+  // private createRtcConfig(turnServerUrl: string | null): void {
+  //   this.rtcConfig = {
+  //     iceServers: [
+  //       ...ICE_SERVERS,
+  //       { urls: [turnServerUrl], ...this.turnServerCredentials },
+  //     ],
+  //     //Test: for forcing to turn server
+  //     // iceTransportPolicy: "relay",
+  //     //End test
+  //   };
+  // }
+
+  private createRtcConfig(turnServerUrl: string | null): void {
+    const iceServers = [...ICE_SERVERS];
+
+    if (turnServerUrl) {
+      iceServers.push({ urls: [turnServerUrl], ...this.turnServerCredentials });
+    }
+
+    this.rtcConfig = { iceServers };
   }
 
   async processRemoteOffer(

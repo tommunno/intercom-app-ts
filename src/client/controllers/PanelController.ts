@@ -32,13 +32,7 @@ export class PanelController implements IPanelController {
     audioConnection: { status: "IDLE" },
     userInfo: { loggedIn: false, username: "" },
     audioInfo: { partylines: [] },
-    turnServerInfo: {
-      port: 3478,
-      credentials: {
-        username: "",
-        credential: "",
-      },
-    },
+    turnServerInfo: null,
     attemptingAutomaticLogin: false,
     userMicMuted: false,
   };
@@ -312,7 +306,6 @@ export class PanelController implements IPanelController {
       `Login Response: success: ${success}, message: ${message}, userInfo:`,
       userInfo,
     );
-    this.logger.info("turnServerInfo:", turnServerInfo);
 
     if (!success) {
       this.guiManager.setLoginError(message);
@@ -323,11 +316,11 @@ export class PanelController implements IPanelController {
       }
       return;
     }
-    if (!userInfo || !audioInfo || !turnServerInfo) {
+    if (!userInfo || !audioInfo) {
       this.guiManager.setLoginError("Error retrieving user information");
       this.guiManager.shakeLogin();
       this.logger.error(
-        `Login state violation: Server returned success: true, but userInfo, audioInfo or turnServerInfo is missing from the payload`,
+        `Login state violation: Server returned success: true, but userInfo or audioInfo is missing from the payload`,
       );
       this.state.attemptingAutomaticLogin = false;
       return;
@@ -336,6 +329,7 @@ export class PanelController implements IPanelController {
     this.state.userInfo = userInfo;
     this.state.audioInfo = audioInfo;
     this.state.turnServerInfo = turnServerInfo;
+
     this.guiManager.displayState(this.state);
     this.guiManager.setLoginVisible(false);
     this.guiManager.displayPopup({
@@ -345,7 +339,7 @@ export class PanelController implements IPanelController {
     });
     this.wssManager.monitorHeartbeatWatchdog(true);
     this.webRtcManager.setMicMute(this.calculateMicMute());
-    this.webRtcManager.connect(turnServerInfo);
+    this.webRtcManager.connect(this.state.turnServerInfo);
     this.reloadOtherTabs();
     this.state.attemptingAutomaticLogin = false;
   }

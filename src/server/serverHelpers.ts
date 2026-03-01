@@ -1,8 +1,12 @@
+//Types:
+import type { ILogger, IOutputPort, IPartyline } from "./contracts/index.js";
+import type { PortAvailabilityResult } from "./types/index.js";
+//Constants:
 import { CHUNK_SIZE } from "./constants/serverConstants.js";
-
+//External:
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ILogger, IOutputPort, IPartyline } from "./contracts/index.js";
+import net from "node:net";
 
 const SAMPLE_RATE = 48000;
 const NUM_CH = 3;
@@ -134,3 +138,50 @@ ${DIM}Last Updated: ${new Date().toLocaleTimeString()} ${RESET}
     logger.error("Failed to write dev crosspoint log", err);
   }
 };
+
+export function validatePort(port: number | undefined): port is number {
+  return (
+    port !== undefined &&
+    Number.isSafeInteger(port) &&
+    (port >= 1025 || port === 80 || port === 443) &&
+    port <= 65535
+  );
+}
+
+export async function findRandomAvailablePort(
+  avoid: ReadonlySet<number> = new Set(),
+  host = "0.0.0.0",
+  attempts = 5,
+): Promise<number | null> {
+  for (let i = 0; i < attempts; i++) {
+    // 1025–65535 (since the validatePort logic allows >=1025, plus 80/443)
+    const port = Math.floor(Math.random() * (65535 - 1025 + 1)) + 1025;
+    if (avoid.has(port)) continue;
+
+    const { isAvailable } = await isPortAvailable(port, host);
+    if (isAvailable) return port;
+  }
+  return null;
+}
+
+export function isPortAvailable(
+  port: number,
+  host = "0.0.0.0",
+): Promise<PortAvailabilityResult> {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+
+    server.once("error", (err) => {
+      try {
+        server.close();
+      } catch {}
+      resolve({ isAvailable: false, err });
+    });
+
+    server.once("listening", () => {
+      server.close(() => resolve({ isAvailable: true }));
+    });
+
+    server.listen(port, host);
+  });
+}

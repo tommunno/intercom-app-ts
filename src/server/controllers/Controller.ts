@@ -53,12 +53,12 @@ export class Controller implements IController {
     await this.networkController.init();
     this.audioController.init();
   }
-  start(): void {
+  async start(): Promise<void> {
     this.logger.info("Starting");
     this.dataController.start();
     const networkData = this.dataController.getNetworkData();
     const audioData = this.dataController.getAudioData();
-    this.networkController.populate(networkData);
+    await this.networkController.populate(networkData);
     this.networkController.start();
     this.audioController.populate(audioData);
     this.audioController.start();
@@ -267,7 +267,7 @@ export class Controller implements IController {
     const turnServerInfo = this.networkController.getTurnServerInfo();
     const trackAndStream = this.audioController.getTxTrackAndStream(userId);
 
-    if (!userInfo || !audioInfo || !turnServerInfo) {
+    if (!userInfo || !audioInfo) {
       //An internal error has occured
       //This is logged inside of data and audio controller
       this.networkController.sendLoginFailureMessage(clientId);

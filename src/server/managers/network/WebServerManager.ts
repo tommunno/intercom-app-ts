@@ -15,9 +15,8 @@ import type {
 import {
   isAddressLocalhost,
   isStringAndNotEmpty,
-  validatePort,
 } from "../../../shared/helpers.js";
-import type { Servers, WebServerData } from "../../types/index.js";
+import type { Servers, WebServerResolvedData } from "../../types/index.js";
 
 //Constants:
 import {
@@ -55,7 +54,7 @@ export class WebServerManager implements IWebServerManager {
 
   private app: Express = express();
   private httpPort: number = DEFAULT_HTTP_PORT;
-  private httpsPort: number = DEFAULT_HTTPS_PORT;
+  private httpsPort: number | null = DEFAULT_HTTPS_PORT;
 
   private httpServer: http.Server | null = null;
   private httpsServer: https.Server | null = null;
@@ -105,7 +104,7 @@ export class WebServerManager implements IWebServerManager {
     };
   }
 
-  populate({ httpPort, httpsPort }: WebServerData): void {
+  populate({ httpPort, httpsPort }: WebServerResolvedData): void {
     if (this.status !== "INITIALIZED") {
       throw new Error(
         `Cannot populate the WebServerManager whilst its status is ${this.status}`,
@@ -128,17 +127,17 @@ export class WebServerManager implements IWebServerManager {
     if (this.httpServer) {
       this.httpServer.on("error", (err) => this.handleListenError("HTTP", err));
       this.httpServer.listen(this.httpPort, () => {
-        this.logger.info(
+        this.logger.success(
           `HTTP Server running at http://localhost:${this.httpPort}`,
         );
       });
     }
-    if (this.httpsServer) {
+    if (this.httpsServer && this.httpsPort !== null) {
       this.httpsServer.on("error", (err) =>
         this.handleListenError("HTTPS", err),
       );
       this.httpsServer.listen(this.httpsPort, () => {
-        this.logger.info(
+        this.logger.success(
           `HTTPS Server running at https://localhost:${this.httpsPort}`,
         );
       });
@@ -287,7 +286,7 @@ export class WebServerManager implements IWebServerManager {
       this.logger.warn(
         `Blocked external HTTP access attempt from ${remoteAddress}`,
       );
-      if (!this.httpsServer) {
+      if (!this.httpsServer || this.httpsPort === null) {
         return res
           .status(403)
           .send("HTTPS required, but HTTPS is not available.");
@@ -306,7 +305,9 @@ export class WebServerManager implements IWebServerManager {
   ): void {
     if (err.code === "EADDRINUSE") {
       this.logger.error(
-        `${label} server failed to listen: port ${label === "HTTP" ? this.httpPort : this.httpsPort} is already in use.`,
+        `${label} server failed to listen: port ${
+          label === "HTTP" ? this.httpPort : (this.httpsPort ?? "unknown")
+        } is already in use.`,
       );
       return;
     }
@@ -383,30 +384,12 @@ export class WebServerManager implements IWebServerManager {
     next(err);
   }
 
-  private setPorts(httpPort?: number, httpsPort?: number): void {
-    if (
-      httpPort !== undefined &&
-      httpsPort !== undefined &&
-      httpPort === httpsPort
-    ) {
-      this.logger.warn(
-        `httpPort and httpsPort can not be the same (${httpPort}). Will use default HTTP port ${DEFAULT_HTTP_PORT} and default HTTPS port ${DEFAULT_HTTPS_PORT}`,
-      );
-      return;
-    }
-    if (validatePort(httpPort)) {
-      this.httpPort = httpPort;
-    } else {
-      this.logger.warn(
-        `Invalid httpPort provided. Will use default port ${DEFAULT_HTTP_PORT}`,
-      );
-    }
-    if (validatePort(httpsPort)) {
-      this.httpsPort = httpsPort;
-    } else {
-      this.logger.warn(
-        `Invalid httpsPort provided. Will use default port ${DEFAULT_HTTPS_PORT}`,
-      );
+  private setPorts(httpPort: number, httpsPort: number | null): void {
+    //Validation is done in NetworkController
+    this.httpPort = httpPort;
+    this.httpsPort = httpsPort;
+    if (httpsPort === null) {
+      this.logger.warn(`HTTPS disabled. No HTTPS server will be created`);
     }
   }
 

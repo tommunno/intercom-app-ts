@@ -14,4 +14,7 @@ export * from "./MediaBridgeChannel.js";
 export * from "./TrackAndStream.js";
 export * from "./CrosspointChange.js";
 export * from "./TailInfo.js";
+export * from "./PortType.js";
+export * from "./PortInfo.js";
+export * from "./PortAvailabilityResult.js";
 export * from "./wrtcShimTypes.js";

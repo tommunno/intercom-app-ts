@@ -9,7 +9,7 @@ export interface PanelState {
   audioConnection: { status: PanelConnectionStatus };
   userInfo: UserInfo;
   audioInfo: AudioInfo;
-  turnServerInfo: TurnServerInfo;
+  turnServerInfo: TurnServerInfo | null;
   attemptingAutomaticLogin: boolean;
   userMicMuted: boolean;
 }

@@ -2,7 +2,7 @@ import type {
   AuthResult,
   LoginCredentials,
 } from "../../../shared/types/index.js";
-import type { Servers, WebServerData } from "../../types/index.js";
+import type { Servers, WebServerResolvedData } from "../../types/index.js";
 
 export interface WebServerHandlers {
   onUserSoftLoginRequest: (
@@ -13,7 +13,7 @@ export interface WebServerHandlers {
 
 export interface IWebServerManager {
   init: () => Promise<Servers>;
-  populate: (data: WebServerData) => void;
+  populate: (data: WebServerResolvedData) => void;
   start: () => void;
   setHandlers: (handlers: WebServerHandlers) => void;
   // setPorts: (httpPort: number, httpsPort: number) => boolean;
