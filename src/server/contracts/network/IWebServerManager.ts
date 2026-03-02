@@ -16,5 +16,4 @@ export interface IWebServerManager {
   populate: (data: WebServerResolvedData) => void;
   start: () => void;
   setHandlers: (handlers: WebServerHandlers) => void;
-  // setPorts: (httpPort: number, httpsPort: number) => boolean;
 }

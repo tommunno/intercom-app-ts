@@ -45,7 +45,7 @@ export interface IAudioMatrixManager {
   //Is the specified port only talking to the specified partyline and no other partylines:
   isSoleActiveTalkKeyForPort: (portNum: number, plNum: number) => boolean;
   isPortTalkingToPartyline: (portNum: number, plNum: number) => boolean;
-  //Is the specified port talking to any ports OTHER than the ones passed in:
+  //Is the specified port talking to any partylines OTHER than the ones passed in:
   areAnyOtherTalkKeysActiveForPort: (
     portNum: number,
     plNums: ReadonlySet<number>,

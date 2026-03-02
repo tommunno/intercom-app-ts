@@ -6,7 +6,11 @@ const __dirname = dirname(__filename);
 
 export default {
   mode: "development",
-  entry: "./src/client/panel.ts",
+  entry: {
+    panel: "./src/client/panel.ts",
+    setup: "./src/client/setup.ts",
+  },
+
   module: {
     rules: [
       {
@@ -24,7 +28,7 @@ export default {
     },
   },
   output: {
-    filename: "panel.bundle.js",
+    filename: "[name].bundle.js",
     path: path.resolve(__dirname, "public/assets/js"),
   },
 };

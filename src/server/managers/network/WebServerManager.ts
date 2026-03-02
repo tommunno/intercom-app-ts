@@ -47,6 +47,7 @@ import fs from "fs";
 import { TLSSocket } from "tls";
 import selfsigned, { type CertificateField } from "selfsigned";
 import crypto from "crypto";
+import { exec } from "node:child_process";
 
 export class WebServerManager implements IWebServerManager {
   private status: ManagerStatus = "IDLE";
@@ -130,6 +131,7 @@ export class WebServerManager implements IWebServerManager {
         this.logger.success(
           `HTTP Server running at http://localhost:${this.httpPort}`,
         );
+        this.openSetupWebpage();
       });
     }
     if (this.httpsServer && this.httpsPort !== null) {
@@ -312,6 +314,34 @@ export class WebServerManager implements IWebServerManager {
       return;
     }
     this.logger.error(`${label} server listen error`, err);
+  }
+
+  private openSetupWebpage(): void {
+    if (this.status !== "RUNNING") {
+      this.logger.error(
+        `Unable to open setup webpage: ManagerStatus is ${this.status}`,
+      );
+      return;
+    }
+    const url = `http://localhost:${this.httpPort}/setup`;
+    const platform = process.platform;
+
+    this.logger.info(`opening: http://localhost:${this.httpPort}/setup`);
+
+    // macOS:
+    if (platform === "darwin") {
+      exec(`open "${url}"`);
+      return;
+    }
+
+    // Windows:
+    if (platform === "win32") {
+      exec(`cmd /c start "" "${url}"`);
+      return;
+    }
+
+    // Linux (and most desktop distros):
+    exec(`xdg-open "${url}"`);
   }
 
   private async handleUserLoginRequest(
