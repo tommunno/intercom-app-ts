@@ -38,5 +38,5 @@ export const SHORT_TAIL_TIME_MS = 500;
 export const WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;
 
 //TurnServer:
-export const DEFAULT_TURN_SERVER_PORT = 4321;
+export const DEFAULT_TURN_SERVER_PORT = 3478;
 export const DEFAULT_TURN_SERVER_IP = "127.0.0.1";

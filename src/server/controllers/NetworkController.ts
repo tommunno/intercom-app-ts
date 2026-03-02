@@ -29,7 +29,7 @@ import type {
 } from "../types/NetworkData.js";
 import type { TrackAndStream } from "../types/TrackAndStream.js";
 import type { WssMessageInfo } from "../types/WssMessageInfo.js";
-import type { PortInfo } from "../types/PortInfo.js";
+import type { PortInfo, PortInfos } from "../types/PortInfo.js";
 //Constants:
 import {
   DEFAULT_HTTP_PORT,
@@ -83,7 +83,7 @@ export class NetworkController implements INetworkController {
     if (this.turnServerManager.status === "POPULATED") {
       this.turnServerManager.start();
     } else {
-      this.logger.warn(`Will not start the Turn Server`);
+      this.logger.warn(`TURN disabled. Will not start the Turn Server`);
     }
     this.webRtcManager.start();
   }
@@ -189,58 +189,71 @@ export class NetworkController implements INetworkController {
   }
 
   private async resolvePorts(data: NetworkData): Promise<NetworkResolvedData> {
-    const portInfos: PortInfo[] = [
-      { type: "HTTP", default: true, value: DEFAULT_HTTP_PORT },
-      { type: "HTTPS", default: true, value: DEFAULT_HTTPS_PORT },
-      { type: "TURN", default: true, value: DEFAULT_TURN_SERVER_PORT },
-    ];
     let { httpPort, httpsPort } = data.webServerData;
     let { port: turnPort } = data.turnServerData;
-    [httpPort, httpsPort, turnPort].forEach((port, i) => {
-      const portInfo = portInfos[i];
-      if (!portInfo) {
-        throw new Error(
-          `NetworkController: resolvePorts: Invariant violation: can not find portInfo for index ${i}`,
-        );
-      }
-      if (port === undefined) {
+    const portInfos: PortInfos = {
+      HTTP: {
+        type: "HTTP",
+        default: true,
+        inputValue: httpPort,
+        outputValue: DEFAULT_HTTP_PORT,
+      },
+      HTTPS: {
+        type: "HTTPS",
+        default: true,
+        inputValue: httpsPort,
+        outputValue: DEFAULT_HTTPS_PORT,
+      },
+      TURN: {
+        type: "TURN",
+        default: true,
+        inputValue: turnPort,
+        outputValue: DEFAULT_TURN_SERVER_PORT,
+      },
+    };
+    const orderedPortInfos = [portInfos.HTTP, portInfos.HTTPS, portInfos.TURN];
+
+    orderedPortInfos.forEach((portInfo, i) => {
+      const { type, inputValue } = portInfo;
+      const portsAlreadyAssigned = orderedPortInfos.slice(0, i);
+      if (inputValue === undefined) {
         this.logger.info(
-          `${portInfo.type} port not provided, will attempt to use default port ${portInfo.value}...`,
+          `${type} port not provided, will attempt to use default port ${portInfo.outputValue}...`,
         );
-      } else if (!validatePort(port)) {
+      } else if (!validatePort(inputValue)) {
         this.logger.error(
-          `${portInfo.type} port ${port} invalid, will attempt to use default port ${portInfo.value}...`,
+          `${type} port ${inputValue} invalid, will attempt to use default port ${portInfo.outputValue}...`,
         );
       } else {
-        const portsAlreadyAssigned = portInfos.slice(0, i);
-        let result = this.doesPortClash(port, portsAlreadyAssigned);
-        if (!result.clash) {
-          portInfo.value = port;
-          portInfo.default = false;
-        } else {
+        portInfo.outputValue = inputValue;
+        portInfo.default = false;
+      }
+      if (portInfo.outputValue !== null) {
+        const result = this.doesPortClash(
+          portInfo.outputValue,
+          portsAlreadyAssigned,
+        );
+        if (result.clash) {
           this.logger.error(
-            `${portInfo.type} port ${port} clashes with ${result.clashesWith} port. Unable to run the ${portInfo.type} server`,
+            `${type} port ${portInfo.outputValue} clashes with ${result.clashesWith} port. Unable to run the ${type} server`,
           );
-          portInfo.value = null;
+          portInfo.outputValue = null;
         }
       }
     });
-    await this.nullifyUnavailablePortsInPlace(portInfos);
-    const httpPortInfo = portInfos.find((p) => p.type === "HTTP");
-    if (!httpPortInfo) {
-      throw new Error(
-        `resolvePorts: Invariant violation: can not find httpPortInfo`,
-      );
-    }
-    if (httpPortInfo.value === null) {
+    await this.nullifyUnavailablePortsInPlace(orderedPortInfos);
+
+    const { HTTP: httpPortInfo } = portInfos;
+    const { outputValue } = httpPortInfo;
+    if (outputValue === null) {
       const portsToAvoid = new Set<number>();
-      portInfos.forEach((portInfo) => {
-        if (portInfo.type === "HTTP" || portInfo.value === null) return;
-        portsToAvoid.add(portInfo.value);
+      orderedPortInfos.forEach((p) => {
+        if (p.type === "HTTP" || p.outputValue === null) return;
+        portsToAvoid.add(p.outputValue);
       });
       const newPort = await findRandomAvailablePort(portsToAvoid);
       if (newPort !== null) {
-        httpPortInfo.value = newPort;
+        httpPortInfo.outputValue = newPort;
         httpPortInfo.default = false;
       } else {
         throw new Error(
@@ -248,17 +261,17 @@ export class NetworkController implements INetworkController {
         );
       }
     }
-    this.logPortInfosSummary(portInfos);
+    this.logPortInfosSummary(orderedPortInfos);
     const resolvedData = this.createResolvedData(data, portInfos);
     return resolvedData;
   }
 
   private doesPortClash(
     port: number,
-    portInfos: PortInfo[],
+    portInfos: PortInfo<PortType>[],
   ): { clash: true; clashesWith: PortType } | { clash: false } {
     for (const portInfo of portInfos) {
-      if (portInfo.value === port) {
+      if (portInfo.outputValue !== null && portInfo.outputValue === port) {
         return { clash: true, clashesWith: portInfo.type };
       }
     }
@@ -266,20 +279,21 @@ export class NetworkController implements INetworkController {
   }
 
   private async nullifyUnavailablePortsInPlace(
-    portInfos: PortInfo[],
+    portInfos: PortInfo<PortType>[],
   ): Promise<void> {
     for (const p of portInfos) {
-      if (p.value !== null) {
-        const result = await isPortAvailable(p.value);
+      if (p.outputValue !== null) {
+        const isUdp = p.type === "TURN";
+        const result = await isPortAvailable(p.outputValue, isUdp);
         if (!result.isAvailable) {
-          p.value = null;
+          p.outputValue = null;
           this.logger.error(`${p.type} port is not free`, result.err);
         }
       }
     }
   }
 
-  private logPortInfosSummary(portInfos: PortInfo[]): void {
+  private logPortInfosSummary(portInfos: PortInfo<PortType>[]): void {
     let message = "Using ";
     portInfos.forEach((portInfo, i) => {
       const end =
@@ -289,11 +303,11 @@ export class NetworkController implements INetworkController {
             ? " and "
             : "";
 
-      if (portInfo.value === null) {
+      if (portInfo.outputValue === null) {
         message += `no port for the ${portInfo.type} server${end}`;
         return;
       }
-      message += `${portInfo.default ? "default " : ""}${portInfo.type} port ${portInfo.value}${end}`;
+      message += `${portInfo.default ? "default " : ""}${portInfo.type} port ${portInfo.outputValue}${end}`;
     });
 
     this.logger.info(message);
@@ -301,20 +315,15 @@ export class NetworkController implements INetworkController {
 
   private createResolvedData(
     data: NetworkData,
-    portInfos: PortInfo[],
+    portInfos: PortInfos,
   ): NetworkResolvedData {
-    const httpPort = portInfos.find((p) => p.type === "HTTP")?.value;
-    const httpsPort = portInfos.find((p) => p.type === "HTTPS")?.value;
-    const turnPort = portInfos.find((p) => p.type === "TURN")?.value;
+    const httpPort = portInfos.HTTP.outputValue;
+    const httpsPort = portInfos.HTTPS.outputValue;
+    const turnPort = portInfos.TURN.outputValue;
 
-    if (
-      httpPort === undefined ||
-      httpPort === null ||
-      httpsPort === undefined ||
-      turnPort === undefined
-    ) {
+    if (httpPort === null) {
       throw new Error(
-        `NetworkController: createResolvedData: can not find ports from portInfos: httpPort: ${httpPort}, httpsPort: ${httpsPort}, turnPort: ${turnPort}`,
+        `NetworkController: createResolvedData: Invariant violation: HTTP outputValue is null`,
       );
     }
     const webServerResolvedData: WebServerResolvedData = {

@@ -7,6 +7,7 @@ import { CHUNK_SIZE } from "./constants/serverConstants.js";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import net from "node:net";
+import dgram from "node:dgram";
 
 const SAMPLE_RATE = 48000;
 const NUM_CH = 3;
@@ -148,9 +149,11 @@ export function validatePort(port: number | undefined): port is number {
   );
 }
 
+//TCP by default, UDP if isUdp=true:
 export async function findRandomAvailablePort(
   avoid: ReadonlySet<number> = new Set(),
-  host = "0.0.0.0",
+  isUdp: boolean = false,
+  host: string = "0.0.0.0",
   attempts = 5,
 ): Promise<number | null> {
   for (let i = 0; i < attempts; i++) {
@@ -158,15 +161,26 @@ export async function findRandomAvailablePort(
     const port = Math.floor(Math.random() * (65535 - 1025 + 1)) + 1025;
     if (avoid.has(port)) continue;
 
-    const { isAvailable } = await isPortAvailable(port, host);
+    const { isAvailable } = await isPortAvailable(port, isUdp, host);
     if (isAvailable) return port;
   }
   return null;
 }
 
+//TCP by default, UDP if isUdp=true:
 export function isPortAvailable(
   port: number,
-  host = "0.0.0.0",
+  isUdp: boolean = false,
+  host: string = "0.0.0.0",
+): Promise<PortAvailabilityResult> {
+  return isUdp
+    ? isUdpPortAvailable(port, host)
+    : isTcpPortAvailable(port, host);
+}
+
+export function isTcpPortAvailable(
+  port: number,
+  host: string = "0.0.0.0",
 ): Promise<PortAvailabilityResult> {
   return new Promise((resolve) => {
     const server = net.createServer();
@@ -183,5 +197,28 @@ export function isPortAvailable(
     });
 
     server.listen(port, host);
+  });
+}
+
+export function isUdpPortAvailable(
+  port: number,
+  host: string = "0.0.0.0",
+): Promise<PortAvailabilityResult> {
+  return new Promise((resolve) => {
+    const socket = dgram.createSocket("udp4");
+
+    socket.once("error", (err) => {
+      try {
+        socket.close();
+      } catch {}
+      resolve({ isAvailable: false, err });
+    });
+
+    socket.once("listening", () => {
+      socket.close();
+      resolve({ isAvailable: true });
+    });
+
+    socket.bind(port, host);
   });
 }

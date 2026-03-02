@@ -1,7 +1,10 @@
 import type { PortType } from "./PortType.js";
 
-export type PortInfo = {
-  type: PortType;
+export type PortInfo<K extends PortType> = {
+  type: K;
   default: boolean;
-  value: number | null;
+  inputValue: number | undefined;
+  outputValue: number | null;
 };
+
+export type PortInfos = { [K in PortType]: PortInfo<K> };

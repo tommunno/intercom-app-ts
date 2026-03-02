@@ -86,7 +86,7 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       webServerData: { httpPort: 5051, httpsPort: 5052 },
-      turnServerData: { port: 4327, ip: "192.168.86.183" },
+      turnServerData: { port: 4052, ip: "192.168.86.183" },
     };
   }
 
@@ -96,8 +96,8 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       requestedNumSoundcardChannels: 4,
-      numPartylines: 8,
-      requestedSoundcardId: 3,
+      numPartylines: 12,
+      requestedSoundcardId: 4,
     };
   }
 
