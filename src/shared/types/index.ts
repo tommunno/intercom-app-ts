@@ -1,4 +1,5 @@
 export * from "./AuthResult.js";
+export * from "./AdminAuthResult.js";
 export * from "./User.js";
 export * from "./HttpLoginResponse.js";
 export * from "./HttpLoginRequest.js";

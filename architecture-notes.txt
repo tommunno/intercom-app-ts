@@ -16,6 +16,7 @@ Controller: IController
 
     DataController: IDataController
         AccountManager: IAccountManager
+        AdminAccountManager: IAdminAccountManager
         DataManager: IDataManager
 
     Logger: ILogger

@@ -21,4 +21,5 @@ export * from "./network/ITurnServerManager.js";
 // --- Data ---
 export * from "./data/IDataController.js";
 export * from "./data/IAccountManager.js";
+export * from "./data/IAdminAccountManager.js";
 export * from "./data/IDataManager.js";

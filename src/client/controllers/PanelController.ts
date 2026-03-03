@@ -1,6 +1,6 @@
 import {
-  WSS_DOWNSTREAM,
-  type WssDownstream,
+  WSS_DOWNSTREAM_PANEL,
+  type WssDownstreamPanel,
   type WssPayloads,
 } from "../../shared/protocols/wssProtocol.js";
 import type {
@@ -24,7 +24,7 @@ import type {
 import type {
   AttemptFullLoginParams,
   PanelState,
-  WssClientCommandMap,
+  WssPanelCommandMap,
 } from "../types/index.js";
 
 export class PanelController implements IPanelController {
@@ -36,7 +36,7 @@ export class PanelController implements IPanelController {
     attemptingAutomaticLogin: false,
     userMicMuted: false,
   };
-  private readonly wssCommands: WssClientCommandMap = {
+  private readonly wssCommands: WssPanelCommandMap = {
     HEARTBEAT_REQUEST: this.handleHeartbeatRequest.bind(this),
     USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
     USER_FORCE_LOGOUT: this.handleForceLogout.bind(this),
@@ -268,7 +268,7 @@ export class PanelController implements IPanelController {
     this.handleLostConnection();
   }
 
-  private handleWssMessage<K extends WssDownstream>(
+  private handleWssMessage<K extends WssDownstreamPanel>(
     type: K,
     payload: WssPayloads[K],
   ): void {
@@ -299,7 +299,7 @@ export class PanelController implements IPanelController {
     userInfo,
     audioInfo,
     turnServerInfo,
-  }: WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]) {
+  }: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]) {
     this.guiManager.setLoginLoading(false);
 
     this.logger.info(
@@ -346,12 +346,12 @@ export class PanelController implements IPanelController {
 
   private handleForceLogout({
     loginTakeover,
-  }: WssPayloads[typeof WSS_DOWNSTREAM.USER_FORCE_LOGOUT]) {
+  }: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]) {
     this.logout({ sendRequest: false, loginTakeover });
   }
 
   private handleAudioInfoUpdate(
-    audioInfo: WssPayloads[typeof WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE],
+    audioInfo: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_AUDIO_INFO_UPDATE],
   ) {
     this.logger.info("Handling audio info update:", audioInfo);
     this.state.audioInfo = audioInfo;
@@ -360,14 +360,14 @@ export class PanelController implements IPanelController {
   }
 
   private handleWebRtcAnswer(
-    answer: WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_ANSWER],
+    answer: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER],
   ) {
     this.logger.info("Handling WebRtc answer:", answer);
     this.webRtcManager.processRemoteAnswer(answer);
   }
 
   private handleWebRtcServerIceCandidate(
-    candidate: WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE],
+    candidate: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE],
   ) {
     this.logger.info("Handling WebRtc server ICE candidate:", candidate);
     this.webRtcManager.processRemoteIceCandidate(candidate);

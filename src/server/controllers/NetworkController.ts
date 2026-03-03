@@ -5,6 +5,7 @@ import type {
   WssUpstream,
 } from "../../shared/protocols/index.js";
 import type {
+  AdminAuthResult,
   AuthResult,
   LoginCredentials,
   RtcAnswerWire,
@@ -103,7 +104,7 @@ export class NetworkController implements INetworkController {
   }
 
   //WssManager Helpers:
-  sendLoginFailureMessage(clientId: string, message?: string): void {
+  sendUserLoginFailureMessage(clientId: string, message?: string): void {
     this.sendWssMessage(
       "USER_LOGIN_RESPONSE",
       {
@@ -112,6 +113,17 @@ export class NetworkController implements INetworkController {
         userInfo: null,
         audioInfo: null,
         turnServerInfo: null,
+      },
+      [clientId],
+    );
+  }
+
+  sendAdminLoginFailureMessage(clientId: string, message?: string): void {
+    this.sendWssMessage(
+      "ADMIN_LOGIN_RESPONSE",
+      {
+        success: false,
+        message: message ?? "Internal server error",
       },
       [clientId],
     );
@@ -167,6 +179,7 @@ export class NetworkController implements INetworkController {
   private bindListeners(): void {
     this.webServerManager.setHandlers({
       onUserSoftLoginRequest: (s, l) => this.handleUserSoftLoginRequest(s, l),
+      onAdminSoftLoginRequest: (s, l) => this.handleAdminSoftLoginRequest(s, l),
     });
 
     this.wssManager.setHandlers({
@@ -349,6 +362,17 @@ export class NetworkController implements INetworkController {
     loginCredentials: LoginCredentials,
   ): Promise<AuthResult> {
     const authResult = await this.activeHandlers.onUserSoftLoginRequest(
+      sessionToken,
+      loginCredentials,
+    );
+    return authResult;
+  }
+
+  private async handleAdminSoftLoginRequest(
+    sessionToken: string | null,
+    loginCredentials: LoginCredentials,
+  ): Promise<AdminAuthResult> {
+    const authResult = await this.activeHandlers.onAdminSoftLoginRequest(
       sessionToken,
       loginCredentials,
     );

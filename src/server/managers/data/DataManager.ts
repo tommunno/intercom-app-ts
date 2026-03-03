@@ -5,6 +5,7 @@ import type {
   ILogger,
 } from "../../contracts/index.js";
 import type { AccountData } from "../../types/AccountData.js";
+import type { AdminAccountData } from "../../types/AdminAccountData.js";
 import type { AudioData } from "../../types/AudioData.js";
 import type { NetworkData } from "../../types/NetworkData.js";
 
@@ -78,6 +79,13 @@ export class DataManager implements IDataManager {
         },
       ],
     };
+  }
+
+  getAdminAccountData(): AdminAccountData {
+    this.checkAndWarnIfNotRunning("get admin account data", true);
+
+    //Temporary data:
+    return {};
   }
 
   getNetworkData(): NetworkData {

@@ -9,8 +9,6 @@ import {
   type AdminUserUpdate,
   type UserAndId,
 } from "../../../shared/types/index.js";
-//Server Types:
-
 //Contracts:
 import {
   type AccountHandlers,
@@ -18,6 +16,12 @@ import {
   type IAccountManager,
   type ILogger,
 } from "../../contracts/index.js";
+//Helpers:
+import {
+  generateSessionToken,
+  hasSessionTokenInfoExpired,
+  sanitiseSessionTokenInfos,
+} from "../../serverHelpers.js";
 //Constants:
 import {
   ACCOUNT_HEARTBEAT_DURATION_MS,
@@ -158,7 +162,11 @@ export class AccountManager implements IAccountManager {
         newUser.username = u;
       }
       newUser.passwordHash = p;
-      newUser.sessionTokenInfos = this.sanitiseSessionTokenInfos(sTs, i);
+      newUser.sessionTokenInfos = sanitiseSessionTokenInfos(
+        sTs,
+        this.logger,
+        i,
+      );
 
       this.users.set(i, newUser);
       usernames.add(newUser.username);
@@ -194,34 +202,6 @@ export class AccountManager implements IAccountManager {
       password.length >= MIN_PASSWORD_LENGTH &&
       password.length <= MAX_PASSWORD_LENGTH
     );
-  }
-
-  private sanitiseSessionTokenInfos(
-    infos: SessionTokenInfo[],
-    userId: number,
-  ): SessionTokenInfo[] {
-    const result: SessionTokenInfo[] = [];
-    const seen = new Set<string>();
-    let duplicateToken = false;
-
-    for (const info of infos) {
-      if (this.sessionTokenInfoHasExpired(info)) continue;
-
-      if (seen.has(info.token)) {
-        duplicateToken = true;
-        continue;
-      }
-
-      seen.add(info.token);
-      result.push({ ...info });
-    }
-
-    if (duplicateToken) {
-      this.logger.warn(
-        `Duplicate sessionToken found in loaded sessionTokenInfos for userId ${userId}`,
-      );
-    }
-    return result;
   }
 
   //Ensures a unique default username is provisioned by checking for collisions against the usernames Set
@@ -336,7 +316,7 @@ export class AccountManager implements IAccountManager {
     }
 
     //User is not logged in, and credentials match. Client has been succesfully authenticated, and a new sessionToken will be handed out. But the client will not be logged in until it is 'hard' logged in via WS!
-    const newSessionToken = this.generateSessionToken();
+    const newSessionToken = generateSessionToken();
     this.addUniqueSessionToken(user, newSessionToken);
 
     return {
@@ -384,7 +364,7 @@ export class AccountManager implements IAccountManager {
 
     const { user, userId, sessionTokenInfo } = sessionContext;
 
-    if (this.sessionTokenInfoHasExpired(sessionTokenInfo)) {
+    if (hasSessionTokenInfoExpired(sessionTokenInfo)) {
       return {
         ...baseResult,
         message: "Invalid session token",
@@ -393,7 +373,6 @@ export class AccountManager implements IAccountManager {
     }
     //We have now found a user
 
-    let loginTakeover = false;
     const sessionTokenMatch =
       sessionToken === user.sessionTokenInfoInUse?.token;
 
@@ -545,10 +524,6 @@ export class AccountManager implements IAccountManager {
     });
 
     this.activeHandlers.onHeartbeat(clientIds, { timestamp });
-  }
-
-  private generateSessionToken(): string {
-    return crypto.randomUUID();
   }
 
   //If hardLogout is true, the sessionToken is removed from the sessionTokens array.
@@ -791,15 +766,8 @@ export class AccountManager implements IAccountManager {
   ): SessionTokenInfo[] {
     const now = Date.now();
     return sessionTokenInfos.filter((info) => {
-      return !this.sessionTokenInfoHasExpired(info, now);
+      return !hasSessionTokenInfoExpired(info, now);
     });
-  }
-
-  private sessionTokenInfoHasExpired(
-    sessionTokenInfo: SessionTokenInfo,
-    now: number = Date.now(),
-  ): boolean {
-    return sessionTokenInfo.expiresAtMs < now;
   }
 
   private startSessionCleanup(): void {

@@ -1,6 +1,5 @@
 import type {
-  WSS_DOWNSTREAM,
-  WssDownstream,
+  WssDownstreamPanel,
   WssPayloads,
   WssUpstream,
 } from "../../shared/protocols/index.js";
@@ -14,7 +13,7 @@ export interface PanelWssHandlers {
   onHeartbeatTimeout: () => void;
 }
 
-export type PanelWssMessageHandler = <K extends WssDownstream>(
+export type PanelWssMessageHandler = <K extends WssDownstreamPanel>(
   type: K,
   payload: WssPayloads[K],
 ) => void;

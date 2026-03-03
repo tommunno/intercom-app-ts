@@ -23,6 +23,10 @@ export const SESSION_CLEANUP_INTERVAL_MS = 900_000; //15 * 60 * 1000 = 15 mins
 export const ACCOUNT_HEARTBEAT_DURATION_MS = 5000;
 export const ACCOUNT_STALE_HEARTBEAT_MS = 10000;
 
+//AdminAccontManager:
+export const DEFAULT_ADMIN_USERNAME = "admin";
+export const DEFAULT_ADMIN_PASSWORD = "intercomadmin123";
+
 //BCrypt:
 export const SALT_ROUNDS = 10;
 

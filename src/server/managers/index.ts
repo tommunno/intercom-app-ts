@@ -14,4 +14,5 @@ export * from "./network/TurnServerManager.js";
 
 // --- Data ---
 export * from "./data/AccountManager.js";
+export * from "./data/AdminAccountManager.js";
 export * from "./data/DataManager.js";

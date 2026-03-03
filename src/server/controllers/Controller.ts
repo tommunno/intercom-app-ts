@@ -6,6 +6,7 @@ import type {
   INetworkController,
 } from "../contracts/index.js";
 import type {
+  AdminAuthResult,
   AudioInfo,
   AuthResult,
   HeartbeatRequestPayload,
@@ -35,6 +36,7 @@ export class Controller implements IController {
     WEB_RTC_OFFER: this.handleWebRtcOffer.bind(this),
     WEB_RTC_CLIENT_ICE_CANDIDATE:
       this.handleWebRtcClientIceCandidate.bind(this),
+    ADMIN_LOGIN: this.handleAdminLogin.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -55,7 +57,7 @@ export class Controller implements IController {
   }
   async start(): Promise<void> {
     this.logger.info("Starting");
-    this.dataController.start();
+    await this.dataController.start();
     const networkData = this.dataController.getNetworkData();
     const audioData = this.dataController.getAudioData();
     await this.networkController.populate(networkData);
@@ -77,6 +79,7 @@ export class Controller implements IController {
     this.networkController.setHandlers({
       //WebServer:
       onUserSoftLoginRequest: (s, l) => this.handleUserSoftLoginRequest(s, l),
+      onAdminSoftLoginRequest: (s, l) => this.handleAdminSoftLoginRequest(s, l),
       //Wss:
       onMessage: this.handleWssMessage.bind(this),
       onClientDisconnect: (c) => this.handleClientDisconnect(c),
@@ -212,6 +215,20 @@ export class Controller implements IController {
     return result;
   }
 
+  //Admin first makes Http request for a 'soft' login
+  //If there is a valid sessionToken, success
+  //If no valid sessionToken, but credentials are valid, success and a sessionToken is sent
+  private async handleAdminSoftLoginRequest(
+    sessionToken: string | null,
+    loginCredentials: LoginCredentials,
+  ): Promise<AdminAuthResult> {
+    const result: AdminAuthResult = await this.dataController.softLoginAdmin(
+      sessionToken,
+      loginCredentials,
+    );
+    return result;
+  }
+
   //Handle Wss messages:
 
   private handleWssMessage<K extends WssUpstream>({
@@ -254,7 +271,10 @@ export class Controller implements IController {
     const result = this.dataController.loginUser(sessionToken, clientId);
 
     if (!result.success) {
-      this.networkController.sendLoginFailureMessage(clientId, result.message);
+      this.networkController.sendUserLoginFailureMessage(
+        clientId,
+        result.message,
+      );
       return;
     }
 
@@ -270,7 +290,7 @@ export class Controller implements IController {
     if (!userInfo || !audioInfo) {
       //An internal error has occured
       //This is logged inside of data and audio controller
-      this.networkController.sendLoginFailureMessage(clientId);
+      this.networkController.sendUserLoginFailureMessage(clientId);
       this.logoutClientIfLoggedIn({ clientId });
       return;
     }
@@ -341,6 +361,31 @@ export class Controller implements IController {
     );
     if (userId === null) return;
     this.networkController.processRtcRemoteIceCandidate(clientId, candidate);
+  }
+
+  //Admin requests 'hard' login via WS. The sessionToken is used for validation here.
+  private handleAdminLogin(
+    _payload: WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGIN],
+    clientId: string,
+    sessionToken: string | null,
+  ): void {
+    const { success, message } = this.dataController.loginAdmin(
+      sessionToken,
+      clientId,
+    );
+
+    if (!success) {
+      this.networkController.sendAdminLoginFailureMessage(clientId, message);
+      return;
+    }
+
+    //Login Success:
+
+    this.networkController.sendWssMessage(
+      "ADMIN_LOGIN_RESPONSE",
+      { success: true, message },
+      [clientId],
+    );
   }
 
   //Handle WebRtc:

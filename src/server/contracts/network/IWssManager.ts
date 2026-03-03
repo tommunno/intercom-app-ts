@@ -1,8 +1,4 @@
-import type {
-  WssDownstream,
-  WssPayloads,
-  WssUpstream,
-} from "../../../shared/protocols/index.js";
+import type { WssUpstream } from "../../../shared/protocols/index.js";
 import type { Servers, WssMessageInfo } from "../../types/index.js";
 import type { WssSendMessage } from "../../types/index.js";
 

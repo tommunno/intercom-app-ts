@@ -1,6 +1,7 @@
 //Types:
 import type { ILogger, IOutputPort, IPartyline } from "./contracts/index.js";
 import type { PortAvailabilityResult } from "./types/index.js";
+import type { SessionTokenInfo } from "../shared/types/SessionTokenInfo.js";
 //Constants:
 import { CHUNK_SIZE } from "./constants/serverConstants.js";
 //External:
@@ -221,4 +222,44 @@ export function isUdpPortAvailable(
 
     socket.bind(port, host);
   });
+}
+
+export function hasSessionTokenInfoExpired(
+  sessionTokenInfo: SessionTokenInfo,
+  now: number = Date.now(),
+): boolean {
+  return sessionTokenInfo.expiresAtMs < now;
+}
+
+export function sanitiseSessionTokenInfos(
+  infos: SessionTokenInfo[],
+  logger: ILogger,
+  userId?: number,
+): SessionTokenInfo[] {
+  const result: SessionTokenInfo[] = [];
+  const seen = new Set<string>();
+  let duplicateToken = false;
+
+  for (const info of infos) {
+    if (hasSessionTokenInfoExpired(info)) continue;
+
+    if (seen.has(info.token)) {
+      duplicateToken = true;
+      continue;
+    }
+
+    seen.add(info.token);
+    result.push({ ...info });
+  }
+
+  if (duplicateToken) {
+    logger.warn(
+      `Duplicate sessionToken found in loaded sessionTokenInfos${userId === undefined ? "" : ` for userId ${userId}`} `,
+    );
+  }
+  return result;
+}
+
+export function generateSessionToken(): string {
+  return crypto.randomUUID();
 }

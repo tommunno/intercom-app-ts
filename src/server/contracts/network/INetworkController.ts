@@ -24,7 +24,8 @@ export interface INetworkController {
   //WssManager:
   sendWssMessage: WssSendMessage;
   //WssManager Helpers:
-  sendLoginFailureMessage: (clientId: string, message?: string) => void;
+  sendUserLoginFailureMessage: (clientId: string, message?: string) => void;
+  sendAdminLoginFailureMessage: (clientId: string, message?: string) => void;
 
   //WebRtcManager:
   createRtcPeerConnection: (clientId: string) => void;

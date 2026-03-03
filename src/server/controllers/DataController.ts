@@ -1,15 +1,16 @@
 //Types:
 import { dataIsType } from "../../shared/helpers.js";
 import type {
+  AdminAuthResult,
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
   UserInfo,
 } from "../../shared/types/index.js";
-
 import type {
   DataHandlers,
   IAccountManager,
+  IAdminAccountManager,
   IDataController,
   IDataManager,
   ILogger,
@@ -23,6 +24,7 @@ export class DataController implements IDataController {
 
   constructor(
     private accountManager: IAccountManager,
+    private adminAccountManager: IAdminAccountManager,
     private dataManager: IDataManager,
     private logger: ILogger,
   ) {
@@ -33,18 +35,23 @@ export class DataController implements IDataController {
     this.bindListeners();
     this.dataManager.init();
     this.accountManager.init();
+    this.adminAccountManager.init();
   }
 
-  private populate(): void {
+  private async populate(): Promise<void> {
     this.accountManager.populate(this.dataManager.getAccountData());
+    await this.adminAccountManager.populate(
+      this.dataManager.getAdminAccountData(),
+    );
   }
 
-  start(): void {
+  async start(): Promise<void> {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
     this.dataManager.start();
-    this.populate();
+    await this.populate();
     this.accountManager.start();
+    this.adminAccountManager.start();
     //Test data:
     this.accountManager.updateUsers([
       { userId: 0, password: "tom123" },
@@ -63,6 +70,8 @@ export class DataController implements IDataController {
       throw new Error("DataController handlers not initialized!");
     return this.handlers;
   }
+
+  //AccountManager:
 
   softLoginUser(
     sessionToken: string | null,
@@ -103,6 +112,19 @@ export class DataController implements IDataController {
     return this.accountManager.getLoggedInUserClientIds();
   }
 
+  //AdminAccountManager:
+
+  softLoginAdmin(
+    sessionToken: string | null,
+    logCred: LoginCredentials,
+  ): Promise<AdminAuthResult> {
+    return this.adminAccountManager.softLogin(sessionToken, logCred);
+  }
+
+  loginAdmin(sessionToken: string | null, clientId: string): AdminAuthResult {
+    return this.adminAccountManager.login(sessionToken, clientId);
+  }
+
   private bindListeners(): void {
     this.dataManager.setHandlers({});
 
@@ -110,6 +132,8 @@ export class DataController implements IDataController {
       onHeartbeat: (c, p) => this.handleAccountHeartbeat(c, p),
       onStaleHeartbeat: (c) => this.handleStaleHeartbeat(c),
     });
+
+    this.adminAccountManager.setHandlers({});
   }
 
   //Handle Account:

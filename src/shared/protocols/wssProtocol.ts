@@ -22,6 +22,7 @@ import {
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
 
+//For messages being received by the server:
 export const WSS_UPSTREAM = {
   HEARTBEAT_RESPONSE: "HEARTBEAT_RESPONSE",
   USER_LOGIN: "USER_LOGIN",
@@ -29,9 +30,11 @@ export const WSS_UPSTREAM = {
   KEY_PRESS: "KEY_PRESS",
   WEB_RTC_OFFER: "WEB_RTC_OFFER",
   WEB_RTC_CLIENT_ICE_CANDIDATE: "WEB_RTC_CLIENT_ICE_CANDIDATE",
+  ADMIN_LOGIN: "ADMIN_LOGIN",
 } as const;
 
-export const WSS_DOWNSTREAM = {
+//For messages being received by the client talkback panel:
+export const WSS_DOWNSTREAM_PANEL = {
   HEARTBEAT_REQUEST: "HEARTBEAT_REQUEST",
   USER_LOGIN_RESPONSE: "USER_LOGIN_RESPONSE",
   USER_FORCE_LOGOUT: "USER_FORCE_LOGOUT",
@@ -40,10 +43,18 @@ export const WSS_DOWNSTREAM = {
   WEB_RTC_SERVER_ICE_CANDIDATE: "WEB_RTC_SERVER_ICE_CANDIDATE",
 } as const;
 
-export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
-export type WssDownstream =
-  (typeof WSS_DOWNSTREAM)[keyof typeof WSS_DOWNSTREAM];
+//For messages being received by the client setup admin page:
+export const WSS_DOWNSTREAM_SETUP = {
+  ADMIN_LOGIN_RESPONSE: "ADMIN_LOGIN_RESPONSE",
+} as const;
 
+export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
+export type WssDownstreamPanel =
+  (typeof WSS_DOWNSTREAM_PANEL)[keyof typeof WSS_DOWNSTREAM_PANEL];
+export type WssDownstreamSetup =
+  (typeof WSS_DOWNSTREAM_SETUP)[keyof typeof WSS_DOWNSTREAM_SETUP];
+
+export type WssDownstream = WssDownstreamPanel | WssDownstreamSetup;
 export type WssType = WssUpstream | WssDownstream;
 
 //PAYLOAD VALIDATION:
@@ -55,12 +66,15 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.KEY_PRESS]: dataIsWssKeyPress,
   [WSS_UPSTREAM.WEB_RTC_OFFER]: dataIsWebRtcOffer,
   [WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE]: dataIsWebRtcClientIceCandidate,
-  [WSS_DOWNSTREAM.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
-  [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
-  [WSS_DOWNSTREAM.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
-  [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: dataIsWssUserAudioInfoUpdate,
-  [WSS_DOWNSTREAM.WEB_RTC_ANSWER]: dataIsWebRtcAnswer,
-  [WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE]: dataIsWebRtcServerIceCandidate,
+  [WSS_UPSTREAM.ADMIN_LOGIN]: dataIsWssAdminLogin,
+  [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
+  [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
+  [WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
+  [WSS_DOWNSTREAM_PANEL.USER_AUDIO_INFO_UPDATE]: dataIsWssUserAudioInfoUpdate,
+  [WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER]: dataIsWebRtcAnswer,
+  [WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE]:
+    dataIsWebRtcServerIceCandidate,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: dataIsAdminLoginResponse,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -74,20 +88,25 @@ type PayloadMap = {
   [WSS_UPSTREAM.KEY_PRESS]: KeyPressInfo;
   [WSS_UPSTREAM.WEB_RTC_OFFER]: RtcOfferWire;
   [WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
-  [WSS_DOWNSTREAM.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
-  [WSS_DOWNSTREAM.USER_LOGIN_RESPONSE]: {
+  [WSS_UPSTREAM.ADMIN_LOGIN]: null;
+  [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
+  [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: {
     success: boolean;
     message: string;
     userInfo: UserInfo | null;
     audioInfo: AudioInfo | null;
     turnServerInfo: TurnServerInfo | null;
   };
-  [WSS_DOWNSTREAM.USER_FORCE_LOGOUT]: {
+  [WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]: {
     loginTakeover: boolean;
   };
-  [WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE]: AudioInfo;
-  [WSS_DOWNSTREAM.WEB_RTC_ANSWER]: RtcAnswerWire;
-  [WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
+  [WSS_DOWNSTREAM_PANEL.USER_AUDIO_INFO_UPDATE]: AudioInfo;
+  [WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER]: RtcAnswerWire;
+  [WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
+  [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: {
+    success: boolean;
+    message: string;
+  };
 };
 
 export type WssPayloads = {
@@ -141,17 +160,23 @@ export function dataIsWebRtcClientIceCandidate(
   return dataIsRtcIceCandidateInitWire(data) || dataIsType("null", data);
 }
 
-//DOWNSTREAM:
+export function dataIsWssAdminLogin(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGIN] {
+  return dataIsType("null", data);
+}
+
+//DOWNSTREAM PANEL:
 
 export function dataIsWssHeartbeatRequest(
   data: unknown,
-): data is WssPayloads[typeof WSS_DOWNSTREAM.HEARTBEAT_REQUEST] {
+): data is WssPayloads[typeof WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST] {
   return dataIsHeartbeatRequestPayload(data);
 }
 
 export function dataIsWssUserLoginResponse(
   data: unknown,
-): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_LOGIN_RESPONSE] {
+): data is WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE] {
   return (
     dataIsObject(data) &&
     dataIsType("boolean", data.success) &&
@@ -164,24 +189,34 @@ export function dataIsWssUserLoginResponse(
 
 export function dataIsWssUserForceLogout(
   data: unknown,
-): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_FORCE_LOGOUT] {
+): data is WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT] {
   return dataIsObject(data) && dataIsType("boolean", data.loginTakeover);
 }
 
 export function dataIsWssUserAudioInfoUpdate(
   data: unknown,
-): data is WssPayloads[typeof WSS_DOWNSTREAM.USER_AUDIO_INFO_UPDATE] {
+): data is WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_AUDIO_INFO_UPDATE] {
   return dataIsAudioInfo(data);
 }
 
 export function dataIsWebRtcAnswer(
   data: unknown,
-): data is WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_ANSWER] {
+): data is WssPayloads[typeof WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER] {
   return dataIsRtcAnswerWire(data);
 }
 
 export function dataIsWebRtcServerIceCandidate(
   data: unknown,
-): data is WssPayloads[typeof WSS_DOWNSTREAM.WEB_RTC_SERVER_ICE_CANDIDATE] {
+): data is WssPayloads[typeof WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE] {
   return dataIsRtcIceCandidateInitWire(data) || dataIsType("null", data);
+}
+
+export function dataIsAdminLoginResponse(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE] {
+  return (
+    dataIsObject(data) &&
+    dataIsType("boolean", data.success) &&
+    dataIsType("string", data.message)
+  );
 }

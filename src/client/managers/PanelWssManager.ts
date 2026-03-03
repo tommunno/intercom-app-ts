@@ -6,12 +6,12 @@ import type {
 import type { ManagerStatus } from "../../shared/types/index.js";
 import {
   payloadIsValidForType,
-  type WssDownstream,
+  type WssDownstreamPanel,
   type WssPayloads,
   type WssUpstream,
 } from "../../shared/protocols/index.js";
 import {
-  dataIsWssDownstreamResponse,
+  dataIsWssDownstreamPanelResponse,
   type WssConnectionStatus,
 } from "../types/index.js";
 import {
@@ -189,7 +189,7 @@ export class PanelWssManager implements IPanelWssManager {
       try {
         const json: unknown = JSON.parse(event.data);
         //Check the 'universal' type
-        if (!dataIsWssDownstreamResponse(json)) {
+        if (!dataIsWssDownstreamPanelResponse(json)) {
           this.logger.warn("Malformed message structure");
           return;
         }
@@ -209,7 +209,7 @@ export class PanelWssManager implements IPanelWssManager {
     };
   }
 
-  private handleMessage<K extends WssDownstream>(
+  private handleMessage<K extends WssDownstreamPanel>(
     type: K,
     payload: unknown,
   ): void {

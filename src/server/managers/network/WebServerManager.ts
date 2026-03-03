@@ -9,6 +9,8 @@ import type {
   HttpLoginResponse,
   HttpLoginRequest,
   ManagerStatus,
+  AuthResult,
+  AdminAuthResult,
 } from "../../../shared/types/index.js";
 
 //Helpers:
@@ -88,7 +90,17 @@ export class WebServerManager implements IWebServerManager {
         rq: Request<{}, HttpLoginResponse, HttpLoginRequest>,
         rs: Response<HttpLoginResponse>,
       ) => {
-        await this.handleUserLoginRequest(rq, rs);
+        await this.handleLoginRequest(rq, rs);
+      },
+    );
+
+    this.app.post(
+      "/admin-login",
+      async (
+        rq: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+        rs: Response<HttpLoginResponse>,
+      ) => {
+        await this.handleLoginRequest(rq, rs, true);
       },
     );
 
@@ -344,14 +356,21 @@ export class WebServerManager implements IWebServerManager {
     exec(`xdg-open "${url}"`);
   }
 
-  private async handleUserLoginRequest(
+  private async handleLoginRequest(
     req: Request<{}, HttpLoginResponse, HttpLoginRequest>,
     res: Response<HttpLoginResponse>,
+    isAdmin: boolean = false,
   ) {
-    const rawToken = req.cookies.userSessionToken;
-    let userSessionToken: string | null = null;
+    let rawToken: any;
+    if (isAdmin) {
+      rawToken = req.cookies.adminSessionToken;
+    } else {
+      rawToken = req.cookies.userSessionToken;
+    }
 
-    if (isStringAndNotEmpty(rawToken)) userSessionToken = rawToken;
+    let sessionToken: string | null = null;
+
+    if (isStringAndNotEmpty(rawToken)) sessionToken = rawToken;
 
     const loginCredentials: LoginCredentials = {
       username: isStringAndNotEmpty(req.body.username)
@@ -364,7 +383,7 @@ export class WebServerManager implements IWebServerManager {
 
     if (
       (!loginCredentials.username || !loginCredentials.password) &&
-      !userSessionToken
+      !sessionToken
     ) {
       this.logger.warn(
         "Login attempt blocked: Missing username or password, and no valid sessionToken.",
@@ -373,19 +392,33 @@ export class WebServerManager implements IWebServerManager {
       return;
     }
 
-    const result = await this.activeHandlers.onUserSoftLoginRequest(
-      userSessionToken,
-      loginCredentials,
-    );
+    let result: AuthResult | AdminAuthResult;
+
+    if (isAdmin) {
+      result = await this.activeHandlers.onAdminSoftLoginRequest(
+        sessionToken,
+        loginCredentials,
+      );
+    } else {
+      result = await this.activeHandlers.onUserSoftLoginRequest(
+        sessionToken,
+        loginCredentials,
+      );
+    }
+
     const { success, message, statusCode } = result;
 
     if (success && result.newSessionToken) {
-      res.cookie("userSessionToken", result.newSessionToken, {
-        httpOnly: true,
-        secure: req.socket instanceof TLSSocket && req.socket.encrypted,
-        sameSite: "strict",
-        maxAge: SESSION_DURATION_MS,
-      });
+      res.cookie(
+        isAdmin ? "adminSessionToken" : "userSessionToken",
+        result.newSessionToken,
+        {
+          httpOnly: true,
+          secure: req.socket instanceof TLSSocket && req.socket.encrypted,
+          sameSite: "strict",
+          maxAge: SESSION_DURATION_MS,
+        },
+      );
     }
 
     res.status(statusCode).json({ success, message });

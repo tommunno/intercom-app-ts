@@ -17,6 +17,7 @@ import type {
   // Data
   IDataController,
   IAccountManager,
+  IAdminAccountManager,
   IDataManager,
 } from "./contracts/index.js";
 
@@ -26,7 +27,6 @@ import {
   DataController,
   NetworkController,
 } from "./controllers/index.js";
-
 import {
   //Base
   Logger,
@@ -42,6 +42,7 @@ import {
   TurnServerManager,
   // Data
   AccountManager,
+  AdminAccountManager,
   DataManager,
 } from "./managers/index.js";
 
@@ -55,6 +56,9 @@ const wssManager: IWssManager = new WssManager(logger);
 const webRtcManager: IWebRtcManager = new WebRtcManager(logger);
 const turnServerManager: ITurnServerManager = new TurnServerManager(logger);
 const accountManager: IAccountManager = new AccountManager(logger);
+const adminAccountManager: IAdminAccountManager = new AdminAccountManager(
+  logger,
+);
 const dataManager: IDataManager = new DataManager(logger);
 
 const audioController: IAudioController = new AudioController(
@@ -75,6 +79,7 @@ const networkController: INetworkController = new NetworkController(
 
 const dataController: IDataController = new DataController(
   accountManager,
+  adminAccountManager,
   dataManager,
   logger,
 );

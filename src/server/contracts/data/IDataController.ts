@@ -1,4 +1,5 @@
 import type {
+  AdminAuthResult,
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
@@ -17,7 +18,7 @@ export interface DataHandlers {
 
 export interface IDataController {
   init: () => void;
-  start: () => void;
+  start: () => Promise<void>;
   setHandlers: (handlers: DataHandlers) => void;
 
   softLoginUser: (
@@ -29,6 +30,13 @@ export interface IDataController {
 
   logoutUser(userId: number, hardLogout?: boolean): number | null;
   logoutUser(clientId: string, hardLogout?: boolean): number | null;
+
+  softLoginAdmin(
+    sessionToken: string | null,
+    logCred: LoginCredentials,
+  ): Promise<AdminAuthResult>;
+
+  loginAdmin(sessionToken: string | null, clientId: string): AdminAuthResult;
 
   //Returns userId if successful:
   isClientIdLoggedIn: (clientId: string) => number | null;
