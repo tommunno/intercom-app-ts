@@ -1,2 +1,2 @@
-export * from "./AdminController.js";
+export * from "./SetupController.js";
 export * from "./PanelController.js";

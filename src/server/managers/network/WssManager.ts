@@ -5,7 +5,7 @@ import type {
   ILogger,
   WssHandlers,
 } from "../../contracts/index.js";
-import type { Servers } from "../../types/index.js";
+import type { Servers, SessionTokens } from "../../types/index.js";
 
 //Helpers:
 import { isAddressLocalhost } from "../../../shared/helpers.js";
@@ -155,8 +155,11 @@ export class WssManager implements IWssManager {
 
       //Identification (cookies and sessionToken)
       const cookies = this.parseCookies(req.headers.cookie);
-      const sessionToken = cookies["userSessionToken"];
-      this.logger.info(`New wss client sessionToken: ${sessionToken}`);
+      const userSessionToken = cookies["userSessionToken"];
+      const adminSessionToken = cookies["adminSessionToken"];
+      this.logger.info(
+        `New wss client userSessionToken: ${userSessionToken}, adminSessionToken: ${adminSessionToken}`,
+      );
       const clientId = this.generateClientId();
 
       this.logger.info(`New connection: ${clientId}`);
@@ -166,7 +169,10 @@ export class WssManager implements IWssManager {
         this.handleRawMessage({
           clientId,
           rawData,
-          sessionToken: sessionToken ? sessionToken : null,
+          sessionTokens: {
+            user: userSessionToken ?? null,
+            admin: adminSessionToken ?? null,
+          },
         }),
       );
 
@@ -182,11 +188,11 @@ export class WssManager implements IWssManager {
   private handleRawMessage({
     clientId,
     rawData,
-    sessionToken,
+    sessionTokens,
   }: {
     clientId: string;
     rawData: RawData;
-    sessionToken: string | null;
+    sessionTokens: SessionTokens;
   }): void {
     try {
       const data: unknown = JSON.parse(rawData.toString());
@@ -200,11 +206,19 @@ export class WssManager implements IWssManager {
       //Now we can safely destructure these
       const { type, payload } = data;
 
-      if (type !== "HEARTBEAT_RESPONSE") {
+      if (
+        type !== "HEARTBEAT_RESPONSE" &&
+        type !== "ADMIN_HEARTBEAT_RESPONSE"
+      ) {
         this.logger.info(`Message type: ${type}`);
       }
 
-      this.handleMessage({ type, payload, clientId, sessionToken });
+      this.handleMessage({
+        type,
+        payload,
+        clientId,
+        sessionTokens,
+      });
     } catch (e) {
       this.logger.error("JSON Parse Error");
     }
@@ -214,21 +228,26 @@ export class WssManager implements IWssManager {
     type,
     payload,
     clientId,
-    sessionToken,
+    sessionTokens,
   }: {
     type: K;
     payload: unknown;
     clientId: string;
-    sessionToken: string | null;
+    sessionTokens: SessionTokens;
   }): void {
     if (!payloadIsValidForType(type, payload)) {
       this.logger.warn(`Payload not valid for message of type ${type}`);
       return;
     }
-    if (type !== "HEARTBEAT_RESPONSE") {
+    if (type !== "HEARTBEAT_RESPONSE" && type !== "ADMIN_HEARTBEAT_RESPONSE") {
       this.logger.success(`Message payload valid for type: ${type}`);
     }
-    this.activeHandlers.onMessage({ type, payload, clientId, sessionToken });
+    this.activeHandlers.onMessage({
+      type,
+      payload,
+      clientId,
+      sessionTokens,
+    });
   }
 
   private handleClientDisconnection(clientId: string) {

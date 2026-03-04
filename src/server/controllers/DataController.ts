@@ -8,6 +8,7 @@ import type {
   UserInfo,
 } from "../../shared/types/index.js";
 import type {
+  AdminLogoutResult,
   DataHandlers,
   IAccountManager,
   IAdminAccountManager,
@@ -71,6 +72,19 @@ export class DataController implements IDataController {
     return this.handlers;
   }
 
+  //DataManager:
+  getNetworkData(): NetworkData {
+    return this.dataManager.getNetworkData();
+  }
+
+  getAudioData(): AudioPopulateData {
+    const audioData: AudioData = this.dataManager.getAudioData();
+    return {
+      ...audioData,
+      numUsers: this.accountManager.numUsers,
+    };
+  }
+
   //AccountManager:
 
   softLoginUser(
@@ -104,12 +118,12 @@ export class DataController implements IDataController {
     return this.accountManager.getUserInfo(userId);
   }
 
-  processHeartbeatResponse(timestamp: number, clientId: string): void {
-    this.accountManager.processHeartbeatResponse(timestamp, clientId);
-  }
-
   getLoggedInUserClientIds(): string[] {
     return this.accountManager.getLoggedInUserClientIds();
+  }
+
+  processHeartbeatResponse(timestamp: number, clientId: string): void {
+    this.accountManager.processHeartbeatResponse(timestamp, clientId);
   }
 
   //AdminAccountManager:
@@ -125,6 +139,18 @@ export class DataController implements IDataController {
     return this.adminAccountManager.login(sessionToken, clientId);
   }
 
+  logoutAdmin(clientId: string, hardLogout?: boolean): AdminLogoutResult {
+    return this.adminAccountManager.logout(clientId, hardLogout);
+  }
+
+  processAdminHeartbeatResponse(timestamp: number, clientId: string): void {
+    this.adminAccountManager.processHeartbeatResponse(timestamp, clientId);
+  }
+
+  isAdminClientIdLoggedIn(clientId: string): boolean {
+    return this.adminAccountManager.isClientIdLoggedIn(clientId);
+  }
+
   private bindListeners(): void {
     this.dataManager.setHandlers({});
 
@@ -133,32 +159,33 @@ export class DataController implements IDataController {
       onStaleHeartbeat: (c) => this.handleStaleHeartbeat(c),
     });
 
-    this.adminAccountManager.setHandlers({});
+    this.adminAccountManager.setHandlers({
+      onHeartbeat: (c, p) => this.handleAdminAccountHeartbeat(c, p),
+      onStaleHeartbeat: (c) => this.handleAdminStaleHeartbeat(c),
+    });
   }
 
   //Handle Account:
-  handleAccountHeartbeat(
+  private handleAccountHeartbeat(
     clientIds: string[],
     payload: HeartbeatRequestPayload,
   ): void {
     this.activeHandlers.onAccountHeartbeat(clientIds, payload);
   }
 
-  handleStaleHeartbeat(clientId: string): void {
+  private handleStaleHeartbeat(clientId: string): void {
     this.activeHandlers.onStaleHeartbeat(clientId);
   }
 
-  //Handle Data:
-
-  getNetworkData(): NetworkData {
-    return this.dataManager.getNetworkData();
+  //Handle Admin Account:
+  private handleAdminAccountHeartbeat(
+    clientIds: string[],
+    payload: HeartbeatRequestPayload,
+  ): void {
+    this.activeHandlers.onAccountHeartbeat(clientIds, payload, true);
   }
 
-  getAudioData(): AudioPopulateData {
-    const audioData: AudioData = this.dataManager.getAudioData();
-    return {
-      ...audioData,
-      numUsers: this.accountManager.numUsers,
-    };
+  private handleAdminStaleHeartbeat(clientId: string): void {
+    this.activeHandlers.onStaleHeartbeat(clientId, true);
   }
 }

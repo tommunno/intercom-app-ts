@@ -30,10 +30,24 @@ export class HttpManager implements IHttpManager {
     this.status = "INITIALIZED";
   }
 
-  async softLogin(request: HttpLoginRequest): Promise<HttpLoginResponse> {
+  async softLoginUser(request: HttpLoginRequest): Promise<HttpLoginResponse> {
+    return this.softLogin(request);
+  }
+
+  async softLoginAdmin(request: HttpLoginRequest): Promise<HttpLoginResponse> {
+    return this.softLogin(request, true);
+  }
+
+  private async softLogin(
+    request: HttpLoginRequest,
+    isAdmin: boolean = false,
+  ): Promise<HttpLoginResponse> {
     const notRunning = this.checkAndWarnIfNotRunning("attempt a soft login");
     if (notRunning) return { success: false, message: "Client error" };
-    return this.post<HttpLoginRequest, HttpLoginResponse>("/login", request);
+    return this.post<HttpLoginRequest, HttpLoginResponse>(
+      isAdmin ? "/admin-login" : "/login",
+      request,
+    );
   }
 
   private async post<T, U>(url: string, request: T): Promise<U> {

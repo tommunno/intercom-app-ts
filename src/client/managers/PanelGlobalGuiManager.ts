@@ -1,7 +1,7 @@
 import {
   type IClientLogger,
-  type IPanelGuiManager,
-  type PanelGuiManagerHandlers,
+  type IPanelGlobalGuiManager,
+  type PanelGlobalGuiManagerHandlers,
 } from "../contracts/index.js";
 import {
   dataIsKeyState,
@@ -22,26 +22,9 @@ import {
   TAIL_DEBUG_MODE,
 } from "../constants/clientConstants.js";
 
-export class PanelGuiManager implements IPanelGuiManager {
+export class PanelGlobalGuiManager implements IPanelGlobalGuiManager {
   private status: ManagerStatus = "IDLE";
   private readonly els = {
-    login: {
-      windowWrapper: document.querySelector<HTMLDivElement>(
-        ".login-window-wrapper",
-      )!,
-      form: document.querySelector<HTMLFormElement>(".login-form")!,
-      username: document.querySelector<HTMLInputElement>("#username")!,
-      passwordInputWrapper: document.querySelector<HTMLDivElement>(
-        ".password-input-wrapper",
-      )!,
-      password: document.querySelector<HTMLInputElement>("#password")!,
-      openEye: document.querySelector<SVGSVGElement>(".open-eye")!,
-      closedEye: document.querySelector<SVGSVGElement>(".closed-eye")!,
-      loginBtn: document.querySelector<HTMLButtonElement>(".login-btn")!,
-      errorMessage: document.querySelector<HTMLDivElement>(
-        ".login-error-message",
-      )!,
-    },
     optionBar: {
       username: document.querySelector<HTMLSpanElement>(".username")!,
       muteMicBtn: document.querySelector<HTMLButtonElement>(".mute-mic-btn")!,
@@ -61,9 +44,7 @@ export class PanelGuiManager implements IPanelGuiManager {
       )!,
     },
   };
-  private handlers: PanelGuiManagerHandlers | null = null;
-  //By default, the HTML has the login in loading state, until the JS loads
-  private loginLoading: boolean = true;
+  private handlers: PanelGlobalGuiManagerHandlers | null = null;
   private hidePopupTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private popupVisible: boolean = false;
   //pointerId as key:
@@ -106,30 +87,11 @@ export class PanelGuiManager implements IPanelGuiManager {
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
     this.setupListeners();
-    this.els.login.username.focus();
     this.status = "RUNNING";
   }
 
-  setHandlers(handlers: PanelGuiManagerHandlers): void {
+  setHandlers(handlers: PanelGlobalGuiManagerHandlers): void {
     this.handlers = handlers;
-  }
-
-  setLoginError(errMessage: string | null): void {
-    const notRunning = this.checkAndWarnIfNotRunning("set the login error");
-    if (notRunning) return;
-
-    const { errorMessage: em } = this.els.login;
-    em.textContent = errMessage === null ? "" : errMessage;
-    em.style.display = errMessage === null ? "none" : "block";
-  }
-
-  setLoginLoading(isLoading: boolean) {
-    const notRunning = this.checkAndWarnIfNotRunning("set login loading");
-    if (notRunning) return;
-    this.loginLoading = isLoading;
-    const { loginBtn } = this.els.login;
-    loginBtn.disabled = isLoading;
-    loginBtn.classList.toggle("disabled", isLoading);
   }
 
   displayState(state: PanelState): void {
@@ -344,61 +306,9 @@ export class PanelGuiManager implements IPanelGuiManager {
     }
   }
 
-  //More to implement in here, eg focus trapping
-  setLoginVisible(isVisible: boolean): void {
-    document.body.classList.toggle("hide-login", !isVisible);
-    document.body.classList.toggle("no-scroll", isVisible);
-  }
-
-  shakeLogin(): void {
-    const { windowWrapper } = this.els.login;
-    // Remove the class if it's already there
-    windowWrapper.classList.remove("shake");
-
-    // Force reflow so re-adding the class restarts the animation
-    void windowWrapper.offsetWidth;
-
-    // Add the class again
-    windowWrapper.classList.add("shake");
-  }
-
   private setupListeners(): void {
-    this.setupLoginListeners();
     this.setupOptionBarListeners();
     this.setupPartylineListeners();
-  }
-
-  private setupLoginListeners(): void {
-    const { form, openEye, closedEye } = this.els.login;
-
-    form.addEventListener("submit", (e) => this.handleLoginFormSubmit(e));
-
-    openEye.addEventListener("click", (e) => this.handleOpenEyeClick(e));
-    closedEye.addEventListener("click", (e) => this.handleClosedEyeClick(e));
-  }
-
-  private handleLoginFormSubmit(e: SubmitEvent): void {
-    e.preventDefault();
-    if (this.loginLoading) return;
-    this.setPasswordVisibility(false);
-    const { username, password } = this.els.login;
-    this.activeHandlers.onLoginAttempt(username.value, password.value);
-  }
-
-  private handleOpenEyeClick(e: PointerEvent): void {
-    this.setPasswordVisibility(true);
-  }
-
-  private handleClosedEyeClick(e: PointerEvent): void {
-    this.setPasswordVisibility(false);
-  }
-
-  private setPasswordVisibility(visible: boolean): void {
-    const { passwordInputWrapper, password } = this.els.login;
-
-    passwordInputWrapper.classList.toggle("password-shown", visible);
-    password.type = visible ? "text" : "password";
-    password.focus();
   }
 
   private setupOptionBarListeners(): void {
@@ -407,7 +317,7 @@ export class PanelGuiManager implements IPanelGuiManager {
     logoutBtn.addEventListener("click", (e) => this.handleLogoutButtonClick(e));
   }
 
-  handleLogoutButtonClick(e: PointerEvent): void {
+  private handleLogoutButtonClick(e: PointerEvent): void {
     e.preventDefault();
     this.activeHandlers.onLogoutBtnClick();
   }
@@ -530,7 +440,7 @@ export class PanelGuiManager implements IPanelGuiManager {
     );
   }
 
-  private get activeHandlers(): PanelGuiManagerHandlers {
+  private get activeHandlers(): PanelGlobalGuiManagerHandlers {
     if (!this.handlers)
       throw new Error("PanelGuiManager handlers not initialized!");
     return this.handlers;

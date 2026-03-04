@@ -1,28 +1,37 @@
 import type {
   IHttpManager,
   IPanelController,
-  IPanelGuiManager,
+  IPanelGlobalGuiManager,
   IPanelWebRtcManager,
-  IPanelWssManager,
   IClientLogger,
+  ILoginGuiManager,
+  IClientWssManager,
 } from "./contracts/index.js";
 import {
   HttpManager,
-  PanelGuiManager,
+  PanelGlobalGuiManager,
   PanelWebRtcManager,
-  PanelWssManager,
   ClientLogger,
+  LoginGuiManager,
+  ClientWssManager,
 } from "./managers/index.js";
 import { PanelController } from "./controllers/index.js";
 
 const logger: IClientLogger = new ClientLogger();
-const guiManager: IPanelGuiManager = new PanelGuiManager(logger);
-const wssManager: IPanelWssManager = new PanelWssManager(logger);
+const globalGuiManager: IPanelGlobalGuiManager = new PanelGlobalGuiManager(
+  logger,
+);
+const loginGuiManager: ILoginGuiManager = new LoginGuiManager(logger);
+const wssManager: IClientWssManager<"PANEL"> = new ClientWssManager(
+  "PANEL",
+  logger,
+);
 const httpManager: IHttpManager = new HttpManager(logger);
 const webRtcManager: IPanelWebRtcManager = new PanelWebRtcManager(logger);
 
 const controller: IPanelController = new PanelController(
-  guiManager,
+  globalGuiManager,
+  loginGuiManager,
   wssManager,
   httpManager,
   webRtcManager,

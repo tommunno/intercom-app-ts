@@ -15,11 +15,12 @@ import type {
 import type {
   IHttpManager,
   IPanelController,
-  IPanelGuiManager,
+  IPanelGlobalGuiManager,
   IPanelWebRtcManager,
-  IPanelWssManager,
   KeyPressParams,
   IClientLogger,
+  ILoginGuiManager,
+  IClientWssManager,
 } from "../contracts/index.js";
 import type {
   AttemptFullLoginParams,
@@ -47,8 +48,9 @@ export class PanelController implements IPanelController {
   };
 
   constructor(
-    private guiManager: IPanelGuiManager,
-    private wssManager: IPanelWssManager,
+    private globalGuiManager: IPanelGlobalGuiManager,
+    private loginGuiManager: ILoginGuiManager,
+    private wssManager: IClientWssManager<"PANEL">,
     private httpManager: IHttpManager,
     private webRtcManager: IPanelWebRtcManager,
     private logger: IClientLogger,
@@ -58,25 +60,29 @@ export class PanelController implements IPanelController {
 
   init(): void {
     this.bindListeners();
-    this.guiManager.init();
+    this.globalGuiManager.init();
+    this.loginGuiManager.init();
     this.wssManager.init();
     this.httpManager.init();
     this.webRtcManager.init();
   }
 
   start(): void {
-    this.guiManager.start();
+    this.globalGuiManager.start();
+    this.loginGuiManager.start();
     this.httpManager.start();
     this.webRtcManager.start();
-    this.guiManager.setLoginLoading(false);
+    this.loginGuiManager.setLoginLoading(false);
     this.attemptAutomaticLogin();
   }
 
   private bindListeners(): void {
-    this.guiManager.setHandlers({
-      onLoginAttempt: (u, p) => this.handleLoginAttempt(u, p),
+    this.globalGuiManager.setHandlers({
       onKeyPress: (p) => this.handleKeyPress(p),
       onLogoutBtnClick: () => this.handleLogoutBtnClick(),
+    });
+    this.loginGuiManager.setHandlers({
+      onLoginAttempt: (u, p) => this.handleLoginAttempt(u, p),
     });
     this.wssManager.setHandlers({
       onOpen: () => this.handleWssOpen(),
@@ -130,41 +136,42 @@ export class PanelController implements IPanelController {
       (password !== null && password.trim() === "")
     ) {
       if (!hideGuiErrors) {
-        this.guiManager.setLoginError("Please enter a username and password");
-        this.guiManager.shakeLogin();
+        this.loginGuiManager.setLoginError(
+          "Please enter a username and password",
+        );
+        this.loginGuiManager.shakeLogin();
       }
       return;
     }
-    this.guiManager.setLoginLoading(true);
+    this.loginGuiManager.setLoginLoading(true);
     try {
-      const result: HttpLoginResponse = await this.httpManager.softLogin({
+      const result: HttpLoginResponse = await this.httpManager.softLoginUser({
         username,
         password,
       });
 
       if (!result.success) {
         if (!hideGuiErrors) {
-          this.guiManager.setLoginError(result.message);
-          this.guiManager.shakeLogin();
+          this.loginGuiManager.setLoginError(result.message);
+          this.loginGuiManager.shakeLogin();
         }
-        this.guiManager.setLoginLoading(false);
+        this.loginGuiManager.setLoginLoading(false);
         this.state.attemptingAutomaticLogin = false;
         return;
       }
 
       //Success:
-      this.guiManager.setLoginError(null);
-      this.logger.info("Attempting hard login");
+      this.loginGuiManager.setLoginError(null);
       this.attemptHardLogin();
     } catch (error) {
       this.logger.error("Critical Login Error", error);
       if (!hideGuiErrors) {
-        this.guiManager.setLoginError(
+        this.loginGuiManager.setLoginError(
           "Connection failed. Check your internet.",
         );
-        this.guiManager.shakeLogin();
+        this.loginGuiManager.shakeLogin();
       }
-      this.guiManager.setLoginLoading(false);
+      this.loginGuiManager.setLoginLoading(false);
       this.state.attemptingAutomaticLogin = false;
     }
   }
@@ -286,7 +293,9 @@ export class PanelController implements IPanelController {
     this.handleWssDisconnection();
   }
 
-  private handleHeartbeatRequest({ timestamp }: HeartbeatRequestPayload): void {
+  private handleHeartbeatRequest({
+    timestamp,
+  }: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]): void {
     this.wssManager.sendMessage("HEARTBEAT_RESPONSE", {
       timestamp,
     });
@@ -300,7 +309,7 @@ export class PanelController implements IPanelController {
     audioInfo,
     turnServerInfo,
   }: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]) {
-    this.guiManager.setLoginLoading(false);
+    this.loginGuiManager.setLoginLoading(false);
 
     this.logger.info(
       `Login Response: success: ${success}, message: ${message}, userInfo:`,
@@ -308,17 +317,17 @@ export class PanelController implements IPanelController {
     );
 
     if (!success) {
-      this.guiManager.setLoginError(message);
+      this.loginGuiManager.setLoginError(message);
       if (!this.state.attemptingAutomaticLogin) {
-        this.guiManager.shakeLogin();
+        this.loginGuiManager.shakeLogin();
       } else {
         this.state.attemptingAutomaticLogin = false;
       }
       return;
     }
     if (!userInfo || !audioInfo) {
-      this.guiManager.setLoginError("Error retrieving user information");
-      this.guiManager.shakeLogin();
+      this.loginGuiManager.setLoginError("Error retrieving user information");
+      this.loginGuiManager.shakeLogin();
       this.logger.error(
         `Login state violation: Server returned success: true, but userInfo or audioInfo is missing from the payload`,
       );
@@ -330,9 +339,9 @@ export class PanelController implements IPanelController {
     this.state.audioInfo = audioInfo;
     this.state.turnServerInfo = turnServerInfo;
 
-    this.guiManager.displayState(this.state);
-    this.guiManager.setLoginVisible(false);
-    this.guiManager.displayPopup({
+    this.globalGuiManager.displayState(this.state);
+    this.loginGuiManager.setLoginVisible(false);
+    this.globalGuiManager.displayPopup({
       type: "audio",
       title: "Connecting Audio...",
       autoHide: false,
@@ -355,7 +364,7 @@ export class PanelController implements IPanelController {
   ) {
     this.logger.info("Handling audio info update:", audioInfo);
     this.state.audioInfo = audioInfo;
-    this.guiManager.displayAudioInfo(this.state.audioInfo);
+    this.globalGuiManager.displayAudioInfo(this.state.audioInfo);
     this.webRtcManager.setMicMute(this.calculateMicMute());
   }
 
@@ -373,15 +382,7 @@ export class PanelController implements IPanelController {
     this.webRtcManager.processRemoteIceCandidate(candidate);
   }
 
-  //GUI Handlers:
-
-  //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
-  private async handleLoginAttempt(
-    username: string,
-    password: string,
-  ): Promise<void> {
-    this.attemptFullLogin({ username, password });
-  }
+  //Global GUI Handlers:
 
   private handleKeyPress(params: KeyPressParams): void {
     const { type, id, currState } = params;
@@ -411,6 +412,16 @@ export class PanelController implements IPanelController {
     this.logout({});
   }
 
+  //Login GUI Handlers:
+
+  //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
+  private async handleLoginAttempt(
+    username: string,
+    password: string,
+  ): Promise<void> {
+    this.attemptFullLogin({ username, password });
+  }
+
   //Misc Handlers:
   handleTabReloadCommand(e: StorageEvent): void {
     if (!this.state.userInfo.loggedIn) return;
@@ -425,7 +436,7 @@ export class PanelController implements IPanelController {
   //WebRtc Handlers:
   private handleRtcConnected(): void {
     this.logger.info(`WebRtc connected`);
-    this.guiManager.displayPopup({
+    this.globalGuiManager.displayPopup({
       type: "audio",
       title: "Connected",
       autoHide: true,
@@ -464,7 +475,7 @@ export class PanelController implements IPanelController {
 
   //Misc Handlers:
   private handleLostConnection() {
-    this.guiManager.setErrorModal(true);
+    this.globalGuiManager.setErrorModal(true);
     this.wssManager.monitorServerRecovery(true);
     this.wssManager.monitorHeartbeatWatchdog(false);
   }

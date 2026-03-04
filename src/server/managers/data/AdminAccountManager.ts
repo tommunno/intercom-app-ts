@@ -7,11 +7,13 @@ import type {
 } from "../../../shared/types/index.js";
 import type {
   AdminAccountHandlers,
+  AdminLogoutResult,
   IAdminAccountManager,
 } from "../../contracts/data/IAdminAccountManager.js";
 import type { ILogger } from "../../contracts/index.js";
 import type {
   AdminAccountData,
+  AdminLoggedInClientInfo,
   AuthenticateWithTokenParams,
 } from "../../types/index.js";
 //Helpers:
@@ -23,9 +25,12 @@ import {
 //Constants:
 import { MAX_USERNAME_LENGTH } from "../../../shared/constants/sharedConstants.js";
 import {
+  ACCOUNT_HEARTBEAT_DURATION_MS,
+  ACCOUNT_STALE_HEARTBEAT_MS,
   DEFAULT_ADMIN_PASSWORD,
   DEFAULT_ADMIN_USERNAME,
   SALT_ROUNDS,
+  SESSION_CLEANUP_INTERVAL_MS,
   SESSION_DURATION_MS,
 } from "../../constants/serverConstants.js";
 //External Libraries:
@@ -38,8 +43,11 @@ export class AdminAccountManager implements IAdminAccountManager {
   private passwordHash: string | null = null;
   //<sessionToken, sessionTokenInfo>:
   private sessionTokenInfos: Map<string, SessionTokenInfo> = new Map();
-  //<clientId, sessionToken>:
-  private loggedInClientIds: Map<string, string> = new Map();
+  //<clientId, AdminLoggedInClientInfo>:
+  private loggedInClients: Map<string, AdminLoggedInClientInfo> = new Map();
+  private heartbeatIntervalId: ReturnType<typeof setInterval> | null = null;
+  private sessionCleanupIntervalId: ReturnType<typeof setInterval> | null =
+    null;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AdminAccountManager" });
@@ -73,10 +81,11 @@ export class AdminAccountManager implements IAdminAccountManager {
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
+    this.startHeartbeat();
+    this.startSessionCleanup();
     this.status = "RUNNING";
   }
 
-  //Still need to implement:
   stop(): void {
     if (this.status !== "RUNNING") {
       this.logger.error(
@@ -84,18 +93,17 @@ export class AdminAccountManager implements IAdminAccountManager {
       );
       return;
     }
+    this.username = DEFAULT_ADMIN_USERNAME;
+    this.passwordHash = null;
+    this.sessionTokenInfos.clear();
+    this.loggedInClients.clear();
+    this.stopHeartbeat();
+    this.stopSessionCleanup();
     this.status = "IDLE";
   }
 
-  login(sessionToken: string | null, clientId: string): AdminAuthResult {
-    const result = this.checkAndWarnIfNotRunning("login admin");
-    if (result) return result;
-
-    return this.authenticateWithToken({
-      sessionToken,
-      softLogin: false,
-      clientId,
-    });
+  setHandlers(handlers: AdminAccountHandlers): void {
+    this.handlers = handlers;
   }
 
   async softLogin(
@@ -116,8 +124,89 @@ export class AdminAccountManager implements IAdminAccountManager {
     });
   }
 
+  login(sessionToken: string | null, clientId: string): AdminAuthResult {
+    const result = this.checkAndWarnIfNotRunning("login admin");
+    if (result) return result;
+
+    return this.authenticateWithToken({
+      sessionToken,
+      softLogin: false,
+      clientId,
+    });
+  }
+
+  //Returns success if the client requesting logout successfully logs out
+  logout(clientId: string, hardLogout: boolean = false): AdminLogoutResult {
+    const loggedInClientInfo = this.loggedInClients.get(clientId);
+    if (!loggedInClientInfo) {
+      this.logger.error(
+        `logout: Unable to logout clientId ${clientId}: the admin is not logged in`,
+      );
+      return { success: false, otherLoggedOutClientIds: [] };
+    }
+    let success = this.loggedInClients.delete(clientId);
+
+    if (!success) {
+      this.logger.error(`logout: Unable to delete clientId ${clientId}`);
+    }
+
+    if (!hardLogout) {
+      if (success) {
+        this.logger.success(`Soft logged out admin ${clientId}`);
+      }
+      return { success, otherLoggedOutClientIds: [] };
+    }
+    //Hard logout:
+
+    success = this.sessionTokenInfos.delete(loggedInClientInfo.sessionToken);
+    if (!success) {
+      this.logger.error(
+        `logout: Unable to delete sessionTokenInfo for clientId ${clientId}`,
+      );
+    }
+
+    const otherLoggedOutClientIds: string[] = [];
+    this.loggedInClients.forEach((info, clientId) => {
+      if (info.sessionToken === loggedInClientInfo.sessionToken) {
+        otherLoggedOutClientIds.push(clientId);
+      }
+    });
+    otherLoggedOutClientIds.forEach((clientId) => {
+      if (!this.loggedInClients.delete(clientId)) {
+        this.logger.error(
+          `logout: Unable to delete otherLoggedOutClientIds clientId ${clientId}`,
+        );
+      }
+    });
+
+    if (success) {
+      this.logger.success(`Hard logged out admin ${clientId}`);
+    }
+    return { success, otherLoggedOutClientIds };
+  }
+
+  processHeartbeatResponse(timestamp: number, clientId: string): void {
+    const notRunning = this.checkAndWarnIfNotRunning(
+      "process heartbeat response",
+    );
+    if (notRunning) return;
+
+    const loggedInClientInfo = this.loggedInClients.get(clientId);
+    if (!loggedInClientInfo) return;
+
+    loggedInClientInfo.lastHeartbeatResponse = Date.now();
+  }
+
+  isClientIdLoggedIn(clientId: string): boolean {
+    return this.loggedInClients.has(clientId);
+  }
+
   private hardLogin(clientId: string, sessionToken: string): AdminAuthResult {
-    this.loggedInClientIds.set(clientId, sessionToken);
+    this.loggedInClients.set(clientId, {
+      clientId,
+      sessionToken,
+      lastHeartbeatResponse: null,
+    });
 
     return {
       success: true,
@@ -215,10 +304,6 @@ export class AdminAccountManager implements IAdminAccountManager {
     };
   }
 
-  setHandlers(handlers: AdminAccountHandlers): void {
-    this.handlers = handlers;
-  }
-
   private async setCredentials(
     username: string | undefined,
     passwordHash: string | undefined,
@@ -273,6 +358,80 @@ export class AdminAccountManager implements IAdminAccountManager {
     };
     this.sessionTokenInfos.set(token, sessionTokenInfo);
     return sessionTokenInfo;
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeatIntervalId !== null) {
+      clearInterval(this.heartbeatIntervalId);
+    }
+    this.heartbeatIntervalId = setInterval(
+      () => this.sendHeartbeat(),
+      ACCOUNT_HEARTBEAT_DURATION_MS,
+    );
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatIntervalId !== null) {
+      clearInterval(this.heartbeatIntervalId);
+      this.heartbeatIntervalId = null;
+    }
+  }
+
+  private sendHeartbeat(): void {
+    const clientIds: string[] = [];
+    const timestamp = Date.now();
+
+    this.loggedInClients.forEach((info) => {
+      clientIds.push(info.clientId);
+      const lastResponseAt = info.lastHeartbeatResponse;
+      if (lastResponseAt === null) return;
+
+      const endTime = Date.now();
+      const timeElapsed = endTime - lastResponseAt;
+
+      if (timeElapsed > ACCOUNT_STALE_HEARTBEAT_MS) {
+        this.activeHandlers.onStaleHeartbeat(info.clientId);
+      }
+    });
+
+    this.activeHandlers.onHeartbeat(clientIds, { timestamp });
+  }
+
+  private getValidSessionTokenInfos(
+    sessionTokenInfos: Map<string, SessionTokenInfo>,
+  ): Map<string, SessionTokenInfo> {
+    const now = Date.now();
+    const newSessionTokenInfos = new Map<string, SessionTokenInfo>();
+    sessionTokenInfos.forEach((info, sT) => {
+      if (!hasSessionTokenInfoExpired(info, now)) {
+        newSessionTokenInfos.set(sT, info);
+      }
+    });
+    return newSessionTokenInfos;
+  }
+
+  private startSessionCleanup(): void {
+    if (this.sessionCleanupIntervalId !== null) {
+      clearInterval(this.sessionCleanupIntervalId);
+    }
+    this.sessionCleanupIntervalId = setInterval(
+      () => this.cleanupSessions(),
+      SESSION_CLEANUP_INTERVAL_MS,
+    );
+  }
+
+  private stopSessionCleanup(): void {
+    if (this.sessionCleanupIntervalId === null) return;
+    clearInterval(this.sessionCleanupIntervalId);
+    this.sessionCleanupIntervalId = null;
+  }
+
+  private cleanupSessions(): void {
+    this.logger.info("Cleaning up sessions");
+
+    this.sessionTokenInfos = this.getValidSessionTokenInfos(
+      this.sessionTokenInfos,
+    );
   }
 
   private validateUsername(name: string): boolean {

@@ -19,4 +19,6 @@ export * from "./PortType.js";
 export * from "./PortInfo.js";
 export * from "./PortAvailabilityResult.js";
 export * from "./AuthenticateWithTokenParams.js";
+export * from "./SessionTokens.js";
+export * from "./AdminLoggedInClientInfo.js";
 export * from "./wrtcShimTypes.js";

@@ -1,17 +1,18 @@
 import type {
   IClientLogger,
-  IPanelWssManager,
-  PanelWssHandlers,
+  IClientWssManager,
+  ClientWssHandlers,
+  ClientWssMode,
+  DownstreamForMode,
 } from "../contracts/index.js";
 import type { ManagerStatus } from "../../shared/types/index.js";
 import {
   payloadIsValidForType,
-  type WssDownstreamPanel,
   type WssPayloads,
   type WssUpstream,
 } from "../../shared/protocols/index.js";
 import {
-  dataIsWssDownstreamPanelResponse,
+  dataIsWssDownstreamResponse,
   type WssConnectionStatus,
 } from "../types/index.js";
 import {
@@ -19,10 +20,12 @@ import {
   SERVER_RECOVERY_PROBE_INTERVAL_MS,
 } from "../constants/clientConstants.js";
 
-export class PanelWssManager implements IPanelWssManager {
+export class ClientWssManager<
+  M extends ClientWssMode,
+> implements IClientWssManager<M> {
   private status: ManagerStatus = "IDLE";
   private connectionStatus: WssConnectionStatus = "IDLE";
-  private handlers: PanelWssHandlers | null = null;
+  private handlers: ClientWssHandlers<M> | null = null;
   private protocol = window.location.protocol === "https:" ? "wss" : "ws";
   private wsUrl = `${this.protocol}://${window.location.host}/`;
   private serverRecoveryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -32,8 +35,13 @@ export class PanelWssManager implements IPanelWssManager {
   private recoveryRunning = false;
   private ws: WebSocket | null = null;
 
-  constructor(private logger: IClientLogger) {
-    this.logger = this.logger.child({ context: "PanelWssManager" });
+  constructor(
+    public readonly mode: M,
+    private logger: IClientLogger,
+  ) {
+    this.logger = this.logger.child({
+      context: `ClientWssManager:${this.mode}`,
+    });
   }
 
   init(): void {
@@ -61,7 +69,7 @@ export class PanelWssManager implements IPanelWssManager {
     return this.status === "RUNNING";
   }
 
-  setHandlers(handlers: PanelWssHandlers): void {
+  setHandlers(handlers: ClientWssHandlers<M>): void {
     this.handlers = handlers;
   }
 
@@ -189,7 +197,7 @@ export class PanelWssManager implements IPanelWssManager {
       try {
         const json: unknown = JSON.parse(event.data);
         //Check the 'universal' type
-        if (!dataIsWssDownstreamPanelResponse(json)) {
+        if (!dataIsWssDownstreamResponse(this.mode, json)) {
           this.logger.warn("Malformed message structure");
           return;
         }
@@ -209,8 +217,8 @@ export class PanelWssManager implements IPanelWssManager {
     };
   }
 
-  private handleMessage<K extends WssDownstreamPanel>(
-    type: K,
+  private handleMessage<T extends DownstreamForMode<M>>(
+    type: T,
     payload: unknown,
   ): void {
     if (!payloadIsValidForType(type, payload)) {
@@ -225,7 +233,7 @@ export class PanelWssManager implements IPanelWssManager {
     this.activeHandlers.onMessage(type, payload);
   }
 
-  private get activeHandlers(): PanelWssHandlers {
+  private get activeHandlers(): ClientWssHandlers<M> {
     if (!this.handlers) throw new Error("WssManager handlers not initialized!");
     return this.handlers;
   }

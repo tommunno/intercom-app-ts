@@ -23,6 +23,7 @@ import type {
   DisconnectUserParams,
   LogoutClientParams,
   RtcMediaStreamTrack,
+  SessionTokens,
   WssCommandMap,
 } from "../types/index.js";
 import { validateServerConstants } from "../../shared/helpers.js";
@@ -37,6 +38,8 @@ export class Controller implements IController {
     WEB_RTC_CLIENT_ICE_CANDIDATE:
       this.handleWebRtcClientIceCandidate.bind(this),
     ADMIN_LOGIN: this.handleAdminLogin.bind(this),
+    ADMIN_HEARTBEAT_RESPONSE: this.handleAdminHeartbeatResponse.bind(this),
+    ADMIN_LOGOUT: this.handleAdminLogout.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -95,8 +98,8 @@ export class Controller implements IController {
     });
 
     this.dataController.setHandlers({
-      onAccountHeartbeat: (c, p) => this.handleAccountHeartbeat(c, p),
-      onStaleHeartbeat: (c) => this.handleStaleHeartbeat(c),
+      onAccountHeartbeat: (c, p, a) => this.handleAccountHeartbeat(c, p, a),
+      onStaleHeartbeat: (c, a) => this.handleStaleHeartbeat(c, a),
     });
   }
 
@@ -235,30 +238,43 @@ export class Controller implements IController {
     type,
     payload,
     clientId,
-    sessionToken,
+    sessionTokens,
   }: {
     type: K;
     payload: WssPayloads[K];
     clientId: string;
-    sessionToken: string | null;
+    sessionTokens: SessionTokens;
   }): void {
     const command = this.wssCommands[type];
-    command(payload, clientId, sessionToken);
+    command(payload, clientId, sessionTokens);
   }
 
   private handleClientDisconnect(clientId: string) {
+    if (this.dataController.isAdminClientIdLoggedIn(clientId)) {
+      this.dataController.logoutAdmin(clientId);
+      return;
+    }
     this.logoutClientIfLoggedIn({ clientId });
   }
 
   private handleClientError(clientId: string) {
+    if (this.dataController.isAdminClientIdLoggedIn(clientId)) {
+      this.dataController.logoutAdmin(clientId);
+      return;
+    }
     this.logoutClientIfLoggedIn({ clientId });
   }
 
   private handleHeartbeatResponse(
     { timestamp }: WssPayloads[typeof WSS_UPSTREAM.HEARTBEAT_RESPONSE],
     clientId: string,
-    sessionToken: string | null,
+    sessionTokens: SessionTokens,
   ): void {
+    const userId = this.isClientIdLoggedIn(
+      clientId,
+      "Ignored heartbeat response",
+    );
+    if (userId === null) return;
     this.dataController.processHeartbeatResponse(timestamp, clientId);
   }
 
@@ -266,9 +282,9 @@ export class Controller implements IController {
   private handleUserLogin(
     _payload: WssPayloads[typeof WSS_UPSTREAM.USER_LOGIN],
     clientId: string,
-    sessionToken: string | null,
+    sessionTokens: SessionTokens,
   ): void {
-    const result = this.dataController.loginUser(sessionToken, clientId);
+    const result = this.dataController.loginUser(sessionTokens.user, clientId);
 
     if (!result.success) {
       this.networkController.sendUserLoginFailureMessage(
@@ -321,16 +337,18 @@ export class Controller implements IController {
   private handleUserLogout(
     _payload: WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT],
     clientId: string,
-    sessionToken: string | null,
+    sessionTokens: SessionTokens,
   ): void {
     this.logger.info(`User logout request`);
+    const userId = this.isClientIdLoggedIn(clientId, "Ignored user logout");
+    if (userId === null) return;
     this.logoutClientIfLoggedIn({ clientId, hardLogout: true });
   }
 
   private handleKeyPress(
     keyPressInfo: WssPayloads[typeof WSS_UPSTREAM.KEY_PRESS],
     clientId: string,
-    sessionToken: string | null,
+    sessionTokens: SessionTokens,
   ): void {
     this.logger.info(`Key press request:`, keyPressInfo);
 
@@ -343,7 +361,7 @@ export class Controller implements IController {
   private handleWebRtcOffer(
     offer: WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_OFFER],
     clientId: string,
-    sessionToken: string | null,
+    sessionTokens: SessionTokens,
   ): void {
     const userId = this.isClientIdLoggedIn(clientId, "Offer will be dropped");
     if (userId === null) return;
@@ -353,7 +371,7 @@ export class Controller implements IController {
   private handleWebRtcClientIceCandidate(
     candidate: WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE],
     clientId: string,
-    sessionToken: string | null,
+    sessionTokens: SessionTokens,
   ): void {
     const userId = this.isClientIdLoggedIn(
       clientId,
@@ -367,10 +385,10 @@ export class Controller implements IController {
   private handleAdminLogin(
     _payload: WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGIN],
     clientId: string,
-    sessionToken: string | null,
+    sessionTokens: SessionTokens,
   ): void {
     const { success, message } = this.dataController.loginAdmin(
-      sessionToken,
+      sessionTokens.admin,
       clientId,
     );
 
@@ -385,6 +403,42 @@ export class Controller implements IController {
       "ADMIN_LOGIN_RESPONSE",
       { success: true, message },
       [clientId],
+    );
+  }
+
+  private handleAdminHeartbeatResponse(
+    { timestamp }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_HEARTBEAT_RESPONSE],
+    clientId: string,
+    sessionTokens: SessionTokens,
+  ): void {
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin heartbeat response",
+    );
+    if (!loggedIn) return;
+    this.dataController.processAdminHeartbeatResponse(timestamp, clientId);
+  }
+
+  private handleAdminLogout(
+    _payload: WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGOUT],
+    clientId: string,
+    sessionTokens: SessionTokens,
+  ): void {
+    this.logger.info(`Admin logout request`);
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin logout",
+    );
+    if (!loggedIn) return;
+    const { otherLoggedOutClientIds } = this.dataController.logoutAdmin(
+      clientId,
+      true,
+    );
+    //Notify any other clients who were logged in with the same sessionToken that they have been logged out:
+    this.networkController.sendWssMessage(
+      "ADMIN_FORCE_LOGOUT",
+      null,
+      otherLoggedOutClientIds,
     );
   }
 
@@ -457,15 +511,25 @@ export class Controller implements IController {
   private handleAccountHeartbeat(
     clientIds: string[],
     payload: HeartbeatRequestPayload,
+    isAdmin: boolean = false,
   ): void {
     this.networkController.sendWssMessage(
-      "HEARTBEAT_REQUEST",
+      `${isAdmin ? "ADMIN_" : ""}HEARTBEAT_REQUEST`,
       payload,
       clientIds,
     );
   }
 
-  private handleStaleHeartbeat(clientId: string): void {
+  private handleStaleHeartbeat(
+    clientId: string,
+    isAdmin: boolean = false,
+  ): void {
+    this.logger.info(`Stale heartbeat detected for clientId ${clientId}`);
+    if (isAdmin) {
+      //Logout admin client here
+      this.dataController.logoutAdmin(clientId);
+      return;
+    }
     this.logoutClientIfLoggedIn({ clientId, notifyClient: true });
   }
 
@@ -478,5 +542,15 @@ export class Controller implements IController {
       );
     }
     return userId;
+  }
+
+  private isAdminClientIdLoggedIn(clientId: string, action: string): boolean {
+    const loggedIn = this.dataController.isAdminClientIdLoggedIn(clientId);
+    if (!loggedIn) {
+      this.logger.warn(
+        `${action}: admin client is not logged in (clientId=${clientId}).`,
+      );
+    }
+    return loggedIn;
   }
 }

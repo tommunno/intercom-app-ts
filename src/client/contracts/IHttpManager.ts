@@ -4,5 +4,6 @@ import type { HttpLoginResponse } from "../../shared/types/HttpLoginResponse.js"
 export interface IHttpManager {
   init: () => void;
   start: () => void;
-  softLogin: (request: HttpLoginRequest) => Promise<HttpLoginResponse>;
+  softLoginUser: (request: HttpLoginRequest) => Promise<HttpLoginResponse>;
+  softLoginAdmin: (request: HttpLoginRequest) => Promise<HttpLoginResponse>;
 }

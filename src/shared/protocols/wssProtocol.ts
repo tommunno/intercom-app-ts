@@ -30,7 +30,9 @@ export const WSS_UPSTREAM = {
   KEY_PRESS: "KEY_PRESS",
   WEB_RTC_OFFER: "WEB_RTC_OFFER",
   WEB_RTC_CLIENT_ICE_CANDIDATE: "WEB_RTC_CLIENT_ICE_CANDIDATE",
+  ADMIN_HEARTBEAT_RESPONSE: "ADMIN_HEARTBEAT_RESPONSE",
   ADMIN_LOGIN: "ADMIN_LOGIN",
+  ADMIN_LOGOUT: "ADMIN_LOGOUT",
 } as const;
 
 //For messages being received by the client talkback panel:
@@ -45,7 +47,9 @@ export const WSS_DOWNSTREAM_PANEL = {
 
 //For messages being received by the client setup admin page:
 export const WSS_DOWNSTREAM_SETUP = {
+  ADMIN_HEARTBEAT_REQUEST: "ADMIN_HEARTBEAT_REQUEST",
   ADMIN_LOGIN_RESPONSE: "ADMIN_LOGIN_RESPONSE",
+  ADMIN_FORCE_LOGOUT: "ADMIN_FORCE_LOGOUT",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -66,7 +70,9 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.KEY_PRESS]: dataIsWssKeyPress,
   [WSS_UPSTREAM.WEB_RTC_OFFER]: dataIsWebRtcOffer,
   [WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE]: dataIsWebRtcClientIceCandidate,
+  [WSS_UPSTREAM.ADMIN_HEARTBEAT_RESPONSE]: dataIsWssAdminHeartbeatResponse,
   [WSS_UPSTREAM.ADMIN_LOGIN]: dataIsWssAdminLogin,
+  [WSS_UPSTREAM.ADMIN_LOGOUT]: dataIsWssAdminLogout,
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
   [WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
@@ -74,7 +80,10 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER]: dataIsWebRtcAnswer,
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE]:
     dataIsWebRtcServerIceCandidate,
-  [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: dataIsAdminLoginResponse,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_HEARTBEAT_REQUEST]:
+    dataIsWssAdminHeartbeatRequest,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: dataIsWssAdminLoginResponse,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: dataIsWssAdminForceLogout,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -88,7 +97,9 @@ type PayloadMap = {
   [WSS_UPSTREAM.KEY_PRESS]: KeyPressInfo;
   [WSS_UPSTREAM.WEB_RTC_OFFER]: RtcOfferWire;
   [WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
+  [WSS_UPSTREAM.ADMIN_HEARTBEAT_RESPONSE]: { timestamp: number };
   [WSS_UPSTREAM.ADMIN_LOGIN]: null;
+  [WSS_UPSTREAM.ADMIN_LOGOUT]: null;
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: {
     success: boolean;
@@ -103,10 +114,12 @@ type PayloadMap = {
   [WSS_DOWNSTREAM_PANEL.USER_AUDIO_INFO_UPDATE]: AudioInfo;
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER]: RtcAnswerWire;
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
+  [WSS_DOWNSTREAM_SETUP.ADMIN_HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: {
     success: boolean;
     message: string;
   };
+  [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: null;
 };
 
 export type WssPayloads = {
@@ -160,9 +173,21 @@ export function dataIsWebRtcClientIceCandidate(
   return dataIsRtcIceCandidateInitWire(data) || dataIsType("null", data);
 }
 
+export function dataIsWssAdminHeartbeatResponse(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_HEARTBEAT_RESPONSE] {
+  return dataIsObject(data) && dataIsType("number", data.timestamp);
+}
+
 export function dataIsWssAdminLogin(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGIN] {
+  return dataIsType("null", data);
+}
+
+export function dataIsWssAdminLogout(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGOUT] {
   return dataIsType("null", data);
 }
 
@@ -211,7 +236,15 @@ export function dataIsWebRtcServerIceCandidate(
   return dataIsRtcIceCandidateInitWire(data) || dataIsType("null", data);
 }
 
-export function dataIsAdminLoginResponse(
+//DOWNSTREAM SETUP PAGE:
+
+export function dataIsWssAdminHeartbeatRequest(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_HEARTBEAT_REQUEST] {
+  return dataIsHeartbeatRequestPayload(data);
+}
+
+export function dataIsWssAdminLoginResponse(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE] {
   return (
@@ -219,4 +252,10 @@ export function dataIsAdminLoginResponse(
     dataIsType("boolean", data.success) &&
     dataIsType("string", data.message)
   );
+}
+
+export function dataIsWssAdminForceLogout(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT] {
+  return dataIsType("null", data);
 }

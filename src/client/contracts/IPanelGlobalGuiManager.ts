@@ -16,20 +16,15 @@ export type KeyPressParams =
     }
   | { type: typeof KEY_TYPE.LISTEN; id: number; currState: KeyState };
 
-export interface PanelGuiManagerHandlers {
-  onLoginAttempt(username: string, password: string): void;
+export interface PanelGlobalGuiManagerHandlers {
   onLogoutBtnClick(): void;
   onKeyPress(params: KeyPressParams): void;
 }
 
-export interface IPanelGuiManager {
+export interface IPanelGlobalGuiManager {
   init: () => void;
   start: () => void;
-  setHandlers: (handlers: PanelGuiManagerHandlers) => void;
-  setLoginError: (errMessage: string | null) => void;
-  setLoginLoading: (isLoading: boolean) => void;
-  setLoginVisible: (isVisible: boolean) => void;
-  shakeLogin: () => void;
+  setHandlers: (handlers: PanelGlobalGuiManagerHandlers) => void;
   displayState: (state: PanelState) => void;
   displayUserInfo: (userInfo: UserInfo) => void;
   displayAudioInfo: (audioInfo: AudioInfo) => void;

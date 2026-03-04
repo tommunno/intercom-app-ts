@@ -5,6 +5,6 @@ export type WssCommandMap = {
   [K in WssUpstream]: (
     data: WssPayloads[K],
     clientId: string,
-    sessionToken: string | null,
+    tokens: { user: string | null; admin: string | null },
   ) => MaybePromise<void>;
 };
