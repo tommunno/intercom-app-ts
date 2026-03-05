@@ -2,7 +2,6 @@
 import type {
   ManagerStatus,
   AdminUsersInfo,
-  AdminPartylinesInfo,
 } from "../../../shared/types/index.js";
 import type {
   IClientLogger,
@@ -21,6 +20,8 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
     tbody: document.querySelector<HTMLTableSectionElement>(
       ".user-form-table-body",
     )!,
+    saveChangesBtn:
+      document.querySelector<HTMLDivElement>(".save-changes-btn")!,
   };
   private handlers: UsersSectionGuiManagerHandlers | null = null;
   private rowChanges: UsersSectionRowChanges[] = [];
@@ -281,6 +282,10 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
         return;
       }
     });
+
+    this.els.saveChangesBtn.addEventListener("click", (e) =>
+      this.handleSaveChangesBtnClick(e),
+    );
   }
 
   private handleUsernameInputChange(
@@ -315,7 +320,7 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
     //There is no change:
     if (inputEl.value === "") {
       inputEl.classList.remove("input-changed");
-      rowChanges.newAllowedPls = null;
+      rowChanges.newPassword = null;
       return;
     }
     //There is a change:
@@ -394,13 +399,15 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
       if (i !== 0) {
         result += ", ";
       }
-      result += String(plRange[0]);
+      //+1 because Pls start at index 1 for the user!:
+      result += String(firstVal + 1);
 
       if (plRange.length <= 1) return;
 
       const lastVal = plRange.at(-1);
       if (lastVal !== undefined) {
-        result += "-" + String(lastVal);
+        //+1 because Pls start at index 1 for the user!:
+        result += "-" + String(lastVal + 1);
       }
     });
     return result;
@@ -416,8 +423,10 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
       rangeArr = range.split("-");
       let lastVal: number | null = null;
       for (const val of rangeArr) {
-        if (val === "" || val === " ") continue;
-        const numVal = Number(val);
+        const trimmed = val.trim();
+        if (trimmed === "") continue;
+        //Take one away from the user provided value, because pls are indexed as 1 for the user, and as 0 for the backend:
+        const numVal = Number(trimmed) - 1;
         if (!this.isPlValid(numVal)) {
           return null;
         }
@@ -453,6 +462,13 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
       this.logger.warn(`isPlValid: Invalid pl ${pl}`);
     }
     return isValid;
+  }
+
+  private handleSaveChangesBtnClick(e: PointerEvent): void {
+    e.preventDefault();
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
   }
 
   private get activeHandlers(): UsersSectionGuiManagerHandlers {
