@@ -34,7 +34,7 @@ export class LoginGuiManager implements ILoginGuiManager {
     this.logger = this.logger.child({ context: "LoginGuiManager" });
   }
 
-  ensureElementsExist(): void {
+  private ensureElementsExist(): void {
     Object.entries(this.els).forEach(([key, el]) => {
       // If it's a group (and not a DOM element), loop its children
       if (el && typeof el === "object" && !(el instanceof HTMLElement)) {

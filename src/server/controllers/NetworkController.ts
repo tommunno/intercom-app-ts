@@ -21,6 +21,7 @@ import type {
   IWebRtcManager,
   ITurnServerManager,
   NetworkHandlers,
+  NetworkAdminInfos,
 } from "../contracts/index.js";
 import type {
   NetworkData,
@@ -167,6 +168,11 @@ export class NetworkController implements INetworkController {
       };
     }
     return null;
+  }
+
+  //Still to fill in:
+  getAdminInfos(): NetworkAdminInfos {
+    return { webServerInfo: {} };
   }
 
   //Private methods:

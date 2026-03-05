@@ -4,8 +4,8 @@ import type {
   WssPayloads,
 } from "../../shared/protocols/wssProtocol.js";
 import type {
-  HeartbeatRequestPayload,
   HttpLoginResponse,
+  SetupSections,
 } from "../../shared/types/index.js";
 import type {
   IClientLogger,
@@ -15,6 +15,7 @@ import type {
   ISetupController,
   ISetupGlobalGuiManager,
 } from "../contracts/index.js";
+import type { ISetupSectionGuiManager } from "../contracts/setup-sections/ISetupSectionGuiManager.js";
 import type {
   AttemptFullLoginParams,
   SetupState,
@@ -24,6 +25,13 @@ import type {
 export class SetupController implements ISetupController {
   private state: SetupState = {
     attemptingAutomaticLogin: false,
+    webServerInfo: {},
+    inputGainsInfo: {},
+    usersInfo: [],
+    partylinesInfo: [],
+    soundcardInfo: {},
+    audioConfigInfo: {},
+    loggingInfo: {},
   };
   private readonly wssCommands: WssSetupCommandMap = {
     ADMIN_HEARTBEAT_REQUEST: this.handleAdminHeartbeatRequest.bind(this),
@@ -34,6 +42,7 @@ export class SetupController implements ISetupController {
   constructor(
     private globalGuiManager: ISetupGlobalGuiManager,
     private loginGuiManager: ILoginGuiManager,
+    private sections: SetupSections,
     private wssManager: IClientWssManager<"SETUP">,
     private httpManager: IHttpManager,
     private logger: IClientLogger,
@@ -45,6 +54,9 @@ export class SetupController implements ISetupController {
     this.bindListeners();
     this.globalGuiManager.init();
     this.loginGuiManager.init();
+    Object.values(this.sections).forEach((s: ISetupSectionGuiManager) =>
+      s.init(),
+    );
     this.wssManager.init();
     this.httpManager.init();
   }
@@ -52,6 +64,9 @@ export class SetupController implements ISetupController {
   start(): void {
     this.globalGuiManager.start();
     this.loginGuiManager.start();
+    Object.values(this.sections).forEach((s: ISetupSectionGuiManager) =>
+      s.start(),
+    );
     this.httpManager.start();
     this.loginGuiManager.setLoginLoading(false);
     this.attemptAutomaticLogin();
@@ -64,6 +79,8 @@ export class SetupController implements ISetupController {
     this.loginGuiManager.setHandlers({
       onLoginAttempt: (u, p) => this.handleLoginAttempt(u, p),
     });
+    this.sections.webServer.setHandlers({});
+    this.sections.users.setHandlers({});
     this.wssManager.setHandlers({
       onOpen: () => this.handleWssOpen(),
       onClose: () => this.handleWssClose(),
@@ -142,7 +159,7 @@ export class SetupController implements ISetupController {
   private attemptHardLogin(): void {
     this.logger.info("Attempting hard login");
     if (!this.wssManager.isRunning) {
-      //USER_LOGIN message is sent straight away once the websocket is open
+      //ADMIN_LOGIN message is sent straight away once the websocket is open
       this.wssManager.start();
       return;
     }
@@ -209,12 +226,11 @@ export class SetupController implements ISetupController {
     this.wssManager.notifyHeartbeatReceived();
   }
 
-  private handleAdminLoginResponse({
-    success,
-    message,
-  }: WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]) {
+  private handleAdminLoginResponse(
+    params: WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE],
+  ) {
+    const { success, message } = params;
     this.loginGuiManager.setLoginLoading(false);
-
     this.logger.info(
       `Login Response: success: ${success}, message: ${message}`,
     );
@@ -228,25 +244,17 @@ export class SetupController implements ISetupController {
       }
       return;
     }
-    //
-    // if (<data that is needed does not exist>) {
-    //   this.loginGuiManager.setLoginError("Error retrieving user information");
-    //   this.loginGuiManager.shakeLogin();
-    //   this.logger.error(
-    //     `Login state violation: Server returned success: true, but userInfo or audioInfo is missing from the payload`,
-    //   );
-    //   this.state.attemptingAutomaticLogin = false;
-    //   return;
-    // }
 
     //Success:
-    // this.state.userInfo = userInfo;
-    // this.state.audioInfo = audioInfo;
-    // this.state.turnServerInfo = turnServerInfo;
+    const { adminSnapshot } = params;
+    this.state = { ...this.state, ...adminSnapshot };
+    this.logger.info("this.state:", this.state);
 
-    this.globalGuiManager.displayState(this.state);
     this.loginGuiManager.setLoginVisible(false);
-    // this.wssManager.monitorHeartbeatWatchdog(true);
+    Object.values(this.sections).forEach((s: ISetupSectionGuiManager) =>
+      s.displayState(this.state),
+    );
+    this.wssManager.monitorHeartbeatWatchdog(true);
     this.state.attemptingAutomaticLogin = false;
   }
 
@@ -274,7 +282,7 @@ export class SetupController implements ISetupController {
 
   //Misc Handlers:
   private handleLostConnection() {
-    // this.globalGuiManager.setErrorModal(true);
+    this.globalGuiManager.setErrorModal(true);
     this.wssManager.monitorServerRecovery(true);
     this.wssManager.monitorHeartbeatWatchdog(false);
   }

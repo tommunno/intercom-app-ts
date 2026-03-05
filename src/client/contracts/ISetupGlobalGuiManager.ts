@@ -8,6 +8,5 @@ export interface ISetupGlobalGuiManager {
   init: () => void;
   start: () => void;
   setHandlers: (handlers: SetupGlobalGuiManagerHandlers) => void;
-  displayState: (state: SetupState) => void;
   setErrorModal: (visible: boolean) => void;
 }

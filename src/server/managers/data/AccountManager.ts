@@ -8,6 +8,7 @@ import {
   type SessionTokenInfo,
   type AdminUserUpdate,
   type UserAndId,
+  type AdminUsersInfo,
 } from "../../../shared/types/index.js";
 //Contracts:
 import {
@@ -105,6 +106,20 @@ export class AccountManager implements IAccountManager {
 
   setHandlers(handlers: AccountHandlers): void {
     this.handlers = handlers;
+  }
+
+  getAdminUsersInfo(): AdminUsersInfo {
+    const adminUsersInfo: AdminUsersInfo = [];
+    this.users.forEach((user) => {
+      const { username, loggedIn } = user;
+      adminUsersInfo.push({
+        username,
+        loggedIn,
+        //Still need to properly add in allowedPls:
+        allowedPls: [0, 2, 3, 4, 6, 8],
+      });
+    });
+    return adminUsersInfo;
   }
 
   private get activeHandlers(): AccountHandlers {

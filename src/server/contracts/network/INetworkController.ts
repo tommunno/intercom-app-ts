@@ -1,4 +1,5 @@
 import type {
+  AdminWebServerInfo,
   RtcIceCandidateInitWire,
   RtcOfferWire,
   TurnServerInfo,
@@ -11,6 +12,10 @@ import type {
 import type { WebRtcHandlers } from "./IWebRtcManager.js";
 import type { WebServerHandlers } from "./IWebServerManager.js";
 import type { WssHandlers } from "./IWssManager.js";
+
+export interface NetworkAdminInfos {
+  webServerInfo: AdminWebServerInfo;
+}
 
 export interface NetworkHandlers
   extends WebServerHandlers, WssHandlers, WebRtcHandlers {}
@@ -41,4 +46,6 @@ export interface INetworkController {
   closeRtcClient: (clientId: string) => void;
 
   getTurnServerInfo: () => TurnServerInfo | null;
+
+  getAdminInfos: () => NetworkAdminInfos;
 }

@@ -9,6 +9,7 @@ import type {
 } from "../../shared/types/index.js";
 import type {
   AdminLogoutResult,
+  DataAdminInfos,
   DataHandlers,
   IAccountManager,
   IAdminAccountManager,
@@ -149,6 +150,11 @@ export class DataController implements IDataController {
 
   isAdminClientIdLoggedIn(clientId: string): boolean {
     return this.adminAccountManager.isClientIdLoggedIn(clientId);
+  }
+
+  getAdminInfos(): DataAdminInfos {
+    const usersInfo = this.accountManager.getAdminUsersInfo();
+    return { usersInfo };
   }
 
   private bindListeners(): void {

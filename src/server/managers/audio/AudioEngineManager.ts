@@ -1,5 +1,9 @@
 import { dataIsType } from "../../../shared/helpers.js";
-import type { ManagerStatus } from "../../../shared/types/index.js";
+import type {
+  AdminInputGainsInfo,
+  AdminSoundcardInfo,
+  ManagerStatus,
+} from "../../../shared/types/index.js";
 import type { CrosspointChange } from "../../types/index.js";
 import {
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
@@ -197,6 +201,15 @@ export class AudioEngineManager implements IAudioEngineManager {
       );
       return false;
     }
+  }
+
+  //Still need to fill in:
+  getAdminInputGainsInfo(): AdminInputGainsInfo {
+    return {};
+  }
+
+  getAdminSoundcardInfo(): AdminSoundcardInfo {
+    return {};
   }
 
   get status(): ManagerStatus {

@@ -205,7 +205,10 @@ export class ClientWssManager<
         //Now we can safely destructure these
         const { type, payload } = json;
 
-        if (type !== "HEARTBEAT_REQUEST") {
+        if (
+          type !== "HEARTBEAT_REQUEST" &&
+          type !== "ADMIN_HEARTBEAT_REQUEST"
+        ) {
           this.logger.info(`Message type: ${type}`);
         }
 
@@ -226,7 +229,7 @@ export class ClientWssManager<
       return;
     }
 
-    if (type !== "HEARTBEAT_REQUEST") {
+    if (type !== "HEARTBEAT_REQUEST" && type !== "ADMIN_HEARTBEAT_REQUEST") {
       this.logger.success(`Message payload valid for type: ${type}`);
     }
 

@@ -1,4 +1,5 @@
 import type {
+  AdminUsersInfo,
   AdminUserUpdate,
   HeartbeatRequestPayload,
   SessionTokenInfo,
@@ -60,6 +61,7 @@ export interface IAccountManager {
   getUserInfo: (userId: number) => UserInfo | null;
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
   getLoggedInUserClientIds: () => string[];
+  getAdminUsersInfo: () => AdminUsersInfo;
 
   numUsers: number;
 }

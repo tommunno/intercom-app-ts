@@ -1,4 +1,6 @@
 import type {
+  AdminAudioConfigInfo,
+  AdminPartylinesInfo,
   KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
@@ -226,6 +228,19 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       }
     }
     return anyOtherTalkKeys;
+  }
+
+  getAdminPartylinesInfo(): AdminPartylinesInfo {
+    const plsInfo: AdminPartylinesInfo = [];
+    this.partylines.forEach((pl) => {
+      plsInfo.push({ id: pl.id, name: pl.name });
+    });
+    return plsInfo;
+  }
+
+  //Still need to fill in:
+  getAdminAudioConfigInfo(): AdminAudioConfigInfo {
+    return {};
   }
 
   get status(): ManagerStatus {

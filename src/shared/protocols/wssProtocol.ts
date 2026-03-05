@@ -1,5 +1,6 @@
 //Helpers:
 import { dataIsObject, dataIsType } from "../helpers.js";
+import type { AdminLoginResponse } from "../types/index.js";
 //Types:
 import {
   dataIsUserInfo,
@@ -18,6 +19,9 @@ import {
   type RtcAnswerWire,
   dataIsRtcOfferWire,
   type RtcOfferWire,
+  type AdminSnapshot,
+  dataIsAdminSnapshot,
+  dataIsAdminLoginResponse,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -115,10 +119,7 @@ type PayloadMap = {
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER]: RtcAnswerWire;
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
   [WSS_DOWNSTREAM_SETUP.ADMIN_HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
-  [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: {
-    success: boolean;
-    message: string;
-  };
+  [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: AdminLoginResponse;
   [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: null;
 };
 
@@ -247,11 +248,7 @@ export function dataIsWssAdminHeartbeatRequest(
 export function dataIsWssAdminLoginResponse(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE] {
-  return (
-    dataIsObject(data) &&
-    dataIsType("boolean", data.success) &&
-    dataIsType("string", data.message)
-  );
+  return dataIsAdminLoginResponse(data);
 }
 
 export function dataIsWssAdminForceLogout(

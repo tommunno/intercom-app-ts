@@ -1,4 +1,6 @@
 import type {
+  AdminAudioConfigInfo,
+  AdminPartylinesInfo,
   KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
@@ -50,5 +52,7 @@ export interface IAudioMatrixManager {
     portNum: number,
     plNums: ReadonlySet<number>,
   ) => boolean;
+  getAdminPartylinesInfo: () => AdminPartylinesInfo;
+  getAdminAudioConfigInfo: () => AdminAudioConfigInfo;
   status: ManagerStatus;
 }

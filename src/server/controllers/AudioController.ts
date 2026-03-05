@@ -5,6 +5,7 @@ import type {
   MergedPartylineInfo,
 } from "../../shared/types/index.js";
 import type {
+  AudioAdminInfos,
   AudioEngineConfig,
   AudioEnginePopulateConfig,
   AudioHandlers,
@@ -162,6 +163,19 @@ export class AudioController implements IAudioController {
     const success = this.startManagers();
     this.activeHandlers.onAudioRestart();
     return success;
+  }
+
+  getAdminInfos(): AudioAdminInfos {
+    const inputGainsInfo = this.audioEngineManager.getAdminInputGainsInfo();
+    const partylinesInfo = this.audioMatrixManager.getAdminPartylinesInfo();
+    const soundcardInfo = this.audioEngineManager.getAdminSoundcardInfo();
+    const audioConfigInfo = this.audioMatrixManager.getAdminAudioConfigInfo();
+    return {
+      inputGainsInfo,
+      partylinesInfo,
+      soundcardInfo,
+      audioConfigInfo,
+    };
   }
 
   //Private methods:

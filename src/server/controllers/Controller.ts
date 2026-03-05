@@ -7,6 +7,8 @@ import type {
 } from "../contracts/index.js";
 import type {
   AdminAuthResult,
+  AdminLoggingInfo,
+  AdminSnapshot,
   AudioInfo,
   AuthResult,
   HeartbeatRequestPayload,
@@ -398,10 +400,27 @@ export class Controller implements IController {
     }
 
     //Login Success:
+    const { webServerInfo } = this.networkController.getAdminInfos();
+    const { inputGainsInfo, partylinesInfo, soundcardInfo, audioConfigInfo } =
+      this.audioController.getAdminInfos();
+    const { usersInfo } = this.dataController.getAdminInfos();
+    //Ultimately do this:
+    // const { loggingInfo } = this.loggingManager.getAdminInfos();
+    //But need a loggingManager first. Temporarily we we will do this:
+    const loggingInfo: AdminLoggingInfo = {};
+    const adminSnapshot: AdminSnapshot = {
+      webServerInfo,
+      inputGainsInfo,
+      usersInfo,
+      partylinesInfo,
+      soundcardInfo,
+      audioConfigInfo,
+      loggingInfo,
+    };
 
     this.networkController.sendWssMessage(
       "ADMIN_LOGIN_RESPONSE",
-      { success: true, message },
+      { success: true, message, adminSnapshot },
       [clientId],
     );
   }

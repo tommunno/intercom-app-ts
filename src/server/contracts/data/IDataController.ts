@@ -1,5 +1,6 @@
 import type {
   AdminAuthResult,
+  AdminUsersInfo,
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
@@ -8,6 +9,10 @@ import type {
 import type { AudioPopulateData } from "../../types/AudioData.js";
 import type { NetworkData } from "../../types/NetworkData.js";
 import type { AdminLogoutResult } from "./IAdminAccountManager.js";
+
+export interface DataAdminInfos {
+  usersInfo: AdminUsersInfo;
+}
 
 export interface DataHandlers {
   onAccountHeartbeat(
@@ -57,4 +62,6 @@ export interface IDataController {
 
   processAdminHeartbeatResponse: (timestamp: number, clientId: string) => void;
   isAdminClientIdLoggedIn: (clientId: string) => boolean;
+
+  getAdminInfos: () => DataAdminInfos;
 }

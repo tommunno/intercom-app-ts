@@ -18,6 +18,7 @@ export interface PartylineSnapshot {
 
 export interface IPartyline {
   id: number;
+  name: string;
   portsTalking: ReadonlySet<number>;
   portsListening: ReadonlySet<number>;
   state: PartylineState;

@@ -10,6 +10,7 @@ export class SetupGlobalGuiManager implements ISetupGlobalGuiManager {
   private status: ManagerStatus = "IDLE";
 
   private readonly els = {
+    mainSpace: document.querySelector<HTMLDivElement>(".main-space")!,
     optionBar: {
       logoutBtn: document.querySelector<HTMLButtonElement>(".logout-btn")!,
     },
@@ -25,7 +26,7 @@ export class SetupGlobalGuiManager implements ISetupGlobalGuiManager {
     this.logger = this.logger.child({ context: "SetupGlobalGuiManager" });
   }
 
-  ensureElementsExist(): void {
+  private ensureElementsExist(): void {
     Object.entries(this.els).forEach(([key, el]) => {
       // If it's a group (and not a DOM element), loop its children
       if (el && typeof el === "object" && !(el instanceof HTMLElement)) {
@@ -65,12 +66,6 @@ export class SetupGlobalGuiManager implements ISetupGlobalGuiManager {
     this.handlers = handlers;
   }
 
-  displayState(state: SetupState): void {
-    const notRunning = this.checkAndWarnIfNotRunning("display state");
-    if (notRunning) return;
-    //Display state here
-  }
-
   setErrorModal(visible: boolean): void {
     const notRunning = this.checkAndWarnIfNotRunning("set error modal");
     if (notRunning) return;
@@ -84,6 +79,18 @@ export class SetupGlobalGuiManager implements ISetupGlobalGuiManager {
   }
 
   private setupListeners(): void {
+    this.els.mainSpace.addEventListener("click", (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+
+      const sectionTitle = target.closest(".section-title");
+      if (!sectionTitle) return;
+
+      const section = sectionTitle.closest(".section");
+      if (!section) return;
+
+      section.classList.toggle("hidden");
+    });
     this.setupOptionBarListeners();
   }
 
