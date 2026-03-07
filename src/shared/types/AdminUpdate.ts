@@ -25,6 +25,7 @@ import {
   type AdminWebServerInfo,
 } from "./AdminWebServerInfo.js";
 
+//Sent on admin login, everything required:
 export interface AdminSnapshot {
   webServerInfo: AdminWebServerInfo;
   inputGainsInfo: AdminInputGainsInfo;
@@ -35,6 +36,7 @@ export interface AdminSnapshot {
   loggingInfo: AdminLoggingInfo;
 }
 
+//Sent on updates, everything optional:
 export type AdminUpdate = Partial<AdminSnapshot>;
 
 const ADMIN_SNAPSHOT_VALIDATORS: Record<

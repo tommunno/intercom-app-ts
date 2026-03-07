@@ -29,4 +29,5 @@ export interface IAdminAccountManager {
   logout: (clientId: string, hardLogout?: boolean) => AdminLogoutResult;
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
   isClientIdLoggedIn: (clientId: string) => boolean;
+  getLoggedInClientIds: () => string[];
 }

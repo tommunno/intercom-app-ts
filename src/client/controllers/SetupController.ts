@@ -4,6 +4,7 @@ import type {
   WssPayloads,
 } from "../../shared/protocols/wssProtocol.js";
 import type {
+  AdminUsersChangeRequest,
   HttpLoginResponse,
   SetupSections,
 } from "../../shared/types/index.js";
@@ -14,8 +15,8 @@ import type {
   ILoginGuiManager,
   ISetupController,
   ISetupGlobalGuiManager,
+  ISetupSectionGuiManager,
 } from "../contracts/index.js";
-import type { ISetupSectionGuiManager } from "../contracts/setup-sections/ISetupSectionGuiManager.js";
 import type {
   AttemptFullLoginParams,
   SetupState,
@@ -37,6 +38,7 @@ export class SetupController implements ISetupController {
     ADMIN_HEARTBEAT_REQUEST: this.handleAdminHeartbeatRequest.bind(this),
     ADMIN_LOGIN_RESPONSE: this.handleAdminLoginResponse.bind(this),
     ADMIN_FORCE_LOGOUT: this.handleAdminForceLogout.bind(this),
+    ADMIN_UPDATE: this.handleAdminUpdate.bind(this),
   };
 
   constructor(
@@ -80,7 +82,9 @@ export class SetupController implements ISetupController {
       onLoginAttempt: (u, p) => this.handleLoginAttempt(u, p),
     });
     this.sections.webServer.setHandlers({});
-    this.sections.users.setHandlers({});
+    this.sections.users.setHandlers({
+      onUpdate: (c) => this.handleUsersUpdate(c),
+    });
     this.wssManager.setHandlers({
       onOpen: () => this.handleWssOpen(),
       onClose: () => this.handleWssClose(),
@@ -176,6 +180,12 @@ export class SetupController implements ISetupController {
     window.location.reload();
   }
 
+  private displayState(): void {
+    Object.values(this.sections).forEach((s: ISetupSectionGuiManager) =>
+      s.displayState(this.state),
+    );
+  }
+
   //WSS Handlers:
 
   //WSS Handlers:
@@ -251,9 +261,7 @@ export class SetupController implements ISetupController {
     this.logger.info("this.state:", this.state);
 
     this.loginGuiManager.setLoginVisible(false);
-    Object.values(this.sections).forEach((s: ISetupSectionGuiManager) =>
-      s.displayState(this.state),
-    );
+    this.displayState();
     this.wssManager.monitorHeartbeatWatchdog(true);
     this.state.attemptingAutomaticLogin = false;
   }
@@ -262,6 +270,15 @@ export class SetupController implements ISetupController {
     _: WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT],
   ): void {
     this.logout(false);
+  }
+
+  private handleAdminUpdate(
+    update: WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE],
+  ): void {
+    this.state = { ...this.state, ...update };
+    if (update.usersInfo) {
+      this.sections.users.displayState(this.state);
+    }
   }
 
   //Global GUI Handlers:
@@ -278,6 +295,11 @@ export class SetupController implements ISetupController {
     password: string,
   ): Promise<void> {
     this.attemptFullLogin({ username, password });
+  }
+
+  //Section GUI Handlers:
+  private handleUsersUpdate(changeRequest: AdminUsersChangeRequest): void {
+    this.wssManager.sendMessage("ADMIN_USERS_CHANGE_REQUEST", changeRequest);
   }
 
   //Misc Handlers:

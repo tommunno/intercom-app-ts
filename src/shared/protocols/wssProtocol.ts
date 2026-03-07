@@ -1,6 +1,10 @@
 //Helpers:
 import { dataIsObject, dataIsType } from "../helpers.js";
-import type { AdminLoginResponse } from "../types/index.js";
+import type {
+  AdminLoginResponse,
+  AdminUpdate,
+  AdminUsersChangeRequest,
+} from "../types/index.js";
 //Types:
 import {
   dataIsUserInfo,
@@ -22,6 +26,8 @@ import {
   type AdminSnapshot,
   dataIsAdminSnapshot,
   dataIsAdminLoginResponse,
+  dataIsAdminUsersChangeRequest,
+  dataIsAdminUpdate,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -37,6 +43,7 @@ export const WSS_UPSTREAM = {
   ADMIN_HEARTBEAT_RESPONSE: "ADMIN_HEARTBEAT_RESPONSE",
   ADMIN_LOGIN: "ADMIN_LOGIN",
   ADMIN_LOGOUT: "ADMIN_LOGOUT",
+  ADMIN_USERS_CHANGE_REQUEST: "ADMIN_USERS_CHANGE_REQUEST",
 } as const;
 
 //For messages being received by the client talkback panel:
@@ -54,6 +61,7 @@ export const WSS_DOWNSTREAM_SETUP = {
   ADMIN_HEARTBEAT_REQUEST: "ADMIN_HEARTBEAT_REQUEST",
   ADMIN_LOGIN_RESPONSE: "ADMIN_LOGIN_RESPONSE",
   ADMIN_FORCE_LOGOUT: "ADMIN_FORCE_LOGOUT",
+  ADMIN_UPDATE: "ADMIN_UPDATE",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -77,6 +85,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.ADMIN_HEARTBEAT_RESPONSE]: dataIsWssAdminHeartbeatResponse,
   [WSS_UPSTREAM.ADMIN_LOGIN]: dataIsWssAdminLogin,
   [WSS_UPSTREAM.ADMIN_LOGOUT]: dataIsWssAdminLogout,
+  [WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST]: dataIsWssAdminUsersChangeRequest,
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
   [WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
@@ -88,6 +97,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
     dataIsWssAdminHeartbeatRequest,
   [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: dataIsWssAdminLoginResponse,
   [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: dataIsWssAdminForceLogout,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: dataIsWssAdminUpdate,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -104,6 +114,7 @@ type PayloadMap = {
   [WSS_UPSTREAM.ADMIN_HEARTBEAT_RESPONSE]: { timestamp: number };
   [WSS_UPSTREAM.ADMIN_LOGIN]: null;
   [WSS_UPSTREAM.ADMIN_LOGOUT]: null;
+  [WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST]: AdminUsersChangeRequest;
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: {
     success: boolean;
@@ -121,6 +132,7 @@ type PayloadMap = {
   [WSS_DOWNSTREAM_SETUP.ADMIN_HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: AdminLoginResponse;
   [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: null;
+  [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: AdminUpdate;
 };
 
 export type WssPayloads = {
@@ -192,6 +204,12 @@ export function dataIsWssAdminLogout(
   return dataIsType("null", data);
 }
 
+export function dataIsWssAdminUsersChangeRequest(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST] {
+  return dataIsAdminUsersChangeRequest(data);
+}
+
 //DOWNSTREAM PANEL:
 
 export function dataIsWssHeartbeatRequest(
@@ -255,4 +273,10 @@ export function dataIsWssAdminForceLogout(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT] {
   return dataIsType("null", data);
+}
+
+export function dataIsWssAdminUpdate(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE] {
+  return dataIsAdminUpdate(data);
 }

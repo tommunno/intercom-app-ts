@@ -2,6 +2,7 @@
 import { dataIsType } from "../../shared/helpers.js";
 import type {
   AdminAuthResult,
+  AdminUsersChangeRequest,
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
@@ -9,6 +10,7 @@ import type {
 } from "../../shared/types/index.js";
 import type {
   AdminLogoutResult,
+  AdminUsersChangeRequestResult,
   DataAdminInfos,
   DataHandlers,
   IAccountManager,
@@ -55,11 +57,11 @@ export class DataController implements IDataController {
     this.accountManager.start();
     this.adminAccountManager.start();
     //Test data:
-    this.accountManager.updateUsers([
-      { userId: 0, password: "tom123" },
-      { userId: 1, password: "ben123" },
-      { userId: 2, username: "mark", password: "mark123" },
-    ]);
+    // this.accountManager.updateUsers([
+    //   { userId: 0, password: "tom123" },
+    //   { userId: 1, password: "ben123" },
+    //   { userId: 2, username: "mark", password: "mark123" },
+    // ]);
     //End test data
   }
 
@@ -152,9 +154,19 @@ export class DataController implements IDataController {
     return this.adminAccountManager.isClientIdLoggedIn(clientId);
   }
 
+  getLoggedInAdminClientIds(): string[] {
+    return this.adminAccountManager.getLoggedInClientIds();
+  }
+
   getAdminInfos(): DataAdminInfos {
     const usersInfo = this.accountManager.getAdminUsersInfo();
     return { usersInfo };
+  }
+
+  processAdminUsersChangeRequest(
+    changeRequest: AdminUsersChangeRequest,
+  ): Promise<AdminUsersChangeRequestResult> {
+    return this.accountManager.processAdminUsersChangeRequest(changeRequest);
   }
 
   private bindListeners(): void {

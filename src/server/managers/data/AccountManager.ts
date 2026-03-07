@@ -6,13 +6,15 @@ import {
   type AuthResult,
   type UserInfo,
   type SessionTokenInfo,
-  type AdminUserUpdate,
   type UserAndId,
   type AdminUsersInfo,
+  type AdminUsersChangeRequest,
+  type SuccessOptionalMessage,
 } from "../../../shared/types/index.js";
 //Contracts:
 import {
   type AccountHandlers,
+  type AdminUsersChangeRequestResult,
   type HardLoginUserParams,
   type IAccountManager,
   type ILogger,
@@ -48,10 +50,13 @@ export class AccountManager implements IAccountManager {
   private status: ManagerStatus = "IDLE";
   private handlers: AccountHandlers | null = null;
   private _numUsers: number = DEFAULT_NUM_USERS;
+  //<userId, User>:
   private users: Map<number, User> = new Map();
   private heartbeatIntervalId: ReturnType<typeof setInterval> | null = null;
   private sessionCleanupIntervalId: ReturnType<typeof setInterval> | null =
     null;
+  //Temporary! Need to find a way to get numPartylines here:
+  private numPartylines: number = 10;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AccountManager" });
@@ -169,9 +174,11 @@ export class AccountManager implements IAccountManager {
       const { passwordHash: p, sessionTokenInfos: sTs } = pUser;
       const u = pUser.username.trim();
 
-      if (!this.validateUsername({ name: u, usernames })) {
+      const { success, clash } = this.validateUsername({ name: u, usernames });
+
+      if (!success) {
         this.logger.warn(
-          `Username invalid in loaded data for userId ${i}. Will set the username to ${newUser.username} instead`,
+          `Username invalid in loaded data for userId ${i}${clash ? " (name clash)" : ""}. Will set the username to ${newUser.username} instead`,
         );
       } else {
         newUser.username = u;
@@ -197,19 +204,21 @@ export class AccountManager implements IAccountManager {
     name: string;
     usernames?: Set<string>;
     currentName?: string;
-  }): boolean {
-    if (currentName && name === currentName) return true;
+  }): { success: boolean; clash: boolean } {
+    if (currentName && name === currentName)
+      return { success: true, clash: false };
 
     if (!usernames) {
       usernames = new Set<string>(
         Array.from(this.users.values()).map((u) => u.username),
       );
     }
-    return (
-      !usernames.has(name) &&
-      name.length !== 0 &&
-      name.length <= MAX_USERNAME_LENGTH
-    );
+    const clash = usernames.has(name);
+    return {
+      success:
+        !clash && name.length !== 0 && name.length <= MAX_USERNAME_LENGTH,
+      clash,
+    };
   }
 
   private validatePassword(password: string): boolean {
@@ -240,6 +249,7 @@ export class AccountManager implements IAccountManager {
     return {
       username: this.createUniqueDefaultUsername(id, usernames),
       passwordHash: null,
+      allowedPls: Array.from({ length: this.numPartylines }, (_, i) => i),
       sessionTokenInfos: [],
       loggedIn: false,
       clientId: null,
@@ -646,50 +656,6 @@ export class AccountManager implements IAccountManager {
     return foundUser.clientId;
   }
 
-  //For eg admins updating info about users. Passwords are expected as plain text here.
-  async updateUsers(updates: AdminUserUpdate[]): Promise<void> {
-    const result = this.checkAndWarnIfNotRunning("update users");
-    if (result) return;
-
-    for (let update of updates) {
-      const { userId: id, username: u, password: p } = update;
-      if (u === undefined && p === undefined) {
-        continue;
-      }
-      const foundUser = this.users.get(id);
-      if (!foundUser) {
-        this.logger.warn(`Unable to update user: userId ${id} does not exist`);
-        continue;
-      }
-      if (p !== undefined) {
-        if (this.validatePassword(p)) {
-          const hash = await bcrypt.hash(p, SALT_ROUNDS);
-          foundUser.passwordHash = hash;
-        } else {
-          this.logger.warn(
-            `Unable to update password for userId ${id}. The password is invalid`,
-          );
-        }
-      }
-      if (u !== undefined) {
-        const trimmedU = u.trim();
-        //Rebuild the usernames set each time in validateUsername, because usernames could have changed during the await above:
-        if (
-          this.validateUsername({
-            name: trimmedU,
-            currentName: foundUser.username,
-          })
-        ) {
-          foundUser.username = trimmedU;
-        } else {
-          this.logger.warn(
-            `Unable to update username for userId ${id}. The username is invalid`,
-          );
-        }
-      }
-    }
-  }
-
   getUserInfo(userId: number): UserInfo | null {
     const result = this.checkAndWarnIfNotRunning("get user info");
     if (result) return null;
@@ -733,6 +699,90 @@ export class AccountManager implements IAccountManager {
     return clientIds;
   }
 
+  //For eg admins updating info about users. Passwords are expected as plain text here.
+  async processAdminUsersChangeRequest(
+    changeRequest: AdminUsersChangeRequest,
+  ): Promise<AdminUsersChangeRequestResult> {
+    const result = this.checkAndWarnIfNotRunning(
+      "process admin users change request",
+    );
+    if (result)
+      return {
+        success: false,
+        message: "Internal server error",
+        usersInfo: this.getAdminUsersInfo(),
+      };
+
+    let anyUserNotFound = false;
+    let anyDataNotValid = false;
+    let anyUsernameClash = false;
+    for (const userChange of changeRequest) {
+      const {
+        userId: id,
+        username: u,
+        password: p,
+        allowedPls: aPls,
+      } = userChange;
+
+      const foundUser = this.users.get(id);
+      if (!foundUser) {
+        this.logger.warn(`Unable to update user: userId ${id} does not exist`);
+        anyUserNotFound = true;
+        continue;
+      }
+
+      if (p !== null) {
+        if (this.validatePassword(p)) {
+          const hash = await bcrypt.hash(p, SALT_ROUNDS);
+          foundUser.passwordHash = hash;
+        } else {
+          this.logger.warn(
+            `Unable to update password for userId ${id}. The password is invalid`,
+          );
+          anyDataNotValid = true;
+        }
+      }
+      if (u !== null) {
+        const trimmedU = u.trim();
+        //Rebuild the usernames set each time in validateUsername, because usernames could have changed during the await above:
+        const { success, clash } = this.validateUsername({
+          name: trimmedU,
+          currentName: foundUser.username,
+        });
+        if (success) {
+          foundUser.username = trimmedU;
+        } else {
+          this.logger.warn(
+            `Unable to update username for userId ${id}. The username is invalid${clash ? " (name clash)" : ""}`,
+          );
+          if (clash) {
+            anyUsernameClash = true;
+          } else {
+            anyDataNotValid = true;
+          }
+        }
+      }
+      if (aPls !== null) {
+        const resolvedAPls = this.resolveAllowedPls(aPls);
+        foundUser.allowedPls = resolvedAPls;
+      }
+    }
+    let message = "";
+    if (anyUserNotFound) {
+      message += "Unable to find users";
+    }
+    if (anyDataNotValid) {
+      message += `${anyUserNotFound ? "; i" : "I"}nvalid data`;
+    }
+    if (anyUsernameClash) {
+      message += `${anyUserNotFound || anyDataNotValid ? "; u" : "U"}sernames are not unique`;
+    }
+    if (message) {
+      return { success: false, message, usersInfo: this.getAdminUsersInfo() };
+    }
+    return { success: true, usersInfo: this.getAdminUsersInfo() };
+  }
+
   get numUsers(): number {
     if (this.status === "IDLE" || this.status === "INITIALIZED") {
       this.logger.error(
@@ -740,6 +790,12 @@ export class AccountManager implements IAccountManager {
       );
     }
     return this._numUsers;
+  }
+
+  private resolveAllowedPls(pls: number[]): number[] {
+    return Array.from(new Set(pls))
+      .filter((n) => n >= 0 && n < this.numPartylines)
+      .sort((a, b) => a - b);
   }
 
   private checkAndWarnIfNotRunning(action: string): AuthResult | null {

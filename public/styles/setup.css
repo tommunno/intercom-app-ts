@@ -305,7 +305,7 @@ h2 {
 
 /* Section Banner: */
 
-.section-banner {
+/* .section-banner {
   border-radius: 8px;
   display: flex;
   flex-direction: row;
@@ -330,6 +330,45 @@ h2 {
   visibility: visible;
   padding: 10px;
   margin-bottom: 20px;
+} */
+
+.section-banner {
+  border-radius: 8px;
+  display: flex;
+  flex-direction: row;
+  column-gap: 8px;
+  align-items: center;
+  overflow: hidden;
+
+  opacity: 0;
+  max-height: 0;
+  visibility: hidden;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 10px;
+  padding-right: 10px;
+  margin-bottom: 0;
+
+  transition:
+    max-height 0.25s ease,
+    padding 0.25s ease,
+    margin-bottom 0.25s ease,
+    visibility 0s linear 0.25s;
+}
+
+.section-banner.visible {
+  opacity: 1;
+  max-height: 200px;
+  visibility: visible;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 20px;
+
+  transition:
+    max-height 0.25s ease,
+    padding 0.25s ease,
+    margin-bottom 0.25s ease,
+    visibility 0s linear 0s;
 }
 
 .section-banner.error.visible {

@@ -47,37 +47,38 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       numUsers: 3,
-      persistedUsers: [
-        {
-          username: "tom",
-          passwordHash: null,
-          sessionTokenInfos: [],
-        },
-        {
-          username: "ben",
-          passwordHash: null,
-          sessionTokenInfos: [
-            {
-              token: "abc",
-              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            },
-            {
-              token: "def",
-              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            },
-          ],
-        },
-        {
-          username: "luke",
-          passwordHash: null,
-          sessionTokenInfos: [
-            {
-              token: "ghi",
-              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            },
-          ],
-        },
-      ],
+      // persistedUsers: [
+      //   {
+      //     username: "tom",
+      //     allowedPls
+      //     passwordHash: null,
+      //     sessionTokenInfos: [],
+      //   },
+      //   {
+      //     username: "ben",
+      //     passwordHash: null,
+      //     sessionTokenInfos: [
+      //       {
+      //         token: "abc",
+      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      //       },
+      //       {
+      //         token: "def",
+      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      //       },
+      //     ],
+      //   },
+      //   {
+      //     username: "luke",
+      //     passwordHash: null,
+      //     sessionTokenInfos: [
+      //       {
+      //         token: "ghi",
+      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      //       },
+      //     ],
+      //   },
+      // ],
     };
   }
 

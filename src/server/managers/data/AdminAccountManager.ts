@@ -201,6 +201,10 @@ export class AdminAccountManager implements IAdminAccountManager {
     return this.loggedInClients.has(clientId);
   }
 
+  getLoggedInClientIds(): string[] {
+    return Array.from(this.loggedInClients.keys());
+  }
+
   private hardLogin(clientId: string, sessionToken: string): AdminAuthResult {
     this.loggedInClients.set(clientId, {
       clientId,

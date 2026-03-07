@@ -1,7 +1,12 @@
-import type { AdminUsersInfo } from "../../../shared/types/AdminUsersInfo.js";
+import type {
+  AdminUsersInfo,
+  AdminUsersChangeRequest,
+} from "../../../shared/types/index.js";
 import type { ISetupSectionGuiManager } from "./ISetupSectionGuiManager.js";
 
-export interface UsersSectionGuiManagerHandlers {}
+export interface UsersSectionGuiManagerHandlers {
+  onUpdate: (changeRequest: AdminUsersChangeRequest) => void;
+}
 
 export interface IUsersSectionGuiManager extends ISetupSectionGuiManager {
   setHandlers: (handlers: UsersSectionGuiManagerHandlers) => void;

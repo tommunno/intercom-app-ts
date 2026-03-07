@@ -42,6 +42,7 @@ export class Controller implements IController {
     ADMIN_LOGIN: this.handleAdminLogin.bind(this),
     ADMIN_HEARTBEAT_RESPONSE: this.handleAdminHeartbeatResponse.bind(this),
     ADMIN_LOGOUT: this.handleAdminLogout.bind(this),
+    ADMIN_USERS_CHANGE_REQUEST: this.handleAdminUsersChangeRequest.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -459,6 +460,36 @@ export class Controller implements IController {
       null,
       otherLoggedOutClientIds,
     );
+  }
+
+  private async handleAdminUsersChangeRequest(
+    changeRequest: WssPayloads[typeof WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST],
+    clientId: string,
+    sessionTokens: SessionTokens,
+  ): Promise<void> {
+    this.logger.info(`Admin users change request`);
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin users change request",
+    );
+    if (!loggedIn) return;
+    const clientIds = this.dataController.getLoggedInAdminClientIds();
+
+    const result =
+      await this.dataController.processAdminUsersChangeRequest(changeRequest);
+
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      { usersInfo: result.usersInfo },
+      clientIds,
+    );
+
+    if (!result.success) {
+      this.logger.warn(
+        "handleAdminUsersChangeRequest: Unable to update all users:",
+        result.message,
+      );
+    }
   }
 
   //Handle WebRtc:

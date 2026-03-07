@@ -7,5 +7,6 @@ export * from "./IHttpManager.js";
 export * from "./ILoginGuiManager.js";
 export * from "./base/IClientLogger.js";
 export * from "./ISetupGlobalGuiManager.js";
+export * from "./setup-sections/ISetupSectionGuiManager.js";
 export * from "./setup-sections/IWebServerSectionGuiManager.js";
 export * from "./setup-sections/IUsersSectionGuiManager.js";
