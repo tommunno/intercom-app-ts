@@ -2,6 +2,7 @@ import type {
   AdminAuthResult,
   AdminUsersChangeRequest,
   AdminUsersInfo,
+  AdminUsersLoggedInUpdate,
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
@@ -67,6 +68,7 @@ export interface IDataController {
   getLoggedInAdminClientIds: () => string[];
 
   getAdminInfos: () => DataAdminInfos;
+  getAdminUsersLoggedInUpdate: () => AdminUsersLoggedInUpdate;
   processAdminUsersChangeRequest: (
     changeRequest: AdminUsersChangeRequest,
   ) => Promise<AdminUsersChangeRequestResult>;

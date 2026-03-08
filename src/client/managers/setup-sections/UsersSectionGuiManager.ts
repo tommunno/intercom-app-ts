@@ -3,6 +3,7 @@ import type {
   ManagerStatus,
   AdminUsersInfo,
   AdminUsersChangeRequest,
+  AdminUsersLoggedInUpdate,
 } from "../../../shared/types/index.js";
 import type {
   IClientLogger,
@@ -101,6 +102,19 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
     this.logger.info("Displaying state");
     this.numPls = state.partylinesInfo.length;
     this.displayUsersInfo(state.usersInfo);
+  }
+
+  displayUsersLoggedInUpdate(update: AdminUsersLoggedInUpdate) {
+    if (this.checkAndWarnIfNotRunning("display users logged in update")) {
+      return;
+    }
+    this.logger.info("Displaying users logged in update");
+    update.forEach((u) => {
+      const rowChanges = this.rowsChanges[u.userId];
+      if (!rowChanges) return;
+      const { loggedInInput, logoutBtn } = rowChanges;
+      this.populateLoginInfo(loggedInInput, logoutBtn, u.loggedIn);
+    });
   }
 
   private displayUsersInfo(usersInfo: AdminUsersInfo): void {
@@ -265,16 +279,24 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
         uI.allowedPls.classList.remove("input-changed", "error");
       }
 
-      loggedInInput.classList.toggle("active", user.loggedIn);
-      loggedInInput.value = user.loggedIn ? "YES" : "NO";
-
-      logoutBtn.disabled = !user.loggedIn;
+      this.populateLoginInfo(loggedInInput, logoutBtn, user.loggedIn);
 
       rowChanges.currUsername = user.username;
       rowChanges.currAllowedPls = aPlsSet;
     });
     //preserveNoErrState=true: errors are only added if any of the column errors are currently true
     this.calculateColumnErrs(true);
+  }
+
+  private populateLoginInfo(
+    input: HTMLInputElement,
+    btn: HTMLButtonElement,
+    loggedIn: boolean,
+  ): void {
+    input.classList.toggle("active", loggedIn);
+    input.value = loggedIn ? "YES" : "NO";
+
+    btn.disabled = !loggedIn;
   }
 
   private setupListeners(): void {

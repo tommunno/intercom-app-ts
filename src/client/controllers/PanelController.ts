@@ -42,6 +42,7 @@ export class PanelController implements IPanelController {
     USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
     USER_FORCE_LOGOUT: this.handleForceLogout.bind(this),
     USER_AUDIO_INFO_UPDATE: this.handleAudioInfoUpdate.bind(this),
+    USER_INFO_UPDATE: this.handleUserInfoUpdate.bind(this),
     WEB_RTC_ANSWER: this.handleWebRtcAnswer.bind(this),
     WEB_RTC_SERVER_ICE_CANDIDATE:
       this.handleWebRtcServerIceCandidate.bind(this),
@@ -366,6 +367,14 @@ export class PanelController implements IPanelController {
     this.state.audioInfo = audioInfo;
     this.globalGuiManager.displayAudioInfo(this.state.audioInfo);
     this.webRtcManager.setMicMute(this.calculateMicMute());
+  }
+
+  private handleUserInfoUpdate(
+    userInfo: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_INFO_UPDATE],
+  ) {
+    this.logger.info("Handling user info update:", userInfo);
+    this.state.userInfo = userInfo;
+    this.globalGuiManager.displayUserInfo(this.state.userInfo);
   }
 
   private handleWebRtcAnswer(

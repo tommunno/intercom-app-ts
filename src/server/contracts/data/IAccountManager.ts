@@ -1,6 +1,7 @@
 import type {
   AdminUsersChangeRequest,
   AdminUsersInfo,
+  AdminUsersLoggedInUpdate,
   HeartbeatRequestPayload,
   SessionTokenInfo,
   SuccessOptionalMessage,
@@ -40,11 +41,15 @@ export type AdminUsersChangeRequestResult =
   | {
       success: true;
       usersInfo: AdminUsersInfo;
+      userIdsToUpdate: number[];
+      userIdsToHardLogout: number[];
     }
   | {
       success: false;
       message: string;
       usersInfo: AdminUsersInfo;
+      userIdsToUpdate: number[];
+      userIdsToHardLogout: number[];
     };
 
 export interface IAccountManager {
@@ -73,6 +78,7 @@ export interface IAccountManager {
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
   getLoggedInUserClientIds: () => string[];
   getAdminUsersInfo: () => AdminUsersInfo;
+  getAdminUsersLoggedInUpdate: () => AdminUsersLoggedInUpdate;
   processAdminUsersChangeRequest: (
     changeRequest: AdminUsersChangeRequest,
   ) => Promise<AdminUsersChangeRequestResult>;

@@ -9,7 +9,7 @@ import {
   type UserAndId,
   type AdminUsersInfo,
   type AdminUsersChangeRequest,
-  type SuccessOptionalMessage,
+  type AdminUsersLoggedInUpdate,
 } from "../../../shared/types/index.js";
 //Contracts:
 import {
@@ -125,6 +125,18 @@ export class AccountManager implements IAccountManager {
       });
     });
     return adminUsersInfo;
+  }
+
+  getAdminUsersLoggedInUpdate(): AdminUsersLoggedInUpdate {
+    const update: AdminUsersLoggedInUpdate = [];
+    this.users.forEach((user, userId) => {
+      const { loggedIn } = user;
+      update.push({
+        userId,
+        loggedIn,
+      });
+    });
+    return update;
   }
 
   private get activeHandlers(): AccountHandlers {
@@ -711,11 +723,16 @@ export class AccountManager implements IAccountManager {
         success: false,
         message: "Internal server error",
         usersInfo: this.getAdminUsersInfo(),
+        userIdsToUpdate: [],
+        userIdsToHardLogout: [],
       };
 
     let anyUserNotFound = false;
     let anyDataNotValid = false;
     let anyUsernameClash = false;
+    const userIdsToUpdate: number[] = [];
+    const userIdsToHardLogout: number[] = [];
+
     for (const userChange of changeRequest) {
       const {
         userId: id,
@@ -735,6 +752,7 @@ export class AccountManager implements IAccountManager {
         if (this.validatePassword(p)) {
           const hash = await bcrypt.hash(p, SALT_ROUNDS);
           foundUser.passwordHash = hash;
+          userIdsToHardLogout.push(id);
         } else {
           this.logger.warn(
             `Unable to update password for userId ${id}. The password is invalid`,
@@ -751,6 +769,7 @@ export class AccountManager implements IAccountManager {
         });
         if (success) {
           foundUser.username = trimmedU;
+          userIdsToUpdate.push(id);
         } else {
           this.logger.warn(
             `Unable to update username for userId ${id}. The username is invalid${clash ? " (name clash)" : ""}`,
@@ -778,9 +797,20 @@ export class AccountManager implements IAccountManager {
       message += `${anyUserNotFound || anyDataNotValid ? "; u" : "U"}sernames are not unique`;
     }
     if (message) {
-      return { success: false, message, usersInfo: this.getAdminUsersInfo() };
+      return {
+        success: false,
+        message,
+        usersInfo: this.getAdminUsersInfo(),
+        userIdsToUpdate,
+        userIdsToHardLogout,
+      };
     }
-    return { success: true, usersInfo: this.getAdminUsersInfo() };
+    return {
+      success: true,
+      usersInfo: this.getAdminUsersInfo(),
+      userIdsToUpdate,
+      userIdsToHardLogout,
+    };
   }
 
   get numUsers(): number {

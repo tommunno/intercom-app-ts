@@ -70,10 +70,6 @@ export class Controller implements IController {
     this.networkController.start();
     this.audioController.populate(audioData);
     this.audioController.start();
-    //Test:
-    // setTimeout(() => this.audioController.setRequestedSoundcardId(4), 10000);
-    // setTimeout(() => this.audioController.setRequestedSoundcardId(3), 15000);
-    //End test
   }
 
   private bindListeners(): void {
@@ -134,6 +130,7 @@ export class Controller implements IController {
       if (closeRtc) {
         this.networkController.closeRtcClient(clientId);
       }
+      this.sendAdminUsersLoggedInUpdate();
       return false;
     }
     this.disconnectUser({
@@ -173,6 +170,7 @@ export class Controller implements IController {
         [clientId],
       );
     }
+    this.sendAdminUsersLoggedInUpdate();
   }
 
   //Handle AudioController:
@@ -335,6 +333,8 @@ export class Controller implements IController {
       { success: true, message, userInfo, audioInfo, turnServerInfo },
       [clientId],
     );
+
+    this.sendAdminUsersLoggedInUpdate();
   }
 
   private handleUserLogout(
@@ -483,6 +483,8 @@ export class Controller implements IController {
       { usersInfo: result.usersInfo },
       clientIds,
     );
+    this.sendUserInfosToUsers(result.userIdsToUpdate);
+    this.hardLogoutUsers(result.userIdsToHardLogout);
 
     if (!result.success) {
       this.logger.warn(
@@ -602,5 +604,42 @@ export class Controller implements IController {
       );
     }
     return loggedIn;
+  }
+
+  private sendUserInfosToUsers(userIds: number[]): void {
+    userIds.forEach((userId) => {
+      const userInfo = this.dataController.getUserInfo(userId);
+      const clientId = this.dataController.isUserIdLoggedIn(userId);
+      if (!clientId) return;
+      if (!userInfo) {
+        this.logger.error(
+          `sendUserInfosToUsers: Unable to send userInfo update for userId ${userId}: No userInfo exists`,
+        );
+        return;
+      }
+      this.networkController.sendWssMessage("USER_INFO_UPDATE", userInfo, [
+        clientId,
+      ]);
+    });
+  }
+
+  private hardLogoutUsers(userIds: number[]): void {
+    userIds.forEach((userId) => {
+      const clientId = this.dataController.isUserIdLoggedIn(userId);
+      if (!clientId) return;
+      this.logoutClientIfLoggedIn({
+        clientId,
+        hardLogout: true,
+        notifyClient: true,
+      });
+    });
+  }
+
+  private sendAdminUsersLoggedInUpdate(): void {
+    this.networkController.sendWssMessage(
+      "ADMIN_USERS_LOGGED_IN_UPDATE",
+      this.dataController.getAdminUsersLoggedInUpdate(),
+      this.dataController.getLoggedInAdminClientIds(),
+    );
   }
 }

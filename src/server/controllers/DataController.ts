@@ -3,6 +3,7 @@ import { dataIsType } from "../../shared/helpers.js";
 import type {
   AdminAuthResult,
   AdminUsersChangeRequest,
+  AdminUsersLoggedInUpdate,
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
@@ -161,6 +162,10 @@ export class DataController implements IDataController {
   getAdminInfos(): DataAdminInfos {
     const usersInfo = this.accountManager.getAdminUsersInfo();
     return { usersInfo };
+  }
+
+  getAdminUsersLoggedInUpdate(): AdminUsersLoggedInUpdate {
+    return this.accountManager.getAdminUsersLoggedInUpdate();
   }
 
   processAdminUsersChangeRequest(

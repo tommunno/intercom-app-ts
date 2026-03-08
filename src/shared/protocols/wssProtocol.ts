@@ -4,6 +4,7 @@ import type {
   AdminLoginResponse,
   AdminUpdate,
   AdminUsersChangeRequest,
+  AdminUsersLoggedInUpdate,
 } from "../types/index.js";
 //Types:
 import {
@@ -23,11 +24,10 @@ import {
   type RtcAnswerWire,
   dataIsRtcOfferWire,
   type RtcOfferWire,
-  type AdminSnapshot,
-  dataIsAdminSnapshot,
   dataIsAdminLoginResponse,
   dataIsAdminUsersChangeRequest,
   dataIsAdminUpdate,
+  dataIsAdminUsersLoggedInUpdate,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -52,6 +52,7 @@ export const WSS_DOWNSTREAM_PANEL = {
   USER_LOGIN_RESPONSE: "USER_LOGIN_RESPONSE",
   USER_FORCE_LOGOUT: "USER_FORCE_LOGOUT",
   USER_AUDIO_INFO_UPDATE: "USER_AUDIO_INFO_UPDATE",
+  USER_INFO_UPDATE: "USER_INFO_UPDATE",
   WEB_RTC_ANSWER: "WEB_RTC_ANSWER",
   WEB_RTC_SERVER_ICE_CANDIDATE: "WEB_RTC_SERVER_ICE_CANDIDATE",
 } as const;
@@ -62,6 +63,7 @@ export const WSS_DOWNSTREAM_SETUP = {
   ADMIN_LOGIN_RESPONSE: "ADMIN_LOGIN_RESPONSE",
   ADMIN_FORCE_LOGOUT: "ADMIN_FORCE_LOGOUT",
   ADMIN_UPDATE: "ADMIN_UPDATE",
+  ADMIN_USERS_LOGGED_IN_UPDATE: "ADMIN_USERS_LOGGED_IN_UPDATE",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -90,6 +92,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
   [WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
   [WSS_DOWNSTREAM_PANEL.USER_AUDIO_INFO_UPDATE]: dataIsWssUserAudioInfoUpdate,
+  [WSS_DOWNSTREAM_PANEL.USER_INFO_UPDATE]: dataIsWssUserInfoUpdate,
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER]: dataIsWebRtcAnswer,
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE]:
     dataIsWebRtcServerIceCandidate,
@@ -98,6 +101,8 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: dataIsWssAdminLoginResponse,
   [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: dataIsWssAdminForceLogout,
   [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: dataIsWssAdminUpdate,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE]:
+    dataIsWssAdminUsersLoggedInUpdate,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -127,12 +132,14 @@ type PayloadMap = {
     loginTakeover: boolean;
   };
   [WSS_DOWNSTREAM_PANEL.USER_AUDIO_INFO_UPDATE]: AudioInfo;
+  [WSS_DOWNSTREAM_PANEL.USER_INFO_UPDATE]: UserInfo;
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER]: RtcAnswerWire;
   [WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE]: RtcIceCandidateInitWire | null;
   [WSS_DOWNSTREAM_SETUP.ADMIN_HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM_SETUP.ADMIN_LOGIN_RESPONSE]: AdminLoginResponse;
   [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: null;
   [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: AdminUpdate;
+  [WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE]: AdminUsersLoggedInUpdate;
 };
 
 export type WssPayloads = {
@@ -243,6 +250,12 @@ export function dataIsWssUserAudioInfoUpdate(
   return dataIsAudioInfo(data);
 }
 
+export function dataIsWssUserInfoUpdate(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_INFO_UPDATE] {
+  return dataIsUserInfo(data);
+}
+
 export function dataIsWebRtcAnswer(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER] {
@@ -279,4 +292,10 @@ export function dataIsWssAdminUpdate(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE] {
   return dataIsAdminUpdate(data);
+}
+
+export function dataIsWssAdminUsersLoggedInUpdate(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE] {
+  return dataIsAdminUsersLoggedInUpdate(data);
 }

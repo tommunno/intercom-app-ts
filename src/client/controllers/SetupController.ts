@@ -39,6 +39,8 @@ export class SetupController implements ISetupController {
     ADMIN_LOGIN_RESPONSE: this.handleAdminLoginResponse.bind(this),
     ADMIN_FORCE_LOGOUT: this.handleAdminForceLogout.bind(this),
     ADMIN_UPDATE: this.handleAdminUpdate.bind(this),
+    ADMIN_USERS_LOGGED_IN_UPDATE:
+      this.handleAdminUsersLoggedInUpdate.bind(this),
   };
 
   constructor(
@@ -279,6 +281,19 @@ export class SetupController implements ISetupController {
     if (update.usersInfo) {
       this.sections.users.displayState(this.state);
     }
+  }
+
+  private handleAdminUsersLoggedInUpdate(
+    update: WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE],
+  ): void {
+    const { usersInfo } = this.state;
+    update.forEach((u) => {
+      const info = usersInfo[u.userId];
+      if (!info) return;
+      info.loggedIn = u.loggedIn;
+    });
+
+    this.sections.users.displayUsersLoggedInUpdate(update);
   }
 
   //Global GUI Handlers:
