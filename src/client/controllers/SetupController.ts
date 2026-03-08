@@ -6,7 +6,6 @@ import type {
 import type {
   AdminUsersChangeRequest,
   HttpLoginResponse,
-  SetupSections,
 } from "../../shared/types/index.js";
 import type {
   IClientLogger,
@@ -19,6 +18,7 @@ import type {
 } from "../contracts/index.js";
 import type {
   AttemptFullLoginParams,
+  SetupSections,
   SetupState,
   WssSetupCommandMap,
 } from "../types/index.js";

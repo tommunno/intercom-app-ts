@@ -15,8 +15,8 @@ import {
   WebServerSectionGuiManager,
 } from "./managers/index.js";
 import { SetupController } from "./controllers/SetupController.js";
-import type { SetupSections } from "../shared/types/SetupSections.js";
 import { UsersSectionGuiManager } from "./managers/setup-sections/UsersSectionGuiManager.js";
+import type { SetupSections } from "./types/SetupSections.js";
 
 const logger: IClientLogger = new ClientLogger();
 const globalGuiManager: ISetupGlobalGuiManager = new SetupGlobalGuiManager(

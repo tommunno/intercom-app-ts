@@ -32,5 +32,4 @@ export * from "./AdminSoundcardInfo.js";
 export * from "./AdminAudioConfigInfo.js";
 export * from "./AdminLoggingInfo.js";
 export * from "./AdminLoginResponse.js";
-export * from "./SetupSections.js";
 export * from "./AdminUsersChangeRequest.js";

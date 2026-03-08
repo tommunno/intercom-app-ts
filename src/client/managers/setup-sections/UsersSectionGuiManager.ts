@@ -95,12 +95,15 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
   }
 
   displayState(state: SetupState): void {
+    if (this.checkAndWarnIfNotRunning("display state")) {
+      return;
+    }
     this.logger.info("Displaying state");
     this.numPls = state.partylinesInfo.length;
     this.displayUsersInfo(state.usersInfo);
   }
 
-  displayUsersInfo(usersInfo: AdminUsersInfo): void {
+  private displayUsersInfo(usersInfo: AdminUsersInfo): void {
     this.ensureRows(usersInfo);
     this.populateRows(usersInfo);
   }
@@ -114,6 +117,7 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
 
     tbody.replaceChildren();
 
+    this.rowsChanges = [];
     for (let i = 0; i < usersInfo.length; i++) {
       const tr = document.createElement("tr");
 
@@ -183,108 +187,92 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
 
       tr.append(tdNum, tdUsername, tdPassword, tdAllowedPls, tdLoggedIn);
       tbody.appendChild(tr);
+
+      this.rowsChanges.push({
+        newUsername: null,
+        newPassword: null,
+        newAllowedPls: null,
+        currUsername: "",
+        currAllowedPls: new Set(),
+        usernameError: false,
+        passwordError: false,
+        allowedPlsError: false,
+        userInputs: {
+          username: usernameInput,
+          password: passwordInput,
+          allowedPls: allowedPlsInput,
+        },
+        loggedInInput: loggedInInput,
+        logoutBtn: logoutBtn,
+      });
     }
-    this.rowsChanges = Array.from({ length: usersInfo.length }, () => ({
-      newUsername: null,
-      newPassword: null,
-      newAllowedPls: null,
-      currUsername: "",
-      currAllowedPls: new Set(),
-      usernameError: false,
-      passwordError: false,
-      allowedPlsError: false,
-    }));
+
     this.removeAllColumnErrs();
   }
 
   private populateRows(usersInfo: AdminUsersInfo): void {
-    const { tbody } = this.els;
-
-    for (let i = 0; i < usersInfo.length; i++) {
-      const user = usersInfo[i];
-      const tr = tbody.rows[i];
+    usersInfo.forEach((user, i) => {
       const rowChanges = this.rowsChanges[i];
-      if (!user || !tr || !rowChanges) {
-        this.logger.error(
-          `populateRows: Missing data: user: ${user}, tr: ${tr}, rowChanges: ${rowChanges}`,
-        );
+      if (!rowChanges) {
+        this.logger.error(`populateRows: Missing data: rowChanges`);
         return;
       }
-
-      const usernameInput =
-        tr.querySelector<HTMLInputElement>(".username-input");
-      const passwordInput =
-        tr.querySelector<HTMLInputElement>(".password-input");
-      const allowedPlsInput =
-        tr.querySelector<HTMLInputElement>(".allowed-pls-input");
-      const loggedInInput = tr.querySelector<HTMLInputElement>(
-        ".user-logged-in-input",
-      );
-      const logoutBtn =
-        tr.querySelector<HTMLButtonElement>(".log-out-user-btn");
 
       const {
         newUsername: nU,
         newPassword: nP,
         newAllowedPls: nAPls,
+        userInputs: uI,
+        loggedInInput,
+        logoutBtn,
       } = rowChanges;
 
-      if (usernameInput) {
-        //Only update if a change has not been made to the field,
-        //or a change has been made but it matches the new value,
-        //or the field is in error state:
-        if (
-          nU === null ||
-          (nU !== null && nU === user.username) ||
-          rowChanges.usernameError
-        ) {
-          usernameInput.value = user.username;
-          rowChanges.newUsername = null;
-          rowChanges.usernameError = false;
-          usernameInput.classList.remove("input-changed", "error");
-        }
+      //Only update if a change has not been made to the field,
+      //or a change has been made but it matches the new value,
+      //or the field is in error state:
+      if (
+        nU === null ||
+        (nU !== null && nU === user.username) ||
+        rowChanges.usernameError
+      ) {
+        uI.username.value = user.username;
+        rowChanges.newUsername = null;
+        rowChanges.usernameError = false;
+        uI.username.classList.remove("input-changed", "error");
       }
 
-      if (passwordInput) {
-        //Only update if a change has not been made to the field,
-        //or the field is in error state:
-        if (nP === null || rowChanges.passwordError) {
-          passwordInput.value = "";
-          rowChanges.passwordError = false;
-          passwordInput.classList.remove("input-changed", "error");
-        }
+      //Only update if a change has not been made to the field,
+      //or the field is in error state:
+      if (nP === null || rowChanges.passwordError) {
+        uI.password.value = "";
+        rowChanges.passwordError = false;
+        uI.password.classList.remove("input-changed", "error");
       }
 
       const aPlsSet = new Set(user.allowedPls);
 
-      if (allowedPlsInput) {
-        //Only update if a change has not been made to the field,
-        //or a change has been made but it matches the new value,
-        //or the field is in error state:
-        if (
-          nAPls === null ||
-          (nAPls !== null && this.doAllowedPlsMatch(nAPls, aPlsSet)) ||
-          rowChanges.allowedPlsError
-        ) {
-          allowedPlsInput.value = this.createAllowedPlsString(user.allowedPls);
-          rowChanges.newAllowedPls = null;
-          rowChanges.allowedPlsError = false;
-          allowedPlsInput.classList.remove("input-changed", "error");
-        }
+      //Only update if a change has not been made to the field,
+      //or a change has been made but it matches the new value,
+      //or the field is in error state:
+      if (
+        nAPls === null ||
+        (nAPls !== null && this.doAllowedPlsMatch(nAPls, aPlsSet)) ||
+        rowChanges.allowedPlsError
+      ) {
+        uI.allowedPls.value = this.createAllowedPlsString(user.allowedPls);
+        rowChanges.newAllowedPls = null;
+        rowChanges.allowedPlsError = false;
+        uI.allowedPls.classList.remove("input-changed", "error");
       }
 
-      if (loggedInInput) {
-        loggedInInput.classList.toggle("active", user.loggedIn);
-        loggedInInput.value = user.loggedIn ? "YES" : "NO";
-      }
+      loggedInInput.classList.toggle("active", user.loggedIn);
+      loggedInInput.value = user.loggedIn ? "YES" : "NO";
 
-      if (logoutBtn) {
-        logoutBtn.disabled = !user.loggedIn;
-      }
+      logoutBtn.disabled = !user.loggedIn;
 
       rowChanges.currUsername = user.username;
       rowChanges.currAllowedPls = aPlsSet;
-    }
+    });
     //preserveNoErrState=true: errors are only added if any of the column errors are currently true
     this.calculateColumnErrs(true);
   }
@@ -550,10 +538,6 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
     return output;
   }
 
-  // private doSetsMatch(a: Set<number>, b: Set<number>): boolean {
-  //   return a.size === b.size && [...a].every((value) => b.has(value));
-  // }
-
   private doAllowedPlsMatch(
     aPlA: Set<number> | "INVALID",
     aPlB: Set<number> | "INVALID",
@@ -577,9 +561,6 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
   private isPlValid(pl: number): boolean {
     const isValid =
       dataIsType("safeIntegerNum", pl) && pl >= 0 && pl < this.numPls;
-    if (!isValid) {
-      this.logger.warn(`isPlValid: Invalid pl ${pl}`);
-    }
     return isValid;
   }
 
@@ -617,12 +598,10 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
         password,
         allowedPls,
       });
-      rowChange.newUsername = null;
+      // Keep pending username / allowed PL edits until fresh server state arrives,
+      // so populateRows() can reconcile them against the returned snapshot.
+      // Clear password change immediately (since there is no way to track 'changes' from the server for this field)
       rowChange.newPassword = null;
-      rowChange.newAllowedPls = null;
-      rowChange.usernameError = false;
-      rowChange.passwordError = false;
-      rowChange.allowedPlsError = false;
     });
     this.activeHandlers.onUpdate(changeRequest);
   }
@@ -721,27 +700,20 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
   }
 
   private displayInputErrs(): void {
-    this.rowsChanges.forEach((rowChanges, i) => {
-      const tr = this.els.tbody.rows[i];
-      if (!tr) {
-        this.logger.error(`displayInputErrs: Missing data: tr`);
-        return;
-      }
-      const uI = tr.querySelector<HTMLInputElement>(".username-input");
-      const pI = tr.querySelector<HTMLInputElement>(".password-input");
-      const aPlsI = tr.querySelector<HTMLInputElement>(".allowed-pls-input");
+    this.rowsChanges.forEach((rowChanges) => {
+      const { userInputs: uI } = rowChanges;
 
-      uI?.classList.toggle("error", rowChanges.usernameError);
+      uI.username.classList.toggle("error", rowChanges.usernameError);
       if (rowChanges.usernameError) {
-        uI?.classList.remove("input-changed");
+        uI.username.classList.remove("input-changed");
       }
-      pI?.classList.toggle("error", rowChanges.passwordError);
+      uI.password.classList.toggle("error", rowChanges.passwordError);
       if (rowChanges.passwordError) {
-        pI?.classList.remove("input-changed");
+        uI.password.classList.remove("input-changed");
       }
-      aPlsI?.classList.toggle("error", rowChanges.allowedPlsError);
+      uI.allowedPls.classList.toggle("error", rowChanges.allowedPlsError);
       if (rowChanges.allowedPlsError) {
-        aPlsI?.classList.remove("input-changed");
+        uI.allowedPls.classList.remove("input-changed");
       }
     });
   }

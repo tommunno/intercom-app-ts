@@ -8,4 +8,11 @@ export interface UsersSectionRowChanges {
   usernameError: boolean;
   passwordError: boolean;
   allowedPlsError: boolean;
+  userInputs: {
+    username: HTMLInputElement;
+    password: HTMLInputElement;
+    allowedPls: HTMLInputElement;
+  };
+  loggedInInput: HTMLInputElement;
+  logoutBtn: HTMLButtonElement;
 }
