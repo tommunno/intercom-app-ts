@@ -51,7 +51,7 @@ export class PanelGlobalGuiManager implements IPanelGlobalGuiManager {
   private momentaryTimes: Map<number, MomentaryTime> = new Map();
 
   constructor(private logger: IClientLogger) {
-    this.logger = this.logger.child({ context: "PanelGuiManager" });
+    this.logger = this.logger.child({ context: "PanelGlobalGuiManager" });
   }
 
   private ensureElementsExist(): void {
@@ -110,6 +110,7 @@ export class PanelGlobalGuiManager implements IPanelGlobalGuiManager {
   displayAudioInfo(audioInfo: AudioInfo): void {
     const notRunning = this.checkAndWarnIfNotRunning("display audioInfo");
     if (notRunning) return;
+
     const { partylines } = audioInfo;
     const { plsList } = this.els.pls;
     const idsNeeded = new Set<number>(partylines.map((pl) => pl.id));
@@ -276,7 +277,7 @@ export class PanelGlobalGuiManager implements IPanelGlobalGuiManager {
       );
       return;
     }
-    const { tailState } = partyline;
+    const { tailState, allowed } = partyline;
 
     //If there is a shortTail or longTail, we should display to the user that the key is off:
     const displayTalk = partyline.talk === "ON" && tailState === "NONE";
@@ -292,6 +293,12 @@ export class PanelGlobalGuiManager implements IPanelGlobalGuiManager {
     );
     listenBtnEl.dataset.id = String(partyline.id);
     listenBtnEl.dataset.state = partyline.listen;
+
+    // Hide + disable if not allowed (still in DOM for diffs/updates)
+    plEl.hidden = !allowed; // visually hide
+    plEl.setAttribute("aria-hidden", allowed ? "false" : "true");
+    talkBtnEl.disabled = !allowed; // block interaction
+    listenBtnEl.disabled = !allowed;
 
     //If TAIL_DEBUG_MODE in clientConstants is set to true, tails will be displayed visually for debug purposes:
     //Long tails will be displayed as blue, short tails will be displayed as yellow
@@ -312,7 +319,7 @@ export class PanelGlobalGuiManager implements IPanelGlobalGuiManager {
   }
 
   private setupOptionBarListeners(): void {
-    const { muteMicBtn, logoutBtn } = this.els.optionBar;
+    const { logoutBtn } = this.els.optionBar;
 
     logoutBtn.addEventListener("click", (e) => this.handleLogoutButtonClick(e));
   }

@@ -37,17 +37,15 @@ export interface AccountHandlers {
   onStaleHeartbeat(clientId: string): void;
 }
 
-export type AdminUsersChangeRequestResult =
+export type AccountAdminUsersChangeRequestResult =
   | {
       success: true;
-      usersInfo: AdminUsersInfo;
       userIdsToUpdate: number[];
       userIdsToHardLogout: number[];
     }
   | {
       success: false;
       message: string;
-      usersInfo: AdminUsersInfo;
       userIdsToUpdate: number[];
       userIdsToHardLogout: number[];
     };
@@ -75,13 +73,13 @@ export interface IAccountManager {
   //Returns clientId if logged in:
   isUserIdLoggedIn: (userId: number) => string | null;
   getUserInfo: (userId: number) => UserInfo | null;
+  getUsersInfo: () => UserInfo[];
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
   getLoggedInUserClientIds: () => string[];
-  getAdminUsersInfo: () => AdminUsersInfo;
   getAdminUsersLoggedInUpdate: () => AdminUsersLoggedInUpdate;
   processAdminUsersChangeRequest: (
     changeRequest: AdminUsersChangeRequest,
-  ) => Promise<AdminUsersChangeRequestResult>;
+  ) => Promise<AccountAdminUsersChangeRequestResult>;
 
   numUsers: number;
 }

@@ -1,11 +1,13 @@
 import type {
   AdminAudioConfigInfo,
   AdminPartylinesInfo,
+  AdminUsersChangeRequest,
   KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
 } from "../../../shared/types/index.js";
 import type {
+  AudioAdminUsersChangeRequestResult,
   AudioMatrixConfig,
   AudioMatrixHandlers,
   AudioMatrixPopulateConfig,
@@ -18,8 +20,13 @@ import type {
   PartylineSnapshot,
 } from "../../contracts/index.js";
 import { OutputPort, Partyline } from "../../entities/index.js";
-import { type CrosspointChange } from "../../types/index.js";
-import { dataIsType } from "../../../shared/helpers.js";
+import {
+  type AllowedPlsInfo,
+  type AllowedPlsSetInfo,
+  type CrosspointChange,
+  type DisallowedPlsInfo,
+} from "../../types/index.js";
+import { dataIsType, formatList } from "../../../shared/helpers.js";
 import {
   DEFAULT_NUM_PARTYLINES,
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
@@ -27,20 +34,28 @@ import {
   ENABLE_DEV_MATRIX_VIEW,
   MAX_NUM_PARTYLINES,
 } from "../../constants/serverConstants.js";
-import { devLogCrosspoints } from "../../serverHelpers.js";
+import { devLogCrosspoints, getRemovedSetItems } from "../../serverHelpers.js";
 
 const BLANK_AUDIO_MATRIX_CONFIG: AudioMatrixConfig = {
   numUsers: DEFAULT_NUM_USERS,
   numSoundcardChannels: DEFAULT_NUM_SOUNDCARD_CHANNELS,
   numPartylines: DEFAULT_NUM_PARTYLINES,
+  allowedPlsInfos: Array.from({ length: DEFAULT_NUM_USERS }, (_, userId) => ({
+    userId,
+    //The blank config gives the user access to the first partyline (we don't know how many partylines there are yet, but we can guarantee that 0 exists)
+    allowedPls: new Set([0]),
+  })),
 };
 
 export class AudioMatrixManager implements IAudioMatrixManager {
   private _status: ManagerStatus = "IDLE";
   private handlers: AudioMatrixHandlers | null = null;
   private context: string = "AudioMatrixManager";
-  private config: AudioMatrixConfig = {
+  private _config: AudioMatrixConfig = {
     ...BLANK_AUDIO_MATRIX_CONFIG,
+    allowedPlsInfos: this.copyAllowedPlsInfos(
+      BLANK_AUDIO_MATRIX_CONFIG.allowedPlsInfos,
+    ),
   };
   private numPorts: number = 0;
   private partylines: IPartyline[] = [];
@@ -81,7 +96,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
 
     this._status = "POPULATED";
-    return { ...this.config };
+    return this.config;
   }
 
   start(): void {
@@ -98,7 +113,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
 
   //Return no snapshot if AudioMatrix is already stopped
   stop(): AudioMatrixStopResult {
-    const config = { ...this.config };
+    const config = this.config;
 
     if (this._status === "IDLE" || this._status === "INITIALIZED") {
       return { config, snapshot: null };
@@ -121,10 +136,17 @@ export class AudioMatrixManager implements IAudioMatrixManager {
 
     if (
       !Number.isSafeInteger(userId) ||
-      userId >= this.config.numUsers ||
+      userId >= this._config.numUsers ||
       userId < 0
     ) {
       this.logger.error(`userId ${userId} invalid. Cannot get partyline infos`);
+      return null;
+    }
+    const aPlsInfo = this._config.allowedPlsInfos[userId];
+    if (!aPlsInfo) {
+      this.logger.error(
+        `Invariant violation: unable to get allowed PLs info for userId ${userId}. Cannot get partyline infos`,
+      );
       return null;
     }
     return this.partylines.map((pl) => {
@@ -134,8 +156,46 @@ export class AudioMatrixManager implements IAudioMatrixManager {
         name: state.name,
         talk: pl.isPortTalking(userId) ? "ON" : "OFF",
         listen: pl.isPortListening(userId) ? "ON" : "OFF",
+        allowed: aPlsInfo.allowedPls.has(state.id),
       };
     });
+  }
+
+  getAllowedPlsInfos(): AllowedPlsInfo[] {
+    if (this.checkAndWarnIfNotRunning("get allowed PLs infos")) {
+      return [];
+    }
+    const aPlsInfos: AllowedPlsInfo[] = [];
+    this._config.allowedPlsInfos.forEach((aPlsInfo) => {
+      const { userId, allowedPls } = aPlsInfo;
+      aPlsInfos.push({ userId, allowedPls: Array.from(allowedPls) });
+    });
+    return aPlsInfos;
+  }
+
+  isPlAllowedForPortNum(portNum: number, plNum: number): boolean {
+    if (this.checkAndWarnIfNotRunning("check if PL is allowed for User ID")) {
+      return false;
+    }
+    const isValid = this.isPortNumValid(portNum);
+    if (!isValid) {
+      this.logger.error(
+        `isPlAllowedForPortNum: Invalid portNum. Will return false`,
+      );
+      return false;
+    }
+    //In this case, the portNum is a soundcard channel, not a user, so has full access:
+    if (portNum >= this._config.numUsers) {
+      return true;
+    }
+    const aPlsInfo = this._config.allowedPlsInfos[portNum];
+    if (!aPlsInfo) {
+      this.logger.error(
+        `isPlAllowedForUserId: Invariant violation: aPlsInfo not found`,
+      );
+      return false;
+    }
+    return aPlsInfo.allowedPls.has(plNum);
   }
 
   processKeyPress(portNum: number, keyPressInfo: KeyPressInfo): void {
@@ -150,6 +210,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
 
     const { type, id: partylineId, setState } = keyPressInfo;
+
     const state = setState === "ON" ? true : false;
 
     const partyline = this.partylines.find((pl) => pl.id === partylineId);
@@ -159,6 +220,14 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       );
       return;
     }
+
+    if (!this.isPlAllowedForPortNum(portNum, partylineId)) {
+      this.logger.error(
+        `processKeyPress: portNum ${portNum} is not allowed access to partyline ID ${partyline.id}`,
+      );
+      return;
+    }
+
     //TALK:
     if (type === "TALK") {
       this.handleTalkKeyRequest(partyline, portNum, state);
@@ -243,8 +312,88 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return {};
   }
 
+  //For admins updating info about users
+  //If users have been disallowed from interacting with certain PLs, disallowedPlsInfos are returned. The controller would need to act on these in order to turn off those keys if it wants to (eg through the TailManager)
+  processAdminUsersChangeRequest(
+    changeRequest: AdminUsersChangeRequest,
+  ): AudioAdminUsersChangeRequestResult {
+    const result = this.checkAndWarnIfNotRunning(
+      "process admin users change request",
+    );
+    if (result)
+      return {
+        success: false,
+        message: "Internal server error",
+        userIdsToUpdate: [],
+        disallowedPlsInfos: [],
+      };
+
+    let anyAplsNotFound = false;
+    let anyDataNotValid = false;
+    const userIdsToUpdate: number[] = [];
+    const disallowedPlsInfos: DisallowedPlsInfo[] = [];
+
+    for (const userChange of changeRequest) {
+      const { userId: id, allowedPls: aPls } = userChange;
+      if (!aPls) continue;
+
+      const foundAPlsInfo = this._config.allowedPlsInfos[id];
+      if (!foundAPlsInfo) {
+        this.logger.warn(
+          `Unable to update allowed PLs: allowedPlsInfo at ${id} does not exist`,
+        );
+        anyAplsNotFound = true;
+        continue;
+      }
+
+      const resolvedAPls = this.resolveAllowedPls(aPls);
+
+      if (resolvedAPls) {
+        const oldAPls = foundAPlsInfo.allowedPls;
+        foundAPlsInfo.allowedPls = resolvedAPls;
+        userIdsToUpdate.push(id);
+        disallowedPlsInfos.push({
+          userId: id,
+          disallowedPls: getRemovedSetItems(oldAPls, resolvedAPls),
+        });
+      } else {
+        this.logger.warn(
+          `Unable to update allowed PLs for userId ${id}. The data is invalid`,
+        );
+        anyDataNotValid = true;
+      }
+    }
+    let message = "";
+    if (anyAplsNotFound) {
+      message += `Unable to find allowed PL records for one or more users`;
+    }
+    if (anyDataNotValid) {
+      message += `${anyAplsNotFound ? "; i" : "I"}nvalid data`;
+    }
+    if (message) {
+      return {
+        success: false,
+        message,
+        userIdsToUpdate,
+        disallowedPlsInfos,
+      };
+    }
+    return {
+      success: true,
+      userIdsToUpdate,
+      disallowedPlsInfos,
+    };
+  }
+
   get status(): ManagerStatus {
     return this._status;
+  }
+
+  get config(): AudioMatrixConfig {
+    return {
+      ...this._config,
+      allowedPlsInfos: this.copyAllowedPlsInfos(this._config.allowedPlsInfos),
+    };
   }
 
   private setConfig(config: AudioMatrixPopulateConfig): void {
@@ -252,11 +401,12 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       numUsers: nU,
       numSoundcardChannels: nSC,
       numPartylines: nP,
+      allowedPlsInfos: aPlsI,
     } = config;
 
     //We trust both numUsers and numSoundcardChannels here. These have been validated by the AccountManager and the AudioEngineManager respectively
-    this.config.numUsers = nU;
-    this.config.numSoundcardChannels = nSC;
+    this._config.numUsers = nU;
+    this._config.numSoundcardChannels = nSC;
 
     if (
       !dataIsType("safeIntegerNum", nP) ||
@@ -267,9 +417,15 @@ export class AudioMatrixManager implements IAudioMatrixManager {
         `numPartylines is invalid. Will fall back to the default value of ${DEFAULT_NUM_PARTYLINES}`,
       );
     } else {
-      this.config.numPartylines = nP;
+      this._config.numPartylines = nP;
     }
-    this.numPorts = this.config.numUsers + this.config.numSoundcardChannels;
+
+    this._config.allowedPlsInfos = this.createDefaultAllowedPlsInfos();
+    if (aPlsI) {
+      this._config.allowedPlsInfos = this.resolveAllowedPlsInfos(aPlsI);
+    }
+
+    this.numPorts = this._config.numUsers + this._config.numSoundcardChannels;
   }
 
   //Returns true if successful
@@ -345,7 +501,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   private createPartylines(snapshots?: PartylineSnapshot[]): void {
     this.partylines = [];
 
-    for (let i = 0; i < this.config.numPartylines; i++) {
+    for (let i = 0; i < this._config.numPartylines; i++) {
       //In the case of a snapshot being used, we only restore the listens and the SOUNDCARD talks. This is a design choice.
       //Ie, on a restart of the matrix, all USER talk keys are turned off (prevents sticky talk keys from a momentary key press or a tail from the TailManager).
       const snap = snapshots?.[i];
@@ -368,7 +524,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
 
       //We want to ensure soundcard channel 1 talks and listens to partyline 1, 2 to 2 etc
       //This variable gives the portNum that would need to talk and listen to the partyline to achieve this
-      const soundcardPortNum = i + this.config.numUsers;
+      const soundcardPortNum = i + this._config.numUsers;
       //soundcardPortNum can go over the number of available ports
       //So we clamp it here. If it's above, it becomes null
       const clampedSoundcardPortNum =
@@ -420,7 +576,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
         new OutputPort(
           {
             id: i,
-            type: i < this.config.numUsers ? "WEB_RTC" : "SOUNDCARD",
+            type: i < this._config.numUsers ? "WEB_RTC" : "SOUNDCARD",
             pointToPointListens: new Set(),
             plListens,
           },
@@ -453,6 +609,70 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     });
   }
 
+  private resolveAllowedPlsInfos(infos: AllowedPlsInfo[]): AllowedPlsSetInfo[] {
+    const infosToModify = this._config.allowedPlsInfos;
+    const invalidUserIds: number[] = [];
+    const invalidAPlsForUserIds: number[] = [];
+    infos.forEach((newInfo) => {
+      const infoToModify = infosToModify.find(
+        (el) => el.userId === newInfo.userId,
+      );
+      if (!infoToModify) {
+        invalidUserIds.push(newInfo.userId);
+        return;
+      }
+      const resolvedAPls = this.resolveAllowedPls(newInfo.allowedPls);
+      if (!resolvedAPls) {
+        invalidAPlsForUserIds.push(newInfo.userId);
+        return;
+      }
+      infoToModify.allowedPls = resolvedAPls;
+    });
+    if (invalidUserIds.length !== 0) {
+      const plural = invalidUserIds.length > 1;
+      this.logger.warn(
+        `Invalid allowed PLs: unable to find user${plural ? "s" : ""} with ID${plural ? "s" : ""} ${formatList(invalidUserIds)}`,
+      );
+    }
+    if (invalidAPlsForUserIds.length !== 0) {
+      const plural = invalidAPlsForUserIds.length > 1;
+      this.logger.warn(
+        `Invalid allowed PLs: invalid PL number for user${plural ? "s" : ""} with ID${plural ? "s" : ""} ${formatList(invalidAPlsForUserIds)}`,
+      );
+    }
+    return infosToModify;
+  }
+
+  private createDefaultAllowedPlsInfos(): AllowedPlsSetInfo[] {
+    //By default, allow users access to all partylines:
+    return Array.from({ length: this._config.numUsers }, (_, userId) => ({
+      userId,
+      allowedPls: new Set(
+        Array.from({ length: this._config.numPartylines }, (_, plNum) => plNum),
+      ),
+    }));
+  }
+
+  //Returns null if unable to create set:
+  private resolveAllowedPls(aPls: number[]): Set<number> | null {
+    const newAPls = new Set<number>();
+    for (const plNum of aPls) {
+      if (plNum < 0 || plNum >= this._config.numPartylines) {
+        return null;
+      }
+      newAPls.add(plNum);
+    }
+    return newAPls;
+  }
+
+  private copyAllowedPlsInfos(infos: AllowedPlsSetInfo[]): AllowedPlsSetInfo[] {
+    const allowedPlsInfos: AllowedPlsSetInfo[] = [];
+    infos.forEach((info) => {
+      allowedPlsInfos.push({ ...info, allowedPls: new Set(info.allowedPls) });
+    });
+    return allowedPlsInfos;
+  }
+
   private isPortNumValid(portNum: number): boolean {
     return (
       Number.isSafeInteger(portNum) && portNum >= 0 && portNum < this.numPorts
@@ -462,7 +682,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   private isPortNumSoundcard(portNum: number): boolean {
     return (
       Number.isSafeInteger(portNum) &&
-      portNum >= this.config.numUsers &&
+      portNum >= this._config.numUsers &&
       portNum < this.numPorts
     );
   }
@@ -474,7 +694,13 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   }
 
   private resetRuntimeFields(): void {
-    this.config = { ...BLANK_AUDIO_MATRIX_CONFIG };
+    //Spread this config out properly:
+    this._config = {
+      ...BLANK_AUDIO_MATRIX_CONFIG,
+      allowedPlsInfos: this.copyAllowedPlsInfos(
+        BLANK_AUDIO_MATRIX_CONFIG.allowedPlsInfos,
+      ),
+    };
     this.numPorts = 0;
     this.partylines = [];
     this.outputPorts = [];

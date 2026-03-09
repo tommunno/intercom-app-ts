@@ -9,6 +9,7 @@ import type {
   AdminAuthResult,
   AdminLoggingInfo,
   AdminSnapshot,
+  AdminUsersInfo,
   AudioInfo,
   AuthResult,
   HeartbeatRequestPayload,
@@ -28,7 +29,7 @@ import type {
   SessionTokens,
   WssCommandMap,
 } from "../types/index.js";
-import { validateServerConstants } from "../../shared/helpers.js";
+import { formatList, validateServerConstants } from "../../shared/helpers.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
@@ -70,6 +71,10 @@ export class Controller implements IController {
     this.networkController.start();
     this.audioController.populate(audioData);
     this.audioController.start();
+    //Test:
+    // setTimeout(() => this.audioController.setRequestedSoundcardId(4), 20000);
+    // setTimeout(() => this.audioController.setRequestedSoundcardId(3), 30000);
+    //End Test
   }
 
   private bindListeners(): void {
@@ -404,7 +409,8 @@ export class Controller implements IController {
     const { webServerInfo } = this.networkController.getAdminInfos();
     const { inputGainsInfo, partylinesInfo, soundcardInfo, audioConfigInfo } =
       this.audioController.getAdminInfos();
-    const { usersInfo } = this.dataController.getAdminInfos();
+    const usersInfo = this.createAdminUsersInfo();
+
     //Ultimately do this:
     // const { loggingInfo } = this.loggingManager.getAdminInfos();
     //But need a loggingManager first. Temporarily we we will do this:
@@ -475,22 +481,35 @@ export class Controller implements IController {
     if (!loggedIn) return;
     const clientIds = this.dataController.getLoggedInAdminClientIds();
 
-    const result =
+    const audioResult =
+      this.audioController.processAdminUsersChangeRequest(changeRequest);
+    const dataResult =
       await this.dataController.processAdminUsersChangeRequest(changeRequest);
 
     this.networkController.sendWssMessage(
       "ADMIN_UPDATE",
-      { usersInfo: result.usersInfo },
+      { usersInfo: this.createAdminUsersInfo() },
       clientIds,
     );
-    this.sendUserInfosToUsers(result.userIdsToUpdate);
-    this.hardLogoutUsers(result.userIdsToHardLogout);
+    this.sendUserInfosToUsers(dataResult.userIdsToUpdate);
+    this.hardLogoutUsers(dataResult.userIdsToHardLogout);
+    this.sendAudioInfosToUsers(audioResult.userIdsToUpdate);
 
-    if (!result.success) {
+    const errs: string[] = [];
+    if (!audioResult.success) {
+      errs.push(audioResult.message);
+    }
+    if (!dataResult.success) {
+      errs.push(dataResult.message);
+    }
+    if (errs.length > 0) {
       this.logger.warn(
-        "handleAdminUsersChangeRequest: Unable to update all users:",
-        result.message,
+        `handleAdminUsersChangeRequest: Unable to update all users: ${formatList(errs)}`,
       );
+    }
+    const { disallowedPlsInfos: infos } = audioResult;
+    if (infos.length > 0) {
+      this.audioController.processDisallowedPlsInfos(infos);
     }
   }
 
@@ -635,11 +654,49 @@ export class Controller implements IController {
     });
   }
 
+  private sendAudioInfosToUsers(userIds: number[]): void {
+    userIds.forEach((userId) => {
+      const audioInfo = this.audioController.getAudioInfo(userId);
+      const clientId = this.dataController.isUserIdLoggedIn(userId);
+      if (!clientId) return;
+      if (!audioInfo) {
+        this.logger.error(
+          `sendAudioInfosToUsers: Unable to send audioInfo update for userId ${userId}: No audioInfo exists`,
+        );
+        return;
+      }
+      this.networkController.sendWssMessage(
+        "USER_AUDIO_INFO_UPDATE",
+        audioInfo,
+        [clientId],
+      );
+    });
+  }
+
   private sendAdminUsersLoggedInUpdate(): void {
     this.networkController.sendWssMessage(
       "ADMIN_USERS_LOGGED_IN_UPDATE",
       this.dataController.getAdminUsersLoggedInUpdate(),
       this.dataController.getLoggedInAdminClientIds(),
     );
+  }
+
+  private createAdminUsersInfo(): AdminUsersInfo {
+    const usersInfo = this.dataController.getUsersInfo();
+    const aPlsInfos = this.audioController.getAllowedPlsInfos();
+    const adminUsersInfo: AdminUsersInfo = [];
+    usersInfo.forEach((userInfo, userId) => {
+      const aPlsInfo = aPlsInfos.find((info) => info.userId === userId);
+      if (!aPlsInfo) {
+        this.logger.error(
+          `createAdminUsersInfo: Invariant violation: unable to find allowedPlsInfo for userId ${userId}. Will create a blank array`,
+        );
+      }
+      adminUsersInfo.push({
+        ...userInfo,
+        allowedPls: aPlsInfo ? aPlsInfo.allowedPls : [],
+      });
+    });
+    return adminUsersInfo;
   }
 }

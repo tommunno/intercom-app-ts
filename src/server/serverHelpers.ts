@@ -263,3 +263,19 @@ export function sanitiseSessionTokenInfos(
 export function generateSessionToken(): string {
   return crypto.randomUUID();
 }
+
+//Returns what elements have been REMOVED from A
+export function getRemovedSetItems<T>(
+  a: ReadonlySet<T>,
+  b: ReadonlySet<T>,
+): Set<T> {
+  const removed = new Set<T>();
+
+  for (const item of a) {
+    if (!b.has(item)) {
+      removed.add(item);
+    }
+  }
+
+  return removed;
+}

@@ -10,9 +10,8 @@ import type {
   UserInfo,
 } from "../../shared/types/index.js";
 import type {
+  AccountAdminUsersChangeRequestResult,
   AdminLogoutResult,
-  AdminUsersChangeRequestResult,
-  DataAdminInfos,
   DataHandlers,
   IAccountManager,
   IAdminAccountManager,
@@ -57,13 +56,6 @@ export class DataController implements IDataController {
     await this.populate();
     this.accountManager.start();
     this.adminAccountManager.start();
-    //Test data:
-    // this.accountManager.updateUsers([
-    //   { userId: 0, password: "tom123" },
-    //   { userId: 1, password: "ben123" },
-    //   { userId: 2, username: "mark", password: "mark123" },
-    // ]);
-    //End test data
   }
 
   setHandlers(handlers: DataHandlers): void {
@@ -159,9 +151,8 @@ export class DataController implements IDataController {
     return this.adminAccountManager.getLoggedInClientIds();
   }
 
-  getAdminInfos(): DataAdminInfos {
-    const usersInfo = this.accountManager.getAdminUsersInfo();
-    return { usersInfo };
+  getUsersInfo(): UserInfo[] {
+    return this.accountManager.getUsersInfo();
   }
 
   getAdminUsersLoggedInUpdate(): AdminUsersLoggedInUpdate {
@@ -170,7 +161,7 @@ export class DataController implements IDataController {
 
   processAdminUsersChangeRequest(
     changeRequest: AdminUsersChangeRequest,
-  ): Promise<AdminUsersChangeRequestResult> {
+  ): Promise<AccountAdminUsersChangeRequestResult> {
     return this.accountManager.processAdminUsersChangeRequest(changeRequest);
   }
 

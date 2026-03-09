@@ -4,7 +4,6 @@ import {
   type WssPayloads,
 } from "../../shared/protocols/wssProtocol.js";
 import type {
-  HeartbeatRequestPayload,
   HttpLoginResponse,
   KeyPressInfo,
   KeyState,

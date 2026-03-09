@@ -6,14 +6,16 @@ export interface PartylineInfo {
   name: string;
   talk: KeyState;
   listen: KeyState;
+  allowed: boolean;
 }
 
 export function dataIsPartylineInfo(data: unknown): data is PartylineInfo {
   return (
     dataIsObject(data) &&
-    dataIsType("number", data.id) &&
+    dataIsType("safeIntegerNum", data.id) &&
     dataIsType("string", data.name) &&
     dataIsKeyState(data.talk) &&
-    dataIsKeyState(data.listen)
+    dataIsKeyState(data.listen) &&
+    dataIsType("boolean", data.allowed)
   );
 }

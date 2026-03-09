@@ -1,11 +1,13 @@
 //Types:
 import type {
+  AdminUsersChangeRequest,
   AudioInfo,
   KeyPressInfo,
   MergedPartylineInfo,
 } from "../../shared/types/index.js";
 import type {
   AudioAdminInfos,
+  AudioAdminUsersChangeRequestResult,
   AudioEngineConfig,
   AudioEnginePopulateConfig,
   AudioHandlers,
@@ -22,8 +24,10 @@ import type {
   TailSnapshot,
 } from "../contracts/index.js";
 import type {
+  AllowedPlsInfo,
   AudioPopulateData,
   CrosspointChange,
+  DisallowedPlsInfo,
   RtcMediaStreamTrack,
   TrackAndStream,
 } from "../types/index.js";
@@ -71,7 +75,7 @@ export class AudioController implements IAudioController {
     data: AudioPopulateData,
     engineConfig: AudioEngineConfig,
   ): AudioMatrixPopulateConfig {
-    const { numPartylines: numPl } = data;
+    const { numPartylines: numPl, allowedPlsInfos: aPlsInfos } = data;
     const { requestedNumSoundcardChannels: rNumSC, numUsers } = engineConfig;
     const conf: AudioMatrixPopulateConfig = {
       numUsers,
@@ -79,6 +83,7 @@ export class AudioController implements IAudioController {
       numSoundcardChannels: rNumSC,
     };
     if (numPl !== undefined) conf.numPartylines = numPl;
+    if (aPlsInfos !== undefined) conf.allowedPlsInfos = aPlsInfos;
     return conf;
   }
 
@@ -109,6 +114,10 @@ export class AudioController implements IAudioController {
       }),
     );
     return { partylines: mergedPartylines };
+  }
+
+  getAllowedPlsInfos(): AllowedPlsInfo[] {
+    return this.audioMatrixManager.getAllowedPlsInfos();
   }
 
   processKeyPress(userId: number, keyPressInfo: KeyPressInfo): void {
@@ -165,6 +174,10 @@ export class AudioController implements IAudioController {
     return success;
   }
 
+  processDisallowedPlsInfos(infos: DisallowedPlsInfo[]): void {
+    this.tailManager.processDisallowedPlsInfos(infos);
+  }
+
   getAdminInfos(): AudioAdminInfos {
     const inputGainsInfo = this.audioEngineManager.getAdminInputGainsInfo();
     const partylinesInfo = this.audioMatrixManager.getAdminPartylinesInfo();
@@ -176,6 +189,14 @@ export class AudioController implements IAudioController {
       soundcardInfo,
       audioConfigInfo,
     };
+  }
+
+  processAdminUsersChangeRequest(
+    changeRequest: AdminUsersChangeRequest,
+  ): AudioAdminUsersChangeRequestResult {
+    return this.audioMatrixManager.processAdminUsersChangeRequest(
+      changeRequest,
+    );
   }
 
   //Private methods:
@@ -201,6 +222,8 @@ export class AudioController implements IAudioController {
         this.handleIsPortTalkingToPartyline(p, pl),
       onAreAnyOtherTalkKeysActiveForPort: (p, pls) =>
         this.handleAreAnyOtherTalkKeysActiveForPort(p, pls),
+      onIsPlAllowedForPortNum: (p, pl) =>
+        this.handleTailIsPlAllowedForPortNum(p, pl),
     });
     this.webRtcMediaBridge.setHandlers({
       onAudio: (c, s) => this.handleBridgeAudio(c, s),
@@ -266,12 +289,21 @@ export class AudioController implements IAudioController {
       requestedSoundcardId: rSCId,
     } = engineConfig;
 
-    const { numPartylines } = matrixConfig;
+    const { numPartylines, allowedPlsInfos: aPlsInfosSets } = matrixConfig;
+
+    const allowedPlsInfos: AllowedPlsInfo[] = [];
+    aPlsInfosSets.forEach((info) => {
+      allowedPlsInfos.push({
+        userId: info.userId,
+        allowedPls: Array.from(info.allowedPls),
+      });
+    });
 
     const audioPopulateData: AudioPopulateData = {
       numUsers,
       requestedNumSoundcardChannels,
       numPartylines,
+      allowedPlsInfos,
     };
     if (rSCId !== null) {
       audioPopulateData.requestedSoundcardId = rSCId;
@@ -355,15 +387,21 @@ export class AudioController implements IAudioController {
     this.activeHandlers.onAudioInfoUpdate(portNum, audioInfo);
   }
 
-  handleIsSoleActiveTalkKeyForPort(portNum: number, plNum: number): boolean {
+  private handleIsSoleActiveTalkKeyForPort(
+    portNum: number,
+    plNum: number,
+  ): boolean {
     return this.audioMatrixManager.isSoleActiveTalkKeyForPort(portNum, plNum);
   }
 
-  handleIsPortTalkingToPartyline(portNum: number, plNum: number): boolean {
+  private handleIsPortTalkingToPartyline(
+    portNum: number,
+    plNum: number,
+  ): boolean {
     return this.audioMatrixManager.isPortTalkingToPartyline(portNum, plNum);
   }
 
-  handleAreAnyOtherTalkKeysActiveForPort(
+  private handleAreAnyOtherTalkKeysActiveForPort(
     portNum: number,
     plNums: ReadonlySet<number>,
   ): boolean {
@@ -371,6 +409,13 @@ export class AudioController implements IAudioController {
       portNum,
       plNums,
     );
+  }
+
+  private handleTailIsPlAllowedForPortNum(
+    portNum: number,
+    plNum: number,
+  ): boolean {
+    return this.audioMatrixManager.isPlAllowedForPortNum(portNum, plNum);
   }
 
   //WebRtcMediaBridge:

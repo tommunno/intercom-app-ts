@@ -85,3 +85,11 @@ export function addIfDefined<T extends object, K extends keyof T>(
 ) {
   if (value !== undefined) obj[key] = value;
 }
+
+export function formatList(vals: (number | string)[]): string {
+  if (vals.length === 0) return "";
+  if (vals.length === 1) return String(vals[0]);
+  if (vals.length === 2) return `${vals[0]} and ${vals[1]}`;
+
+  return `${vals.slice(0, -1).join(", ")} and ${vals.at(-1)}`;
+}

@@ -46,7 +46,7 @@ export class DataManager implements IDataManager {
 
     //Temporary data:
     return {
-      numUsers: 3,
+      numUsers: 16,
       // persistedUsers: [
       //   {
       //     username: "tom",
@@ -106,7 +106,11 @@ export class DataManager implements IDataManager {
     return {
       requestedNumSoundcardChannels: 4,
       numPartylines: 12,
-      requestedSoundcardId: 4,
+      requestedSoundcardId: 3,
+      allowedPlsInfos: [
+        { userId: 0, allowedPls: [1, 2, 3, 4, 5, 6, 7, 8] },
+        { userId: 2, allowedPls: [1, 2, 3, 9] },
+      ],
     };
   }
 

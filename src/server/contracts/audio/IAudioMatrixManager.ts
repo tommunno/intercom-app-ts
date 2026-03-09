@@ -1,24 +1,32 @@
 import type {
   AdminAudioConfigInfo,
   AdminPartylinesInfo,
+  AdminUsersChangeRequest,
   KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
 } from "../../../shared/types/index.js";
-import type { CrosspointChange } from "../../types/index.js";
+import type {
+  AllowedPlsInfo,
+  AllowedPlsSetInfo,
+  CrosspointChange,
+  DisallowedPlsInfo,
+} from "../../types/index.js";
 import type { PartylineSnapshot } from "./IPartyline.js";
 
 export interface AudioMatrixConfig {
   numUsers: number;
   numSoundcardChannels: number;
   numPartylines: number;
+  allowedPlsInfos: AllowedPlsSetInfo[];
 }
 
-export type AudioMatrixPopulateConfig = Omit<
-  AudioMatrixConfig,
-  "numPartylines"
-> &
-  Partial<Pick<AudioMatrixConfig, "numPartylines">>;
+export interface AudioMatrixPopulateConfig {
+  numUsers: number;
+  numSoundcardChannels: number;
+  numPartylines?: number;
+  allowedPlsInfos?: AllowedPlsInfo[];
+}
 
 export interface AudioMatrixSnapshot {
   partylineSnapshots: PartylineSnapshot[];
@@ -33,6 +41,19 @@ export interface AudioMatrixHandlers {
   onCrosspointChange: (crosspointChange: CrosspointChange) => void;
 }
 
+export type AudioAdminUsersChangeRequestResult =
+  | {
+      success: true;
+      userIdsToUpdate: number[];
+      disallowedPlsInfos: DisallowedPlsInfo[];
+    }
+  | {
+      success: false;
+      message: string;
+      userIdsToUpdate: number[];
+      disallowedPlsInfos: DisallowedPlsInfo[];
+    };
+
 export interface IAudioMatrixManager {
   init: () => void;
   populate: (
@@ -43,6 +64,8 @@ export interface IAudioMatrixManager {
   stop: () => AudioMatrixStopResult;
   setHandlers: (handlers: AudioMatrixHandlers) => void;
   getPartylineInfos: (userId: number) => PartylineInfo[] | null;
+  getAllowedPlsInfos: () => AllowedPlsInfo[];
+  isPlAllowedForPortNum: (portNum: number, plNum: number) => boolean;
   processKeyPress: (portNum: number, keyPressInfo: KeyPressInfo) => void;
   //Is the specified port only talking to the specified partyline and no other partylines:
   isSoleActiveTalkKeyForPort: (portNum: number, plNum: number) => boolean;
@@ -54,5 +77,9 @@ export interface IAudioMatrixManager {
   ) => boolean;
   getAdminPartylinesInfo: () => AdminPartylinesInfo;
   getAdminAudioConfigInfo: () => AdminAudioConfigInfo;
+  processAdminUsersChangeRequest: (
+    changeRequest: AdminUsersChangeRequest,
+  ) => AudioAdminUsersChangeRequestResult;
   status: ManagerStatus;
+  config: AudioMatrixConfig;
 }

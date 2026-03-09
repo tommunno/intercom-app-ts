@@ -51,7 +51,7 @@ export class SetupController implements ISetupController {
     private httpManager: IHttpManager,
     private logger: IClientLogger,
   ) {
-    this.logger = this.logger.child({ context: "PanelController" });
+    this.logger = this.logger.child({ context: "SetupController" });
   }
 
   init(): void {
@@ -187,8 +187,6 @@ export class SetupController implements ISetupController {
       s.displayState(this.state),
     );
   }
-
-  //WSS Handlers:
 
   //WSS Handlers:
 

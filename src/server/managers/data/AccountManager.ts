@@ -7,14 +7,13 @@ import {
   type UserInfo,
   type SessionTokenInfo,
   type UserAndId,
-  type AdminUsersInfo,
   type AdminUsersChangeRequest,
   type AdminUsersLoggedInUpdate,
 } from "../../../shared/types/index.js";
 //Contracts:
 import {
+  type AccountAdminUsersChangeRequestResult,
   type AccountHandlers,
-  type AdminUsersChangeRequestResult,
   type HardLoginUserParams,
   type IAccountManager,
   type ILogger,
@@ -113,21 +112,11 @@ export class AccountManager implements IAccountManager {
     this.handlers = handlers;
   }
 
-  getAdminUsersInfo(): AdminUsersInfo {
-    const adminUsersInfo: AdminUsersInfo = [];
-    this.users.forEach((user) => {
-      const { username, loggedIn } = user;
-      adminUsersInfo.push({
-        username,
-        loggedIn,
-        //Still need to properly add in allowedPls:
-        allowedPls: [0, 2, 3, 4, 6, 8],
-      });
-    });
-    return adminUsersInfo;
-  }
-
   getAdminUsersLoggedInUpdate(): AdminUsersLoggedInUpdate {
+    const result = this.checkAndWarnIfNotRunning(
+      "get admin users logged in update",
+    );
+    if (result) return [];
     const update: AdminUsersLoggedInUpdate = [];
     this.users.forEach((user, userId) => {
       const { loggedIn } = user;
@@ -261,7 +250,6 @@ export class AccountManager implements IAccountManager {
     return {
       username: this.createUniqueDefaultUsername(id, usernames),
       passwordHash: null,
-      allowedPls: Array.from({ length: this.numPartylines }, (_, i) => i),
       sessionTokenInfos: [],
       loggedIn: false,
       clientId: null,
@@ -682,6 +670,20 @@ export class AccountManager implements IAccountManager {
     return { loggedIn: user.loggedIn, username: user.username };
   }
 
+  getUsersInfo(): UserInfo[] {
+    const result = this.checkAndWarnIfNotRunning("get users info");
+    if (result) return [];
+    const usersInfo: UserInfo[] = [];
+    this.users.forEach((user) => {
+      const { username, loggedIn } = user;
+      usersInfo.push({
+        loggedIn,
+        username,
+      });
+    });
+    return usersInfo;
+  }
+
   processHeartbeatResponse(timestamp: number, clientId: string): void {
     const notRunning = this.checkAndWarnIfNotRunning(
       "process heartbeat response",
@@ -711,10 +713,10 @@ export class AccountManager implements IAccountManager {
     return clientIds;
   }
 
-  //For eg admins updating info about users. Passwords are expected as plain text here.
+  //For admins updating info about users. Passwords are expected as plain text here.
   async processAdminUsersChangeRequest(
     changeRequest: AdminUsersChangeRequest,
-  ): Promise<AdminUsersChangeRequestResult> {
+  ): Promise<AccountAdminUsersChangeRequestResult> {
     const result = this.checkAndWarnIfNotRunning(
       "process admin users change request",
     );
@@ -722,7 +724,6 @@ export class AccountManager implements IAccountManager {
       return {
         success: false,
         message: "Internal server error",
-        usersInfo: this.getAdminUsersInfo(),
         userIdsToUpdate: [],
         userIdsToHardLogout: [],
       };
@@ -734,12 +735,7 @@ export class AccountManager implements IAccountManager {
     const userIdsToHardLogout: number[] = [];
 
     for (const userChange of changeRequest) {
-      const {
-        userId: id,
-        username: u,
-        password: p,
-        allowedPls: aPls,
-      } = userChange;
+      const { userId: id, username: u, password: p } = userChange;
 
       const foundUser = this.users.get(id);
       if (!foundUser) {
@@ -781,10 +777,6 @@ export class AccountManager implements IAccountManager {
           }
         }
       }
-      if (aPls !== null) {
-        const resolvedAPls = this.resolveAllowedPls(aPls);
-        foundUser.allowedPls = resolvedAPls;
-      }
     }
     let message = "";
     if (anyUserNotFound) {
@@ -800,14 +792,12 @@ export class AccountManager implements IAccountManager {
       return {
         success: false,
         message,
-        usersInfo: this.getAdminUsersInfo(),
         userIdsToUpdate,
         userIdsToHardLogout,
       };
     }
     return {
       success: true,
-      usersInfo: this.getAdminUsersInfo(),
       userIdsToUpdate,
       userIdsToHardLogout,
     };

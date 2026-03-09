@@ -17,6 +17,7 @@ import type {
   TailSnapshot,
 } from "../../contracts/index.js";
 import type {
+  DisallowedPlsInfo,
   LongTailInfo,
   ShortTailInfo,
   TailInfo,
@@ -124,7 +125,13 @@ export class TailManager implements ITailManager {
   }
 
   //This provides the virtualized layer in front of the audio matrix, where we can control tails etc
-  processKeyPress(portNum: number, keyPressInfo: KeyPressInfo): void {
+  //If forceTailOff=true, if the key is being turned off, the tail will be forced off
+  //Todo: Implement noTail logic
+  processKeyPress(
+    portNum: number,
+    keyPressInfo: KeyPressInfo,
+    forceTailOff: boolean = false,
+  ): void {
     if (this.checkAndWarnIfNotRunning("process key press")) {
       return;
     }
@@ -132,6 +139,13 @@ export class TailManager implements ITailManager {
     const errMessage = `Unable to set partyline ${id} ${type} key to ${setState} for portNum ${portNum}`;
 
     if (!this.isPortNumAndPlNumValid(portNum, id, errMessage)) {
+      return;
+    }
+
+    if (!this.activeHandlers.onIsPlAllowedForPortNum(portNum, id)) {
+      this.logger.warn(
+        `processKeyPress: portNum ${portNum} is not allowed access to partyline ID ${id}`,
+      );
       return;
     }
 
@@ -165,7 +179,32 @@ export class TailManager implements ITailManager {
       return;
     }
     //TURNING TALK KEY OFF:
-    this.processTalkKeyOff(portNum, keyPressInfo, tail, portTails, errMessage);
+    this.processTalkKeyOff(
+      portNum,
+      keyPressInfo,
+      tail,
+      portTails,
+      errMessage,
+      forceTailOff,
+    );
+  }
+
+  processDisallowedPlsInfos(infos: DisallowedPlsInfo[]): void {
+    //Todo: This is disabled until noTail is implemented in processKeyPress
+    // infos.forEach((info) => {
+    //   info.disallowedPls.forEach((plNum) => {
+    //     this.processKeyPress(info.userId, {
+    //       type: "TALK",
+    //       id: plNum,
+    //       setState: "OFF",
+    //     });
+    //     this.processKeyPress(info.userId, {
+    //       type: "LISTEN",
+    //       id: plNum,
+    //       setState: "OFF",
+    //     });
+    //   });
+    // });
   }
 
   private processTalkKeyOn(
@@ -215,12 +254,15 @@ export class TailManager implements ITailManager {
     return;
   }
 
+  //If forceTailOff=true, if the key is being turned off, the tail will be forced off
+  //Todo: Implement noTail logic
   private processTalkKeyOff(
     portNum: number,
     keyPressInfo: KeyPressInfo,
     tail: TailInfo,
     portTails: TailInfo[],
     errMessage: string,
+    forceTailOff: boolean = false,
   ): void {
     const { id } = keyPressInfo;
 

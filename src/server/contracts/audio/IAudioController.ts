@@ -3,14 +3,18 @@ import type {
   AdminInputGainsInfo,
   AdminPartylinesInfo,
   AdminSoundcardInfo,
+  AdminUsersChangeRequest,
   AudioInfo,
   KeyPressInfo,
 } from "../../../shared/types/index.js";
 import type {
+  AllowedPlsInfo,
   AudioPopulateData,
+  DisallowedPlsInfo,
   RtcMediaStreamTrack,
   TrackAndStream,
 } from "../../types/index.js";
+import type { AudioAdminUsersChangeRequestResult } from "./IAudioMatrixManager.js";
 
 export interface AudioAdminInfos {
   inputGainsInfo: AdminInputGainsInfo;
@@ -31,11 +35,16 @@ export interface IAudioController {
   setHandlers: (handlers: AudioHandlers) => void;
 
   getAudioInfo: (userId: number) => AudioInfo | null;
+  getAllowedPlsInfos: () => AllowedPlsInfo[];
   processKeyPress: (userId: number, keyPressInfo: KeyPressInfo) => void;
   addRxTrack: (userId: number, track: RtcMediaStreamTrack) => boolean;
   removeRxTrack: (userId: number) => boolean;
   getTxTrackAndStream: (userId: number) => TrackAndStream | null;
   setRequestedSoundcardId: (id: number) => boolean;
+  processDisallowedPlsInfos: (infos: DisallowedPlsInfo[]) => void;
 
   getAdminInfos: () => AudioAdminInfos;
+  processAdminUsersChangeRequest: (
+    changeRequest: AdminUsersChangeRequest,
+  ) => AudioAdminUsersChangeRequestResult;
 }

@@ -1,7 +1,6 @@
 import type {
   AdminAuthResult,
   AdminUsersChangeRequest,
-  AdminUsersInfo,
   AdminUsersLoggedInUpdate,
   AuthResult,
   HeartbeatRequestPayload,
@@ -10,11 +9,11 @@ import type {
 } from "../../../shared/types/index.js";
 import type { AudioPopulateData } from "../../types/AudioData.js";
 import type { NetworkData } from "../../types/NetworkData.js";
-import type { AdminUsersChangeRequestResult } from "./IAccountManager.js";
+import type { AccountAdminUsersChangeRequestResult } from "./IAccountManager.js";
 import type { AdminLogoutResult } from "./IAdminAccountManager.js";
 
 export interface DataAdminInfos {
-  usersInfo: AdminUsersInfo;
+  usersInfo: UserInfo[];
 }
 
 export interface DataHandlers {
@@ -50,6 +49,7 @@ export interface IDataController {
   //Returns clientId if successful:
   isUserIdLoggedIn: (userId: number) => string | null;
   getUserInfo: (userId: number) => UserInfo | null;
+  getUsersInfo: () => UserInfo[];
   getLoggedInUserClientIds: () => string[];
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
 
@@ -67,9 +67,8 @@ export interface IDataController {
   isAdminClientIdLoggedIn: (clientId: string) => boolean;
   getLoggedInAdminClientIds: () => string[];
 
-  getAdminInfos: () => DataAdminInfos;
   getAdminUsersLoggedInUpdate: () => AdminUsersLoggedInUpdate;
   processAdminUsersChangeRequest: (
     changeRequest: AdminUsersChangeRequest,
-  ) => Promise<AdminUsersChangeRequestResult>;
+  ) => Promise<AccountAdminUsersChangeRequestResult>;
 }

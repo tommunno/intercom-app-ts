@@ -104,7 +104,7 @@ export class UsersSectionGuiManager implements IUsersSectionGuiManager {
     this.displayUsersInfo(state.usersInfo);
   }
 
-  displayUsersLoggedInUpdate(update: AdminUsersLoggedInUpdate) {
+  displayUsersLoggedInUpdate(update: AdminUsersLoggedInUpdate): void {
     if (this.checkAndWarnIfNotRunning("display users logged in update")) {
       return;
     }

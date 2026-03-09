@@ -16,7 +16,7 @@ export function dataIsKeyPressInfo(data: unknown): data is KeyPressInfo {
   return (
     dataIsObject(data) &&
     dataIsKeyType(data.type) &&
-    dataIsType("number", data.id) &&
+    dataIsType("safeIntegerNum", data.id) &&
     dataIsKeyState(data.setState)
   );
 }

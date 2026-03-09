@@ -3,7 +3,6 @@ import { type SessionTokenInfo } from "./SessionTokenInfo.js";
 export interface PersistedUser {
   username: string;
   passwordHash: string | null;
-  allowedPls: number[];
   sessionTokenInfos: SessionTokenInfo[];
 }
 
