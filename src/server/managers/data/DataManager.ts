@@ -50,7 +50,6 @@ export class DataManager implements IDataManager {
       // persistedUsers: [
       //   {
       //     username: "tom",
-      //     allowedPls
       //     passwordHash: null,
       //     sessionTokenInfos: [],
       //   },
@@ -106,9 +105,9 @@ export class DataManager implements IDataManager {
     return {
       requestedNumSoundcardChannels: 4,
       numPartylines: 12,
-      requestedSoundcardId: 3,
+      requestedSoundcardId: 6,
       allowedPlsInfos: [
-        { userId: 0, allowedPls: [1, 2, 3, 4, 5, 6, 7, 8] },
+        { userId: 0, allowedPls: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
         { userId: 2, allowedPls: [1, 2, 3, 9] },
       ],
     };

@@ -310,7 +310,7 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
   }
 
   private handlePeerConnectionIceCandidateError(
-    event: RTCPeerConnectionIceErrorEvent,
+    _: RTCPeerConnectionIceErrorEvent,
   ): void {
     if (this.closed) return;
 
@@ -347,7 +347,9 @@ export class PanelWebRtcManager implements IPanelWebRtcManager {
 
     try {
       pc.close();
-    } catch {}
+    } catch {
+      //Ignore: pc may already be closed
+    }
 
     this.clearDisconnectTimeout();
     this.remoteIceCandidates.length = 0;

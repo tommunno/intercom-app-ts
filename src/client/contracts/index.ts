@@ -1,4 +1,3 @@
-export * from "./ISetupController.js";
 export * from "./IPanelController.js";
 export * from "./IPanelGlobalGuiManager.js";
 export * from "./IPanelWebRtcManager.js";
@@ -6,7 +5,6 @@ export * from "./IClientWssManager.js";
 export * from "./IHttpManager.js";
 export * from "./ILoginGuiManager.js";
 export * from "./base/IClientLogger.js";
-export * from "./ISetupGlobalGuiManager.js";
 export * from "./setup-sections/ISetupSectionGuiManager.js";
 export * from "./setup-sections/IWebServerSectionGuiManager.js";
 export * from "./setup-sections/IUsersSectionGuiManager.js";

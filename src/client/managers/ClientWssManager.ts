@@ -180,7 +180,7 @@ export class ClientWssManager<
       this.activeHandlers.onClose();
     };
 
-    this.ws.onerror = async (error) => {
+    this.ws.onerror = async () => {
       this.connectionStatus = "ERROR";
       this.activeHandlers.onError();
     };

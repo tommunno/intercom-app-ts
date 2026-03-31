@@ -5,5 +5,3 @@ export * from "./HttpManager.js";
 export * from "./base/ClientLogger.js";
 export * from "./HttpManager.js";
 export * from "./LoginGuiManager.js";
-export * from "./SetupGlobalGuiManager.js";
-export * from "./setup-sections/WebServerSectionGuiManager.js";

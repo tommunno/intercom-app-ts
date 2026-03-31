@@ -1,10 +1,8 @@
 import type {
   AdminUsersChangeRequest,
-  AdminUsersInfo,
   AdminUsersLoggedInUpdate,
   HeartbeatRequestPayload,
   SessionTokenInfo,
-  SuccessOptionalMessage,
   UserAndId,
 } from "../../../shared/types/index.js";
 import type {

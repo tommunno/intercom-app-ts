@@ -352,7 +352,7 @@ export class WebRtcManager implements IWebRtcManager {
   private handlePeerConnectionIceCandidateError(
     clientId: string,
     pc: RtcPeerConnection,
-    event: RtcPeerConnectionIceErrorEvent,
+    _: RtcPeerConnectionIceErrorEvent,
   ): void {
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo || pcInfo.pc !== pc || pcInfo.closed) return;
@@ -425,7 +425,9 @@ export class WebRtcManager implements IWebRtcManager {
 
     try {
       pc.close();
-    } catch {}
+    } catch {
+      //Ignore: pc may already be closed
+    }
 
     const pcInfo = this.clients.get(clientId);
     if (!pcInfo) return;

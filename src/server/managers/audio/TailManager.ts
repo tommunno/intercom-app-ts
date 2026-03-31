@@ -189,7 +189,7 @@ export class TailManager implements ITailManager {
     );
   }
 
-  processDisallowedPlsInfos(infos: DisallowedPlsInfo[]): void {
+  processDisallowedPlsInfos(_infos: DisallowedPlsInfo[]): void {
     //Todo: This is disabled until noTail is implemented in processKeyPress
     // infos.forEach((info) => {
     //   info.disallowedPls.forEach((plNum) => {
@@ -262,7 +262,7 @@ export class TailManager implements ITailManager {
     tail: TailInfo,
     portTails: TailInfo[],
     errMessage: string,
-    forceTailOff: boolean = false,
+    _forceTailOff: boolean = false,
   ): void {
     const { id } = keyPressInfo;
 

@@ -7,6 +7,3 @@ export * from "./AttemptFullLoginParams.js";
 export * from "./MomentaryTime.js";
 export * from "./SetupState.js";
 export * from "./WssSetupCommandMap.js";
-export * from "./UsersSectionRowChanges.js";
-export * from "./UserSectionColumnErrs.js";
-export * from "./SetupSections.js";

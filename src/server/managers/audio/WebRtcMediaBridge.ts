@@ -240,7 +240,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     this.txRtcAudioSources.length = 0;
 
     for (let i = 0; i < this.numChannels; i++) {
-      const tx = this.createTxChannel(i);
+      const tx = this.createTxChannel();
       this.txRtcAudioSources.push(tx.rtcAudioSource);
       this.channels.push({
         id: i,
@@ -250,7 +250,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     }
   }
 
-  private createTxChannel(index: number): TxMediaBridgeChannel {
+  private createTxChannel(): TxMediaBridgeChannel {
     const rtcAudioSource = new RTCAudioSource();
     const track = rtcAudioSource.createTrack();
     const stream = new wrtc.MediaStream();

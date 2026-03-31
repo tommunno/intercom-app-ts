@@ -3,9 +3,9 @@ export interface ChildClientLoggerOptions {
 }
 
 export interface IClientLogger {
-  success: (message: string, data?: any) => void;
-  warn: (message: string, data?: any) => void;
+  success: (message: string, data?: unknown) => void;
+  warn: (message: string, data?: unknown) => void;
   error: (message: string, error?: unknown) => void;
-  info: (message: string, data?: any) => void;
+  info: (message: string, data?: unknown) => void;
   child: (options: ChildClientLoggerOptions) => IClientLogger;
 }

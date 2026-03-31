@@ -11,11 +11,11 @@ export class Logger implements ILogger {
       : "";
   }
 
-  success(message: string, data?: any): void {
+  success(message: string, data?: unknown): void {
     console.log(`${this.prefix}${chalk.green.bold("SUCCESS:")} ${message}`);
     if (data !== undefined) console.log(data);
   }
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     console.warn(`${this.prefix}${chalk.yellow.bold("WARN:")} ${message}`);
     if (data !== undefined) console.log(data);
   }
@@ -25,7 +25,7 @@ export class Logger implements ILogger {
       `${this.prefix}${chalk.red.bold("ERROR:")} ${message}${errorMessage}`,
     );
   }
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     console.log(
       `${this.prefix}${chalk.hex("#007FFF").bold("INFO:")} ${message}`,
     );

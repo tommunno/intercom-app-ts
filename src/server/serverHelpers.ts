@@ -189,7 +189,9 @@ export function isTcpPortAvailable(
     server.once("error", (err) => {
       try {
         server.close();
-      } catch {}
+      } catch {
+        //Ignore errors here
+      }
       resolve({ isAvailable: false, err });
     });
 
@@ -211,7 +213,9 @@ export function isUdpPortAvailable(
     socket.once("error", (err) => {
       try {
         socket.close();
-      } catch {}
+      } catch {
+        //Ignore errors here
+      }
       resolve({ isAvailable: false, err });
     });
 

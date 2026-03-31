@@ -274,7 +274,7 @@ export class Controller implements IController {
   private handleHeartbeatResponse(
     { timestamp }: WssPayloads[typeof WSS_UPSTREAM.HEARTBEAT_RESPONSE],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     const userId = this.isClientIdLoggedIn(
       clientId,
@@ -345,7 +345,7 @@ export class Controller implements IController {
   private handleUserLogout(
     _payload: WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     this.logger.info(`User logout request`);
     const userId = this.isClientIdLoggedIn(clientId, "Ignored user logout");
@@ -356,7 +356,7 @@ export class Controller implements IController {
   private handleKeyPress(
     keyPressInfo: WssPayloads[typeof WSS_UPSTREAM.KEY_PRESS],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     this.logger.info(`Key press request:`, keyPressInfo);
 
@@ -369,7 +369,7 @@ export class Controller implements IController {
   private handleWebRtcOffer(
     offer: WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_OFFER],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     const userId = this.isClientIdLoggedIn(clientId, "Offer will be dropped");
     if (userId === null) return;
@@ -379,7 +379,7 @@ export class Controller implements IController {
   private handleWebRtcClientIceCandidate(
     candidate: WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     const userId = this.isClientIdLoggedIn(
       clientId,
@@ -435,7 +435,7 @@ export class Controller implements IController {
   private handleAdminHeartbeatResponse(
     { timestamp }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_HEARTBEAT_RESPONSE],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     const loggedIn = this.isAdminClientIdLoggedIn(
       clientId,
@@ -448,7 +448,7 @@ export class Controller implements IController {
   private handleAdminLogout(
     _payload: WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGOUT],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     this.logger.info(`Admin logout request`);
     const loggedIn = this.isAdminClientIdLoggedIn(
@@ -471,7 +471,7 @@ export class Controller implements IController {
   private async handleAdminUsersChangeRequest(
     changeRequest: WssPayloads[typeof WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): Promise<void> {
     this.logger.info(`Admin users change request`);
     const loggedIn = this.isAdminClientIdLoggedIn(

@@ -8,7 +8,7 @@ export default {
   mode: "development",
   entry: {
     panel: "./src/client/panel.ts",
-    setup: "./src/client/setup.ts",
+    setup: "./src/client/setup.tsx",
   },
 
   module: {
@@ -25,6 +25,7 @@ export default {
     extensions: [".tsx", ".ts", ".js"],
     extensionAlias: {
       ".js": [".ts", ".js"],
+      ".jsx": [".tsx", ".jsx"],
     },
   },
   output: {

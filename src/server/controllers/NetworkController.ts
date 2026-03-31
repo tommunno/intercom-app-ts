@@ -44,6 +44,7 @@ import {
   isPortAvailable,
   validatePort,
 } from "../serverHelpers.js";
+import type { RtcMediaStreamTrack } from "../types/wrtcShimTypes.js";
 
 export class NetworkController implements INetworkController {
   private handlers: NetworkHandlers | null = null;
@@ -208,8 +209,8 @@ export class NetworkController implements INetworkController {
   }
 
   private async resolvePorts(data: NetworkData): Promise<NetworkResolvedData> {
-    let { httpPort, httpsPort } = data.webServerData;
-    let { port: turnPort } = data.turnServerData;
+    const { httpPort, httpsPort } = data.webServerData;
+    const { port: turnPort } = data.turnServerData;
     const portInfos: PortInfos = {
       HTTP: {
         type: "HTTP",
@@ -430,7 +431,7 @@ export class NetworkController implements INetworkController {
     this.activeHandlers.onRtcIceCandidate(clientId, candidate);
   }
 
-  private handleRtcTrack(clientId: string, track: any): void {
+  private handleRtcTrack(clientId: string, track: RtcMediaStreamTrack): void {
     this.activeHandlers.onRtcTrack(clientId, track);
   }
 }

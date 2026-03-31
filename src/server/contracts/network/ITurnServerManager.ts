@@ -4,6 +4,7 @@ import type {
 } from "../../../shared/types/index.js";
 import type { TurnServerResolvedData } from "../../types/index.js";
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty interface here for future handlers
 export interface TurnServerHandlers {}
 
 export interface ITurnServerManager {

@@ -120,8 +120,8 @@ export class LoginGuiManager implements ILoginGuiManager {
 
     form.addEventListener("submit", (e) => this.handleLoginFormSubmit(e));
 
-    openEye.addEventListener("click", (e) => this.handleOpenEyeClick(e));
-    closedEye.addEventListener("click", (e) => this.handleClosedEyeClick(e));
+    openEye.addEventListener("click", () => this.handleOpenEyeClick());
+    closedEye.addEventListener("click", () => this.handleClosedEyeClick());
   }
 
   private handleLoginFormSubmit(e: SubmitEvent): void {
@@ -132,11 +132,11 @@ export class LoginGuiManager implements ILoginGuiManager {
     this.activeHandlers.onLoginAttempt(username.value, password.value);
   }
 
-  private handleOpenEyeClick(e: PointerEvent): void {
+  private handleOpenEyeClick(): void {
     this.setPasswordVisibility(true);
   }
 
-  private handleClosedEyeClick(e: PointerEvent): void {
+  private handleClosedEyeClick(): void {
     this.setPasswordVisibility(false);
   }
 

@@ -1,6 +1,7 @@
 import type { SuccessMessage } from "../../../shared/types/index.js";
 
-export interface PartylineState extends PartylineConfig {}
+//This can be added to in the future if required
+export type PartylineState = PartylineConfig;
 
 export interface PartylineConfig {
   id: number;

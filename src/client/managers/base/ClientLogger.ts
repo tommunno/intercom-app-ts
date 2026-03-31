@@ -23,7 +23,7 @@ export class ClientLogger implements IClientLogger {
       : "%c";
   }
 
-  success(message: string, data?: any): void {
+  success(message: string, data?: unknown): void {
     console.log(
       `${this.prefix}%c SUCCESS %c ${message}`,
       COLORS.prefix,
@@ -33,7 +33,7 @@ export class ClientLogger implements IClientLogger {
     if (data) console.log(data);
   }
 
-  info(message: string, data?: any): void {
+  info(message: string, data?: unknown): void {
     console.log(
       `${this.prefix}%c INFO %c ${message}`,
       COLORS.prefix,
@@ -43,7 +43,7 @@ export class ClientLogger implements IClientLogger {
     if (data) console.log(data);
   }
 
-  warn(message: string, data?: any): void {
+  warn(message: string, data?: unknown): void {
     console.warn(
       `${this.prefix}%c WARN %c ${message}`,
       COLORS.prefix,

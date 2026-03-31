@@ -220,7 +220,7 @@ export class WssManager implements IWssManager {
         sessionTokens,
       });
     } catch (e) {
-      this.logger.error("JSON Parse Error");
+      this.logger.error("JSON Parse Error", e);
     }
   }
 

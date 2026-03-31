@@ -87,7 +87,7 @@ export class WebServerManager implements IWebServerManager {
     this.app.post(
       "/login",
       async (
-        rq: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+        rq: Request<Record<string, never>, HttpLoginResponse, HttpLoginRequest>,
         rs: Response<HttpLoginResponse>,
       ) => {
         await this.handleLoginRequest(rq, rs);
@@ -97,14 +97,14 @@ export class WebServerManager implements IWebServerManager {
     this.app.post(
       "/admin-login",
       async (
-        rq: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+        rq: Request<Record<string, never>, HttpLoginResponse, HttpLoginRequest>,
         rs: Response<HttpLoginResponse>,
       ) => {
         await this.handleLoginRequest(rq, rs, true);
       },
     );
 
-    this.app.use((e: any, rq: Request, rs: Response, n: NextFunction) =>
+    this.app.use((e: unknown, rq: Request, rs: Response, n: NextFunction) =>
       this.handleErrors(e, rq, rs, n),
     );
 
@@ -244,7 +244,7 @@ export class WebServerManager implements IWebServerManager {
       const expiry = new Date(x509.validTo);
       return expiry < now;
     } catch (err) {
-      this.logger.error("Failed to check certificate expiration");
+      this.logger.error("Failed to check certificate expiration", err);
       return true; // Assume invalid if unreadable or broken
     }
   }
@@ -357,11 +357,11 @@ export class WebServerManager implements IWebServerManager {
   }
 
   private async handleLoginRequest(
-    req: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+    req: Request<Record<string, never>, HttpLoginResponse, HttpLoginRequest>,
     res: Response<HttpLoginResponse>,
     isAdmin: boolean = false,
   ) {
-    let rawToken: any;
+    let rawToken: unknown;
     if (isAdmin) {
       rawToken = req.cookies.adminSessionToken;
     } else {
@@ -425,7 +425,7 @@ export class WebServerManager implements IWebServerManager {
   }
 
   private handleErrors(
-    err: any,
+    err: unknown,
     req: Request,
     res: Response,
     next: NextFunction,
@@ -437,7 +437,12 @@ export class WebServerManager implements IWebServerManager {
         .json({ success: false, message: "Invalid JSON format" });
     }
 
-    if (err.type === "entity.too.large" || err.status === 413) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (("type" in err && err.type === "entity.too.large") ||
+        ("status" in err && err.status === 413))
+    ) {
       this.logger.warn(`Payload too large attempt from ${req.ip}`);
       return res.status(413).json({
         success: false,
