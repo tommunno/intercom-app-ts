@@ -1,0 +1,492 @@
+import {
+  WSS_DOWNSTREAM_PANEL,
+  type WssDownstreamPanel,
+  type WssPayloads,
+} from "../../../shared/protocols/wssProtocol.js";
+import type {
+  HttpLoginResponse,
+  KeyPressInfo,
+  KeyState,
+  MergedPartylineInfo,
+  RtcIceCandidateInitWire,
+  RtcOfferWire,
+} from "../../../shared/types/index.js";
+import type {
+  IPanelController,
+  IPanelGlobalGuiManager,
+  IPanelWebRtcManager,
+  KeyPressParams,
+  ILoginGuiManager,
+} from "../contracts/index.js";
+import type {
+  IClientWssManager,
+  IClientLogger,
+  IHttpManager,
+} from "../../shared/contracts/index.js";
+import type {
+  AttemptFullLoginParams,
+  PanelState,
+  WssPanelCommandMap,
+} from "../types/index.js";
+
+export class PanelController implements IPanelController {
+  private state: PanelState = {
+    audioConnection: { status: "IDLE" },
+    userInfo: { loggedIn: false, username: "" },
+    audioInfo: { partylines: [] },
+    turnServerInfo: null,
+    attemptingAutomaticLogin: false,
+    userMicMuted: false,
+  };
+  private readonly wssCommands: WssPanelCommandMap = {
+    HEARTBEAT_REQUEST: this.handleHeartbeatRequest.bind(this),
+    USER_LOGIN_RESPONSE: this.handleLoginResponse.bind(this),
+    USER_FORCE_LOGOUT: this.handleForceLogout.bind(this),
+    USER_AUDIO_INFO_UPDATE: this.handleAudioInfoUpdate.bind(this),
+    USER_INFO_UPDATE: this.handleUserInfoUpdate.bind(this),
+    WEB_RTC_ANSWER: this.handleWebRtcAnswer.bind(this),
+    WEB_RTC_SERVER_ICE_CANDIDATE:
+      this.handleWebRtcServerIceCandidate.bind(this),
+  };
+
+  constructor(
+    private globalGuiManager: IPanelGlobalGuiManager,
+    private loginGuiManager: ILoginGuiManager,
+    private wssManager: IClientWssManager<"PANEL">,
+    private httpManager: IHttpManager,
+    private webRtcManager: IPanelWebRtcManager,
+    private logger: IClientLogger,
+  ) {
+    this.logger = this.logger.child({ context: "PanelController" });
+  }
+
+  init(): void {
+    this.bindListeners();
+    this.globalGuiManager.init();
+    this.loginGuiManager.init();
+    this.wssManager.init();
+    this.httpManager.init();
+    this.webRtcManager.init();
+  }
+
+  start(): void {
+    this.globalGuiManager.start();
+    this.loginGuiManager.start();
+    this.httpManager.start();
+    this.webRtcManager.start();
+    this.loginGuiManager.setLoginLoading(false);
+    this.attemptAutomaticLogin();
+  }
+
+  private bindListeners(): void {
+    this.globalGuiManager.setHandlers({
+      onKeyPress: (p) => this.handleKeyPress(p),
+      onLogoutBtnClick: () => this.handleLogoutBtnClick(),
+    });
+    this.loginGuiManager.setHandlers({
+      onLoginAttempt: (u, p) => this.handleLoginAttempt(u, p),
+    });
+    this.wssManager.setHandlers({
+      onOpen: () => this.handleWssOpen(),
+      onClose: () => this.handleWssClose(),
+      onError: () => this.handleWssError(),
+      onMessage: this.handleWssMessage.bind(this),
+      onServerRestored: () => this.handleWssServerRestored(),
+      onHeartbeatTimeout: () => this.handleHeartbeatTimeout(),
+    });
+    this.webRtcManager.setHandlers({
+      onRtcConnected: () => this.handleRtcConnected(),
+      onRtcDisconnected: () => this.handleRtcDisconnected(),
+      onRtcClosed: () => this.handleRtcClosed(),
+      onRtcFailed: () => this.handleRtcFailed(),
+      onRtcOffer: (o) => this.handleRtcOffer(o),
+      onRtcIceCandidate: (c) => this.handleRtcIceCandidate(c),
+      onErrorMessage: (m) => this.handleRtcErrorMessage(m),
+    });
+    window.addEventListener("storage", (e) => this.handleTabReloadCommand(e));
+  }
+
+  //Only attempt an auto login if 'noAutoLogin' is not set to true in the URL
+  private attemptAutomaticLogin(): void {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("noAutoLogin") === "true") {
+      url.searchParams.delete("noAutoLogin");
+      history.replaceState(null, "", url.toString());
+      return;
+    }
+    this.state.attemptingAutomaticLogin = true;
+    //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
+    this.attemptFullLogin({
+      username: null,
+      password: null,
+      hideGuiErrors: true,
+    });
+  }
+
+  //Will attempt a soft login followed by a hard login
+  //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
+  // username: string | null,
+  // password: string | null,
+  // hideGuiErrors: boolean = false,
+  private async attemptFullLogin({
+    username,
+    password,
+    hideGuiErrors = false,
+  }: AttemptFullLoginParams): Promise<void> {
+    if (
+      (username !== null && username.trim() === "") ||
+      (password !== null && password.trim() === "")
+    ) {
+      if (!hideGuiErrors) {
+        this.loginGuiManager.setLoginError(
+          "Please enter a username and password",
+        );
+        this.loginGuiManager.shakeLogin();
+      }
+      return;
+    }
+    this.loginGuiManager.setLoginLoading(true);
+    try {
+      const result: HttpLoginResponse = await this.httpManager.softLoginUser({
+        username,
+        password,
+      });
+
+      if (!result.success) {
+        if (!hideGuiErrors) {
+          this.loginGuiManager.setLoginError(result.message);
+          this.loginGuiManager.shakeLogin();
+        }
+        this.loginGuiManager.setLoginLoading(false);
+        this.state.attemptingAutomaticLogin = false;
+        return;
+      }
+
+      //Success:
+      this.loginGuiManager.setLoginError(null);
+      this.attemptHardLogin();
+    } catch (error) {
+      this.logger.error("Critical Login Error", error);
+      if (!hideGuiErrors) {
+        this.loginGuiManager.setLoginError(
+          "Connection failed. Check your internet.",
+        );
+        this.loginGuiManager.shakeLogin();
+      }
+      this.loginGuiManager.setLoginLoading(false);
+      this.state.attemptingAutomaticLogin = false;
+    }
+  }
+
+  private attemptHardLogin(): void {
+    this.logger.info("Attempting hard login");
+    if (!this.wssManager.isRunning) {
+      //USER_LOGIN message is sent straight away once the websocket is open
+      this.wssManager.start();
+      return;
+    }
+    this.wssManager.sendMessage("USER_LOGIN", null);
+  }
+
+  //If sendRequest is true, the client sends a logout request to the server
+  private logout({
+    sendRequest = true,
+    loginTakeover = false,
+  }: {
+    sendRequest?: boolean;
+    loginTakeover?: boolean;
+  }): void {
+    if (sendRequest) {
+      this.wssManager.sendMessage("USER_LOGOUT", null);
+    }
+    if (loginTakeover) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("noAutoLogin", "true");
+      window.location.replace(url.toString());
+      return;
+    }
+    this.wssManager.monitorHeartbeatWatchdog(false);
+    window.location.reload();
+  }
+
+  private reloadOtherTabs() {
+    localStorage.setItem(
+      "forceReloadIfLoggedIn",
+      Date.now() + "-" + Math.random(),
+    );
+  }
+
+  //If keyPressInfo is included, the mic mute will be calculated optimistically:
+  private calculateMicMute(keyPressInfo?: KeyPressInfo): boolean {
+    const { userMicMuted } = this.state;
+    let muted = true;
+    let pls: MergedPartylineInfo[];
+    if (keyPressInfo) {
+      if (keyPressInfo.setState === "ON") {
+        return userMicMuted;
+      }
+      //OFF:
+      pls = this.copyPartylines();
+      const info = pls[keyPressInfo.id];
+      if (!info) {
+        console.error(
+          `calculateMicMute: Invariant: 'info' does not exist. Will not calculate mic mute optimistically`,
+        );
+      } else {
+        info.talk = "OFF";
+      }
+    } else {
+      pls = this.copyPartylines();
+    }
+
+    for (const pl of pls) {
+      if (pl.talk === "ON" && pl.tailState === "NONE" && !userMicMuted) {
+        muted = false;
+        break;
+      }
+    }
+    return muted;
+  }
+
+  private copyPartylines(): MergedPartylineInfo[] {
+    const pls: MergedPartylineInfo[] = [];
+    this.state.audioInfo.partylines.forEach((pl) => {
+      pls.push({ ...pl });
+    });
+    return pls;
+  }
+
+  //WSS Handlers:
+
+  private handleWssOpen() {
+    this.logger.success("WebSocket connection open");
+    this.wssManager.sendMessage("USER_LOGIN", null);
+  }
+
+  private handleWssClose() {
+    this.logger.error("WebSocket connection closed");
+    this.handleWssDisconnection();
+  }
+
+  private handleWssError() {
+    this.logger.error("WebSocket connection error");
+    this.handleWssDisconnection();
+  }
+
+  private handleWssDisconnection() {
+    this.handleLostConnection();
+  }
+
+  private handleWssMessage<K extends WssDownstreamPanel>(
+    type: K,
+    payload: WssPayloads[K],
+  ): void {
+    const command = this.wssCommands[type];
+    command(payload);
+  }
+
+  handleWssServerRestored(): void {
+    this.logger.info("Server restored");
+    window.location.reload();
+  }
+
+  private handleHeartbeatTimeout(): void {
+    this.logger.error("Heartbeat timeout");
+    this.handleWssDisconnection();
+  }
+
+  private handleHeartbeatRequest({
+    timestamp,
+  }: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]): void {
+    this.wssManager.sendMessage("HEARTBEAT_RESPONSE", {
+      timestamp,
+    });
+    this.wssManager.notifyHeartbeatReceived();
+  }
+
+  private handleLoginResponse({
+    success,
+    message,
+    userInfo,
+    audioInfo,
+    turnServerInfo,
+  }: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]) {
+    this.loginGuiManager.setLoginLoading(false);
+
+    this.logger.info(
+      `Login Response: success: ${success}, message: ${message}, userInfo:`,
+      userInfo,
+    );
+
+    if (!success) {
+      this.loginGuiManager.setLoginError(message);
+      if (!this.state.attemptingAutomaticLogin) {
+        this.loginGuiManager.shakeLogin();
+      } else {
+        this.state.attemptingAutomaticLogin = false;
+      }
+      return;
+    }
+    if (!userInfo || !audioInfo) {
+      this.loginGuiManager.setLoginError("Error retrieving user information");
+      this.loginGuiManager.shakeLogin();
+      this.logger.error(
+        `Login state violation: Server returned success: true, but userInfo or audioInfo is missing from the payload`,
+      );
+      this.state.attemptingAutomaticLogin = false;
+      return;
+    }
+    //Success:
+    this.state.userInfo = userInfo;
+    this.state.audioInfo = audioInfo;
+    this.state.turnServerInfo = turnServerInfo;
+
+    this.globalGuiManager.displayState(this.state);
+    this.loginGuiManager.setLoginVisible(false);
+    this.globalGuiManager.displayPopup({
+      type: "audio",
+      title: "Connecting Audio...",
+      autoHide: false,
+    });
+    this.wssManager.monitorHeartbeatWatchdog(true);
+    this.webRtcManager.setMicMute(this.calculateMicMute());
+    this.webRtcManager.connect(this.state.turnServerInfo);
+    this.reloadOtherTabs();
+    this.state.attemptingAutomaticLogin = false;
+  }
+
+  private handleForceLogout({
+    loginTakeover,
+  }: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]) {
+    this.logout({ sendRequest: false, loginTakeover });
+  }
+
+  private handleAudioInfoUpdate(
+    audioInfo: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_AUDIO_INFO_UPDATE],
+  ) {
+    this.logger.info("Handling audio info update:", audioInfo);
+    this.state.audioInfo = audioInfo;
+    this.globalGuiManager.displayAudioInfo(this.state.audioInfo);
+    this.webRtcManager.setMicMute(this.calculateMicMute());
+  }
+
+  private handleUserInfoUpdate(
+    userInfo: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.USER_INFO_UPDATE],
+  ) {
+    this.logger.info("Handling user info update:", userInfo);
+    this.state.userInfo = userInfo;
+    this.globalGuiManager.displayUserInfo(this.state.userInfo);
+  }
+
+  private handleWebRtcAnswer(
+    answer: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.WEB_RTC_ANSWER],
+  ) {
+    this.logger.info("Handling WebRtc answer:", answer);
+    this.webRtcManager.processRemoteAnswer(answer);
+  }
+
+  private handleWebRtcServerIceCandidate(
+    candidate: WssPayloads[typeof WSS_DOWNSTREAM_PANEL.WEB_RTC_SERVER_ICE_CANDIDATE],
+  ) {
+    this.logger.info("Handling WebRtc server ICE candidate:", candidate);
+    this.webRtcManager.processRemoteIceCandidate(candidate);
+  }
+
+  //Global GUI Handlers:
+
+  private handleKeyPress(params: KeyPressParams): void {
+    const { type, id, currState } = params;
+    const setState: KeyState = currState === "ON" ? "OFF" : "ON";
+    const keyPressInfo: KeyPressInfo = {
+      type,
+      id,
+      setState,
+    };
+
+    //LISTEN:
+    if (type === "LISTEN") {
+      this.wssManager.sendMessage("KEY_PRESS", keyPressInfo);
+      return;
+    }
+    //TALK:
+    const { tailState } = params;
+    //If there is a longTail or a shortTail, this essentially means the key is off. So we want to turn it on:
+    if (tailState !== "NONE") {
+      keyPressInfo.setState = "ON";
+    }
+    this.wssManager.sendMessage("KEY_PRESS", keyPressInfo);
+    this.webRtcManager.setMicMute(this.calculateMicMute(keyPressInfo));
+  }
+
+  private handleLogoutBtnClick(): void {
+    this.logout({});
+  }
+
+  //Login GUI Handlers:
+
+  //If username and password are sent to the server as null, the server will use the sessionToken to try and log in
+  private async handleLoginAttempt(
+    username: string,
+    password: string,
+  ): Promise<void> {
+    this.attemptFullLogin({ username, password });
+  }
+
+  //Misc Handlers:
+  handleTabReloadCommand(e: StorageEvent): void {
+    if (!this.state.userInfo.loggedIn) return;
+    //e.newValue is null on removeItem
+    if (e.key === "forceReloadIfLoggedIn" && e.newValue) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("noAutoLogin", "true");
+      window.location.replace(url.toString());
+    }
+  }
+
+  //WebRtc Handlers:
+  private handleRtcConnected(): void {
+    this.logger.info(`WebRtc connected`);
+    this.globalGuiManager.displayPopup({
+      type: "audio",
+      title: "Connected",
+      autoHide: true,
+      hideTime: 2000,
+    });
+  }
+
+  private handleRtcDisconnected(): void {
+    this.logger.info(`WebRtc disconnected`);
+  }
+
+  private handleRtcClosed(): void {
+    this.logger.info(`WebRtc closed`);
+    this.handleLostConnection();
+  }
+
+  private handleRtcFailed(): void {
+    this.logger.info(`WebRtc failed`);
+    this.handleLostConnection();
+  }
+
+  private handleRtcOffer(offer: RtcOfferWire): void {
+    this.wssManager.sendMessage("WEB_RTC_OFFER", offer);
+  }
+
+  private handleRtcIceCandidate(
+    candidate: RtcIceCandidateInitWire | null,
+  ): void {
+    this.wssManager.sendMessage("WEB_RTC_CLIENT_ICE_CANDIDATE", candidate);
+  }
+
+  //Still need to show this error in the GUI
+  private handleRtcErrorMessage(message: string): void {
+    this.logger.error(message);
+  }
+
+  //Misc Handlers:
+  private handleLostConnection() {
+    this.globalGuiManager.setErrorModal(true);
+    this.wssManager.monitorServerRecovery(true);
+    this.wssManager.monitorHeartbeatWatchdog(false);
+  }
+}

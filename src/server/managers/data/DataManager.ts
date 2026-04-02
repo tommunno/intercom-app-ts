@@ -47,37 +47,38 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       numUsers: 16,
-      // persistedUsers: [
-      //   {
-      //     username: "tom",
-      //     passwordHash: null,
-      //     sessionTokenInfos: [],
-      //   },
-      //   {
-      //     username: "ben",
-      //     passwordHash: null,
-      //     sessionTokenInfos: [
-      //       {
-      //         token: "abc",
-      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      //       },
-      //       {
-      //         token: "def",
-      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      //       },
-      //     ],
-      //   },
-      //   {
-      //     username: "luke",
-      //     passwordHash: null,
-      //     sessionTokenInfos: [
-      //       {
-      //         token: "ghi",
-      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      //       },
-      //     ],
-      //   },
-      // ],
+      persistedUsers: [
+        {
+          username: "tom",
+          passwordHash:
+            "$2b$10$XbICIHnhbBCPaE0g5BaCveWKiuXiw4y0H9q7RG/uYumJCsyyQxNeu",
+          sessionTokenInfos: [],
+        },
+        {
+          username: "ben",
+          passwordHash: null,
+          sessionTokenInfos: [
+            {
+              token: "abc",
+              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            },
+            {
+              token: "def",
+              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            },
+          ],
+        },
+        {
+          username: "luke",
+          passwordHash: null,
+          sessionTokenInfos: [
+            {
+              token: "ghi",
+              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            },
+          ],
+        },
+      ],
     };
   }
 
@@ -85,7 +86,11 @@ export class DataManager implements IDataManager {
     this.checkAndWarnIfNotRunning("get admin account data", true);
 
     //Temporary data:
-    return {};
+    return {
+      sessionTokenInfos: [
+        { token: "abcdef", expiresAtMs: Date.now() + 24 * 60 * 60 * 1000 },
+      ],
+    };
   }
 
   getNetworkData(): NetworkData {
