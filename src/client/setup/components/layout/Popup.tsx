@@ -1,3 +1,3 @@
 export function Popup() {
-  return <p>Popup</p>;
+  return <p></p>;
 }

@@ -1,7 +1,7 @@
 import { dataIsType } from "../../../shared/helpers.js";
 import type {
   AdminInputGainsInfo,
-  AdminSoundcardInfo,
+  AdminSoundcardsInfo,
   ManagerStatus,
 } from "../../../shared/types/index.js";
 import type { CrosspointChange } from "../../types/index.js";
@@ -36,6 +36,7 @@ export class AudioEngineManager implements IAudioEngineManager {
   private handlers: AudioEngineHandlers | null = null;
   private engine: AudioEngine = engine;
   private _config: AudioEngineConfig = { ...BLANK_AUDIO_ENGINE_CONFIG };
+  private devices: PortAudioDevice[] = [];
   private device: PortAudioDevice | null = null;
   private pushAudioRunningErr: boolean = false;
   private engineCreated: boolean = false;
@@ -52,7 +53,8 @@ export class AudioEngineManager implements IAudioEngineManager {
       );
     }
     this.addLoggingCallback();
-    this.logger.info("PortAudio devices:", this.engine.getPortAudioDevices());
+    this.devices = this.engine.getPortAudioDevices();
+    this.logger.info("PortAudio Devices:", this.devices);
     this._status = "INITIALIZED";
   }
 
@@ -208,8 +210,30 @@ export class AudioEngineManager implements IAudioEngineManager {
     return {};
   }
 
-  getAdminSoundcardInfo(): AdminSoundcardInfo {
-    return {};
+  getAdminSoundcardsInfo(): AdminSoundcardsInfo {
+    const notRunning = this.checkAndWarnIfNotRunning(
+      "get admin soundcards info",
+    );
+    if (notRunning) return [];
+    return this.devices
+      .filter((d) => this.isDeviceValid(d).valid)
+      .map((d) => {
+        const {
+          id,
+          name,
+          maxInputChannels,
+          maxOutputChannels,
+          defaultSampleRate,
+        } = d;
+        return {
+          id,
+          name,
+          maxInputChannels,
+          maxOutputChannels,
+          defaultSampleRate,
+          selected: d.id === this.device?.id,
+        };
+      });
   }
 
   get status(): ManagerStatus {
@@ -277,8 +301,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     const errMessage =
       "The app requires at least one device with at least one input and one output. If necessary, you can create an aggregate device in Audio MIDI Setup";
 
-    const devices = this.engine.getPortAudioDevices();
-    if (devices.length === 0) {
+    if (this.devices.length === 0) {
       this.logger.error("There are no soundcard devices. " + errMessage);
       return null;
     }
@@ -288,7 +311,7 @@ export class AudioEngineManager implements IAudioEngineManager {
 
     //Try and use the requestedSoundcardId:
     if (requestedSoundcardId !== null) {
-      device = devices.find((d) => d.id === requestedSoundcardId);
+      device = this.devices.find((d) => d.id === requestedSoundcardId);
       if (!device) {
         this.logger.warn(
           `No soundcard device found for ID ${requestedSoundcardId}. Will attempt to use another valid device...`,
@@ -306,7 +329,7 @@ export class AudioEngineManager implements IAudioEngineManager {
 
     //If no device has been found, then attempt to use any other valid device:
     if (!device) {
-      device = devices.find((d) => this.isDeviceValid(d).valid);
+      device = this.devices.find((d) => this.isDeviceValid(d).valid);
       if (!device) {
         this.logger.error(
           "There are no valid soundcard devices. " + errMessage,

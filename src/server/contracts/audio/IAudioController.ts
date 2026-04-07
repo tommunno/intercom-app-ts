@@ -2,7 +2,7 @@ import type {
   AdminAudioConfigInfo,
   AdminInputGainsInfo,
   AdminPartylinesInfo,
-  AdminSoundcardInfo,
+  AdminSoundcardsInfo,
   AdminUsersChangeRequest,
   AudioInfo,
   KeyPressInfo,
@@ -19,7 +19,7 @@ import type { AudioAdminUsersChangeRequestResult } from "./IAudioMatrixManager.j
 export interface AudioAdminInfos {
   inputGainsInfo: AdminInputGainsInfo;
   partylinesInfo: AdminPartylinesInfo;
-  soundcardInfo: AdminSoundcardInfo;
+  soundcardsInfo: AdminSoundcardsInfo;
   audioConfigInfo: AdminAudioConfigInfo;
 }
 
@@ -44,6 +44,7 @@ export interface IAudioController {
   processDisallowedPlsInfos: (infos: DisallowedPlsInfo[]) => void;
 
   getAdminInfos: () => AudioAdminInfos;
+  getAdminSoundcardsInfo: () => AdminSoundcardsInfo;
   processAdminUsersChangeRequest: (
     changeRequest: AdminUsersChangeRequest,
   ) => AudioAdminUsersChangeRequestResult;

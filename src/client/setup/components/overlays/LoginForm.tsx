@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { PasswordVisibilityToggle } from "../form/PasswordVisibilityToggle.jsx";
 import logger from "../../../shared/logging/logger.js";
 import { softLogin } from "../../helpers/index.js";
+import setupWss from "../../managers/setupWss.js";
 
 const log = logger.child({ context: "LoginForm" });
 
@@ -18,12 +19,44 @@ function shakeLogin(windowWrapperEl: HTMLDivElement): void {
 
 type LoginFormScene = "idle" | "loading";
 
-export function LoginForm() {
+export interface LoginFormProps {
+  onLogin: () => void;
+}
+
+export function LoginForm({ onLogin }: LoginFormProps) {
   const [scene, setScene] = useState<LoginFormScene>("loading");
   const [errMessage, setErrMessage] = useState<string | null>(null);
   const [passwordVisible, setPasswordVisible] = useState<boolean>(false);
   const windowWrapperRef = useRef<HTMLDivElement | null>(null);
 
+  const onLoginEvent = useEffectEvent(onLogin);
+
+  function hardLogin() {
+    setupWss.connect();
+    setupWss.send("ADMIN_LOGIN", null);
+  }
+
+  //Hard Login Response:
+  useEffect(() => {
+    const unsubscribe = setupWss.subscribe(
+      "ADMIN_LOGIN_RESPONSE",
+      (payload) => {
+        if (!payload.success) {
+          setErrMessage(payload.message);
+          setScene("idle");
+          if (windowWrapperRef.current) {
+            shakeLogin(windowWrapperRef.current);
+          }
+          return;
+        }
+        //Successful hard login:
+        onLoginEvent();
+      },
+    );
+    return unsubscribe;
+  }, []);
+
+  //Auto login:
   useEffect(() => {
     let ignore = false;
     //Try automatic login on mount, using no credentials
@@ -42,6 +75,7 @@ export function LoginForm() {
         return;
       }
       log.success("Successful auto soft login");
+      hardLogin();
     };
     autoLogin();
     return () => {
@@ -49,6 +83,7 @@ export function LoginForm() {
     };
   }, []);
 
+  //Manual user login:
   async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -74,6 +109,7 @@ export function LoginForm() {
     }
     log.success("Successful soft login");
     setErrMessage(null);
+    hardLogin();
   }
 
   return (

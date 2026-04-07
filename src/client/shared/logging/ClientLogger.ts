@@ -29,7 +29,7 @@ export class ClientLogger implements IClientLogger {
       COLORS.success,
       "", // Reset style for the message body
     );
-    if (data) console.log(data);
+    if (data !== undefined) console.log(data);
   }
 
   info(message: string, data?: unknown): void {
@@ -39,7 +39,7 @@ export class ClientLogger implements IClientLogger {
       COLORS.info,
       "",
     );
-    if (data) console.log(data);
+    if (data !== undefined) console.log(data);
   }
 
   warn(message: string, data?: unknown): void {
@@ -49,7 +49,7 @@ export class ClientLogger implements IClientLogger {
       COLORS.warn,
       "",
     );
-    if (data) console.log(data);
+    if (data !== undefined) console.log(data);
   }
 
   error(message: string, error?: unknown): void {

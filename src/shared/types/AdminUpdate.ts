@@ -16,9 +16,9 @@ import {
   type AdminPartylinesInfo,
 } from "./AdminPartylinesInfo.js";
 import {
-  dataIsAdminSoundcardInfo,
-  type AdminSoundcardInfo,
-} from "./AdminSoundcardInfo.js";
+  dataIsAdminSoundcardsInfo,
+  type AdminSoundcardsInfo,
+} from "./AdminSoundcardsInfo.js";
 import { dataIsAdminUsersInfo, type AdminUsersInfo } from "./AdminUsersInfo.js";
 import {
   dataIsAdminWebServerInfo,
@@ -31,7 +31,7 @@ export interface AdminSnapshot {
   inputGainsInfo: AdminInputGainsInfo;
   usersInfo: AdminUsersInfo;
   partylinesInfo: AdminPartylinesInfo;
-  soundcardInfo: AdminSoundcardInfo;
+  soundcardsInfo: AdminSoundcardsInfo;
   audioConfigInfo: AdminAudioConfigInfo;
   loggingInfo: AdminLoggingInfo;
 }
@@ -47,7 +47,7 @@ const ADMIN_SNAPSHOT_VALIDATORS: Record<
   inputGainsInfo: dataIsAdminInputGainsInfo,
   usersInfo: dataIsAdminUsersInfo,
   partylinesInfo: dataIsAdminPartylinesInfo,
-  soundcardInfo: dataIsAdminSoundcardInfo,
+  soundcardsInfo: dataIsAdminSoundcardsInfo,
   audioConfigInfo: dataIsAdminAudioConfigInfo,
   loggingInfo: dataIsAdminLoggingInfo,
 };

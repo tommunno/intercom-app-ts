@@ -1,19 +1,18 @@
 import type {
+  IHttpManager,
   IPanelController,
   IPanelGlobalGuiManager,
   IPanelWebRtcManager,
   ILoginGuiManager,
 } from "./contracts/index.js";
-import type {
-  IHttpManager,
-  IClientWssManager,
-} from "../shared/contracts/index.js";
+import type { IClientWssManager } from "../shared/contracts/index.js";
 import {
+  HttpManager,
   PanelGlobalGuiManager,
   PanelWebRtcManager,
   LoginGuiManager,
 } from "./managers/index.js";
-import { HttpManager, ClientWssManager } from "../shared/managers/index.js";
+import { ClientWssManager } from "../shared/managers/index.js";
 import { PanelController } from "./controllers/PanelController.js";
 import logger from "../shared/logging/logger.js";
 

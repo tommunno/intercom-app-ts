@@ -1,5 +1,5 @@
+import type { IClientLogger } from "../contracts/index.js";
 import type {
-  IClientLogger,
   IClientWssManager,
   ClientWssHandlers,
   ClientWssMode,
@@ -18,7 +18,7 @@ import {
 import {
   HEARTBEAT_TIMEOUT_MS,
   SERVER_RECOVERY_PROBE_INTERVAL_MS,
-} from "../../shared/constants/clientConstants.js";
+} from "../constants/clientConstants.js";
 
 export class ClientWssManager<
   M extends ClientWssMode,

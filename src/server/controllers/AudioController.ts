@@ -1,5 +1,6 @@
 //Types:
 import type {
+  AdminSoundcardsInfo,
   AdminUsersChangeRequest,
   AudioInfo,
   KeyPressInfo,
@@ -181,14 +182,18 @@ export class AudioController implements IAudioController {
   getAdminInfos(): AudioAdminInfos {
     const inputGainsInfo = this.audioEngineManager.getAdminInputGainsInfo();
     const partylinesInfo = this.audioMatrixManager.getAdminPartylinesInfo();
-    const soundcardInfo = this.audioEngineManager.getAdminSoundcardInfo();
+    const soundcardsInfo = this.audioEngineManager.getAdminSoundcardsInfo();
     const audioConfigInfo = this.audioMatrixManager.getAdminAudioConfigInfo();
     return {
       inputGainsInfo,
       partylinesInfo,
-      soundcardInfo,
+      soundcardsInfo,
       audioConfigInfo,
     };
+  }
+
+  getAdminSoundcardsInfo(): AdminSoundcardsInfo {
+    return this.audioEngineManager.getAdminSoundcardsInfo();
   }
 
   processAdminUsersChangeRequest(

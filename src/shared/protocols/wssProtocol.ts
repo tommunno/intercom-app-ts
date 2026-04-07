@@ -44,6 +44,8 @@ export const WSS_UPSTREAM = {
   ADMIN_LOGIN: "ADMIN_LOGIN",
   ADMIN_LOGOUT: "ADMIN_LOGOUT",
   ADMIN_USERS_CHANGE_REQUEST: "ADMIN_USERS_CHANGE_REQUEST",
+  ADMIN_USER_LOGOUT: "ADMIN_USER_LOGOUT",
+  ADMIN_SOUNDCARD_CHANGE_REQUEST: "ADMIN_SOUNDCARD_CHANGE_REQUEST",
 } as const;
 
 //For messages being received by the client talkback panel:
@@ -88,6 +90,9 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.ADMIN_LOGIN]: dataIsWssAdminLogin,
   [WSS_UPSTREAM.ADMIN_LOGOUT]: dataIsWssAdminLogout,
   [WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST]: dataIsWssAdminUsersChangeRequest,
+  [WSS_UPSTREAM.ADMIN_USER_LOGOUT]: dataIsWssAdminUserLogout,
+  [WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST]:
+    dataIsWssAdminSoundcardChangeRequest,
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
   [WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
@@ -120,6 +125,8 @@ type PayloadMap = {
   [WSS_UPSTREAM.ADMIN_LOGIN]: null;
   [WSS_UPSTREAM.ADMIN_LOGOUT]: null;
   [WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST]: AdminUsersChangeRequest;
+  [WSS_UPSTREAM.ADMIN_USER_LOGOUT]: { userId: number };
+  [WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST]: { soundcardId: number };
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: {
     success: boolean;
@@ -215,6 +222,18 @@ export function dataIsWssAdminUsersChangeRequest(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST] {
   return dataIsAdminUsersChangeRequest(data);
+}
+
+export function dataIsWssAdminUserLogout(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_USER_LOGOUT] {
+  return dataIsObject(data) && dataIsType("number", data.userId);
+}
+
+export function dataIsWssAdminSoundcardChangeRequest(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST] {
+  return dataIsObject(data) && dataIsType("number", data.soundcardId);
 }
 
 //DOWNSTREAM PANEL:

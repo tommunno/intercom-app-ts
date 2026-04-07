@@ -17,11 +17,11 @@ import type {
   IPanelWebRtcManager,
   KeyPressParams,
   ILoginGuiManager,
+  IHttpManager,
 } from "../contracts/index.js";
 import type {
   IClientWssManager,
   IClientLogger,
-  IHttpManager,
 } from "../../shared/contracts/index.js";
 import type {
   AttemptFullLoginParams,

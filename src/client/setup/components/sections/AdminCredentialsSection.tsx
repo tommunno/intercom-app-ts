@@ -1,3 +1,3 @@
 export function AdminCredentialsSection() {
-  return <p>Admin Credentials Section</p>;
+  return <p></p>;
 }

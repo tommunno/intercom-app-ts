@@ -44,6 +44,9 @@ export class Controller implements IController {
     ADMIN_HEARTBEAT_RESPONSE: this.handleAdminHeartbeatResponse.bind(this),
     ADMIN_LOGOUT: this.handleAdminLogout.bind(this),
     ADMIN_USERS_CHANGE_REQUEST: this.handleAdminUsersChangeRequest.bind(this),
+    ADMIN_USER_LOGOUT: this.handleAdminUserLogout.bind(this),
+    ADMIN_SOUNDCARD_CHANGE_REQUEST:
+      this.handleAdminSoundcardChangeRequest.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -407,7 +410,7 @@ export class Controller implements IController {
 
     //Login Success:
     const { webServerInfo } = this.networkController.getAdminInfos();
-    const { inputGainsInfo, partylinesInfo, soundcardInfo, audioConfigInfo } =
+    const { inputGainsInfo, partylinesInfo, soundcardsInfo, audioConfigInfo } =
       this.audioController.getAdminInfos();
     const usersInfo = this.createAdminUsersInfo();
 
@@ -420,7 +423,7 @@ export class Controller implements IController {
       inputGainsInfo,
       usersInfo,
       partylinesInfo,
-      soundcardInfo,
+      soundcardsInfo,
       audioConfigInfo,
       loggingInfo,
     };
@@ -511,6 +514,30 @@ export class Controller implements IController {
     if (infos.length > 0) {
       this.audioController.processDisallowedPlsInfos(infos);
     }
+  }
+
+  private async handleAdminUserLogout(
+    { userId }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_USER_LOGOUT],
+    _clientId: string,
+    _: SessionTokens,
+  ): Promise<void> {
+    this.hardLogoutUsers([userId]);
+  }
+
+  private async handleAdminSoundcardChangeRequest(
+    {
+      soundcardId,
+    }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST],
+    _clientId: string,
+    _: SessionTokens,
+  ): Promise<void> {
+    this.audioController.setRequestedSoundcardId(soundcardId);
+    const clientIds = this.dataController.getLoggedInAdminClientIds();
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      { soundcardsInfo: this.audioController.getAdminSoundcardsInfo() },
+      clientIds,
+    );
   }
 
   //Handle WebRtc:

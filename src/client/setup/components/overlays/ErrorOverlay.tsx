@@ -1,3 +1,11 @@
 export function ErrorOverlay() {
-  return <p>Error</p>;
+  return (
+    <div className="modal-overlay-error">
+      <div className="modal-error">
+        <p className="modal-error-text">
+          Lost connection. Trying to reconnect...
+        </p>
+      </div>
+    </div>
+  );
 }

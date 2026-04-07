@@ -241,6 +241,11 @@ export class AudioMatrixManager implements IAudioMatrixManager {
 
   //Is the specified port only talking to the specified partyline and no other partylines:
   isSoleActiveTalkKeyForPort(portNum: number, plNum: number): boolean {
+    if (
+      this.checkAndWarnIfNotRunning("check if sole active talk key for port")
+    ) {
+      return false;
+    }
     if (!this.isPortNumValid(portNum)) {
       this.logger.error(
         `isSoleActiveTalkKeyForPort: portNum ${portNum} is invalid. Will return false`,
@@ -267,6 +272,11 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   }
 
   isPortTalkingToPartyline(portNum: number, plNum: number): boolean {
+    if (
+      this.checkAndWarnIfNotRunning("check if port is talking to partyline")
+    ) {
+      return false;
+    }
     if (!this.isPortNumValid(portNum)) {
       this.logger.error(
         `isPortTalkingToPartyline: portNum ${portNum} is invalid. Will return false`,
@@ -288,6 +298,13 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     portNum: number,
     plNums: ReadonlySet<number>,
   ): boolean {
+    if (
+      this.checkAndWarnIfNotRunning(
+        "check if any other talk keys are active for port",
+      )
+    ) {
+      return false;
+    }
     let anyOtherTalkKeys = false;
     const filteredPls = this.partylines.filter((pl) => !plNums.has(pl.id));
     for (const pl of filteredPls) {
@@ -300,6 +317,9 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   }
 
   getAdminPartylinesInfo(): AdminPartylinesInfo {
+    if (this.checkAndWarnIfNotRunning("get admin partylines info")) {
+      return [];
+    }
     const plsInfo: AdminPartylinesInfo = [];
     this.partylines.forEach((pl) => {
       plsInfo.push({ id: pl.id, name: pl.name });
@@ -307,9 +327,14 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return plsInfo;
   }
 
-  //Still need to fill in:
   getAdminAudioConfigInfo(): AdminAudioConfigInfo {
-    return {};
+    if (this.checkAndWarnIfNotRunning("get admin audio config info")) {
+      return { numUsers: 0, numPartylines: 0 };
+    }
+    return {
+      numUsers: this._config.numPartylines,
+      numPartylines: this._config.numPartylines,
+    };
   }
 
   //For admins updating info about users

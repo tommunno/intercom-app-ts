@@ -28,7 +28,7 @@ export * from "./AdminWebServerInfo.js";
 export * from "./AdminInputGainsInfo.js";
 export * from "./AdminUsersInfo.js";
 export * from "./AdminPartylinesInfo.js";
-export * from "./AdminSoundcardInfo.js";
+export * from "./AdminSoundcardsInfo.js";
 export * from "./AdminAudioConfigInfo.js";
 export * from "./AdminLoggingInfo.js";
 export * from "./AdminLoginResponse.js";

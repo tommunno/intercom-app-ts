@@ -3,7 +3,8 @@ import type {
   HttpLoginResponse,
   ManagerStatus,
 } from "../../../shared/types/index.js";
-import type { IClientLogger, IHttpManager } from "../contracts/index.js";
+import type { IClientLogger } from "../../shared/contracts/index.js";
+import type { IHttpManager } from "../contracts/index.js";
 
 export class HttpManager implements IHttpManager {
   private status: ManagerStatus = "IDLE";
