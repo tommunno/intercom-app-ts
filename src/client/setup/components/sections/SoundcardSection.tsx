@@ -1,20 +1,16 @@
 import { useState, type ChangeEvent } from "react";
-import { useSoundcardsInfo } from "../../hooks/index.js";
+import { useDialogBox, useSoundcardsInfo } from "../../hooks/index.js";
 import type { AdminSoundcardsInfo } from "../../../../shared/types/index.js";
 import setupWss from "../../managers/setupWss.js";
-import type { DialogBoxConfig } from "../overlays/DialogBox.js";
 
-export interface SoundcardSectionProps {
-  onDialogBoxConfig: (config: DialogBoxConfig | null) => void;
-}
-
-export function SoundcardSection({ onDialogBoxConfig }: SoundcardSectionProps) {
+export function SoundcardSection() {
   const [isHidden, setIsHidden] = useState<boolean>(false);
 
   const [soundcardsInfo, setSoundcardsInfo] = useState<AdminSoundcardsInfo>([]);
   const serverSelectedDevice = soundcardsInfo.find((s) => s.selected);
   const firstDevice = soundcardsInfo[0];
   const [localSelectedId, setLocalSelectedId] = useState<number | "">("");
+  const { setDialogBoxConfig } = useDialogBox();
 
   const unsavedChanges = serverSelectedDevice
     ? serverSelectedDevice.id !== localSelectedId
@@ -55,7 +51,7 @@ export function SoundcardSection({ onDialogBoxConfig }: SoundcardSectionProps) {
   function handleSaveChanges(e: React.MouseEvent<HTMLButtonElement>): void {
     e.preventDefault();
     if (localSelectedId === "") return;
-    onDialogBoxConfig({
+    setDialogBoxConfig({
       mainText: "Change sound device?",
       subText: "Audio will cut out while switching to the new device.",
       confirmText: "Change Soundcard Device",

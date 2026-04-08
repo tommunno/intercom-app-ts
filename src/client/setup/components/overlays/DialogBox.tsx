@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useDialogBox } from "../../hooks/index.js";
 
 export type DialogBoxConfig = {
   mainText: string;
@@ -10,10 +11,10 @@ export type DialogBoxConfig = {
 
 export interface DialogBoxProps {
   config: DialogBoxConfig;
-  onNewConfig: (config: DialogBoxConfig | null) => void;
 }
 
-export function DialogBox({ config, onNewConfig }: DialogBoxProps) {
+export function DialogBox({ config }: DialogBoxProps) {
+  const { setDialogBoxConfig } = useDialogBox();
   const { mainText, subText, cancelText, confirmText, onConfirm } = config;
   const cancelBtnRef = useRef<HTMLButtonElement | null>(null);
 
@@ -24,11 +25,11 @@ export function DialogBox({ config, onNewConfig }: DialogBoxProps) {
 
   function handleConfirm(): void {
     onConfirm?.();
-    onNewConfig(null);
+    setDialogBoxConfig(null);
   }
 
   function handleCancel(): void {
-    onNewConfig(null);
+    setDialogBoxConfig(null);
   }
 
   return (

@@ -7,8 +7,8 @@ import {
 import type { UserSectionInfo } from "../../../types/UsersSectionInfo.js";
 import type { UsersSectionInputType } from "./UsersSection.js";
 import logger from "../../../../shared/logging/logger.js";
-import type { DialogBoxConfig } from "../../overlays/DialogBox.js";
 import setupWss from "../../../managers/setupWss.js";
+import { useDialogBox } from "../../../hooks/index.js";
 
 export interface UsersSectionRowProps {
   userInfo: UserSectionInfo;
@@ -19,7 +19,6 @@ export interface UsersSectionRowProps {
     newValue: string,
   ) => void;
   onInputBlur: (id: number, type: UsersSectionInputType) => void;
-  onDialogBoxConfig: (config: DialogBoxConfig | null) => void;
 }
 
 const log = logger.child({ context: "UsersSectionRow" });
@@ -29,7 +28,6 @@ export default function UsersSectionRow({
   numPls,
   onInputChange,
   onInputBlur,
-  onDialogBoxConfig,
 }: UsersSectionRowProps) {
   const {
     id,
@@ -48,6 +46,7 @@ export default function UsersSectionRow({
   const [isEditingPassword, setIsEditingPassword] = useState<boolean>(false);
   const [isEditingAllowedPls, setIsEditingAllowedPls] =
     useState<boolean>(false);
+  const { setDialogBoxConfig } = useDialogBox();
 
   const usernameChanged = sanitizeUsername(changedUsername) !== username;
   const passwordChanged = changedPassword.length > 0;
@@ -61,7 +60,7 @@ export default function UsersSectionRow({
     : true;
 
   function handleLogOutUser(): void {
-    onDialogBoxConfig({
+    setDialogBoxConfig({
       mainText: "Are you sure?",
       subText: "This will log the user out immediately.",
       confirmText: "Log Out User",

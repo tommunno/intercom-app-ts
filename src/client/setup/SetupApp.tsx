@@ -9,6 +9,7 @@ import { ErrorOverlay } from "./components/overlays/ErrorOverlay.jsx";
 import { Popup } from "./components/layout/Popup.jsx";
 import { useSetupWssHandlers } from "./hooks/useSetupWssHandlers.js";
 import logger from "../shared/logging/logger.js";
+import { DialogBoxContext } from "./contexts/DialogBoxContext.js";
 
 const log = logger.child({ context: "SetupApp" });
 
@@ -45,17 +46,14 @@ export default function SetupApp() {
   }
 
   return (
-    <>
-      <MainSpace onDialogBoxConfig={(c) => setDialogBoxConfig(c)} />
+    <DialogBoxContext value={{ dialogBoxConfig, setDialogBoxConfig }}>
+      <MainSpace />
       {scene === "login" && <LoginForm onLogin={handleLogin} />}
       {dialogBoxConfig && scene !== "error" && (
-        <DialogBox
-          config={dialogBoxConfig}
-          onNewConfig={(c) => setDialogBoxConfig(c)}
-        />
+        <DialogBox config={dialogBoxConfig} />
       )}
       {scene === "error" && <ErrorOverlay />}
       {scene !== "error" && <Popup />}
-    </>
+    </DialogBoxContext>
   );
 }

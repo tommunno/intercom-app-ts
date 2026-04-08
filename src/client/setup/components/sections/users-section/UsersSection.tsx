@@ -16,7 +16,6 @@ import {
   sendUsersChangeRequest,
   calculateUsersErrs,
 } from "../../../helpers/index.js";
-import type { DialogBoxConfig } from "../../overlays/DialogBox.js";
 import { usersInfoReducer } from "../../../reducers/usersInfoReducer.js";
 
 const log = logger.child({ context: "UsersSection" });
@@ -29,17 +28,13 @@ export interface UsersSectionColumnErrs {
   allowedPlsErr: boolean;
 }
 
-export interface UsersSectionProps {
-  onDialogBoxConfig: (config: DialogBoxConfig | null) => void;
-}
-
 //While typing: show “changed” state only
 //on blur: show field-level error locally on that field
 //on save with errors: escalate to banner-level summary
 //while banner is visible: keep the summary live updated on blur
 //once banner is cleared: don’t re-escalate again until the next save attempt
 
-export function UsersSection({ onDialogBoxConfig }: UsersSectionProps) {
+export function UsersSection() {
   const [isHidden, setIsHidden] = useState<boolean>(false);
   const [usersInfo, usersInfoDispatch] = useReducer(usersInfoReducer, []);
   const audioConfigInfo = useAudioConfigInfo();
@@ -155,7 +150,6 @@ export function UsersSection({ onDialogBoxConfig }: UsersSectionProps) {
                 numPls={numPls}
                 onInputChange={handleInputChange}
                 onInputBlur={handleInputBlur}
-                onDialogBoxConfig={onDialogBoxConfig}
               />
             ))}
           </tbody>

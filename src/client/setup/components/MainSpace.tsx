@@ -9,22 +9,17 @@ import { TroubleshootingSection } from "./sections/TroubleshootingSection.jsx";
 import { AdminCredentialsSection } from "./sections/AdminCredentialsSection.jsx";
 import { SoundcardSection } from "./sections/SoundcardSection.jsx";
 import { LoggingSection } from "./sections/LoggingSection.jsx";
-import type { DialogBoxConfig } from "./overlays/DialogBox.js";
 
-export interface MainSpaceProps {
-  onDialogBoxConfig: (config: DialogBoxConfig | null) => void;
-}
-
-export function MainSpace({ onDialogBoxConfig }: MainSpaceProps) {
+export function MainSpace() {
   return (
     <div className="main-space">
       <OptionBar />
       <Banners />
       <WebServerSection />
       <LevelMetersSection />
-      <UsersSection onDialogBoxConfig={onDialogBoxConfig} />
+      <UsersSection />
       <PlsSection />
-      <SoundcardSection onDialogBoxConfig={onDialogBoxConfig} />
+      <SoundcardSection />
       <ConfigSection />
       <TroubleshootingSection />
       <LoggingSection />
