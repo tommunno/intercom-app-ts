@@ -8,22 +8,27 @@ export function useSoundcardsInfo(
   const onSoundcardsInfoEvent = useEffectEvent(onSoundcardsInfo);
 
   useEffect(() => {
-    const unsubscribe = setupWss.subscribe("ADMIN_LOGIN_RESPONSE", (update) => {
-      if (!update.success) {
-        return;
-      }
-      onSoundcardsInfoEvent(update.adminSnapshot.soundcardsInfo);
-    });
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = setupWss.subscribe("ADMIN_UPDATE", (update) => {
-      if (!update.soundcardsInfo) {
-        return;
-      }
-      onSoundcardsInfoEvent(update.soundcardsInfo);
-    });
-    return unsubscribe;
+    const unsubscribeAdminLoginResponse = setupWss.subscribe(
+      "ADMIN_LOGIN_RESPONSE",
+      (update) => {
+        if (!update.success) {
+          return;
+        }
+        onSoundcardsInfoEvent(update.adminSnapshot.soundcardsInfo);
+      },
+    );
+    const unsubscribeAdminUpdate = setupWss.subscribe(
+      "ADMIN_UPDATE",
+      (update) => {
+        if (!update.soundcardsInfo) {
+          return;
+        }
+        onSoundcardsInfoEvent(update.soundcardsInfo);
+      },
+    );
+    return () => {
+      unsubscribeAdminLoginResponse();
+      unsubscribeAdminUpdate();
+    };
   }, []);
 }

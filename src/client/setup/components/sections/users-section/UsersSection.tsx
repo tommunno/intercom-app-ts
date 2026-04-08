@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useReducer, useState } from "react";
 import { flushSync } from "react-dom";
 import { UsersSectionBanner } from "./UsersSectionBanner.jsx";
 import UsersSectionRow from "./UsersSectionRow.jsx";
 import logger from "../../../../shared/logging/logger.js";
-import type { UsersSectionInfo } from "../../../types/index.js";
 import type {
   AdminUsersLoggedInUpdate,
   AdminUsersInfo,
@@ -14,15 +13,11 @@ import {
   useUsersLoggedIn,
 } from "../../../hooks/index.js";
 import {
-  sanitizeUsername,
   sendUsersChangeRequest,
   calculateUsersErrs,
-  createAllowedPlsString,
-  createAllowedPlsSetOrNull,
-  doAllowedPlsMatch,
-  normalizeUsersInfoAfterSave,
 } from "../../../helpers/index.js";
 import type { DialogBoxConfig } from "../../overlays/DialogBox.js";
+import { usersInfoReducer } from "../../../reducers/usersInfoReducer.js";
 
 const log = logger.child({ context: "UsersSection" });
 
@@ -46,7 +41,7 @@ export interface UsersSectionProps {
 
 export function UsersSection({ onDialogBoxConfig }: UsersSectionProps) {
   const [isHidden, setIsHidden] = useState<boolean>(false);
-  const [usersInfo, setUsersInfo] = useState<UsersSectionInfo>([]);
+  const [usersInfo, usersInfoDispatch] = useReducer(usersInfoReducer, []);
   const audioConfigInfo = useAudioConfigInfo();
   const [columnErrs, setColumnErrs] = useState<UsersSectionColumnErrs>({
     usernameErr: false,
@@ -56,108 +51,29 @@ export function UsersSection({ onDialogBoxConfig }: UsersSectionProps) {
   const { numPartylines: numPls } = audioConfigInfo;
 
   function handleUsersInfo(usersInfo: AdminUsersInfo): void {
-    setUsersInfo((prevUsersInfo) => {
-      const newInfo: UsersSectionInfo = [];
-      usersInfo.forEach((userInfo, i) => {
-        const { loggedIn, username, allowedPls: aPLs } = userInfo;
-        const prevUI = prevUsersInfo[i];
-        if (!prevUI) {
-          newInfo.push({
-            id: i,
-            loggedIn,
-            username,
-            changedUsername: username,
-            usernameErr: false,
-            changedPassword: "",
-            passwordErr: false,
-            allowedPls: new Set(aPLs),
-            changedAllowedPls: createAllowedPlsString(aPLs, log),
-            allowedPlsErr: false,
-          });
-          return;
-        }
-        const shouldUpdateUsername =
-          sanitizeUsername(prevUI.changedUsername) === prevUI.username;
-        const shouldUpdatePassword = prevUI.changedPassword.length === 0;
-        const prevChangedAPlsSetOrNull = createAllowedPlsSetOrNull(
-          prevUI.changedAllowedPls,
-          numPls,
-          log,
-        );
-        const shouldUpdateAllowedPls = prevChangedAPlsSetOrNull
-          ? doAllowedPlsMatch(prevChangedAPlsSetOrNull, prevUI.allowedPls)
-          : false;
-        const changedUsername = shouldUpdateUsername
-          ? userInfo.username
-          : prevUI.changedUsername;
-        const changedPassword = prevUI.changedPassword;
-        const changedAllowedPls: string = shouldUpdateAllowedPls
-          ? createAllowedPlsString(aPLs, log)
-          : prevUI.changedAllowedPls;
-
-        newInfo.push({
-          id: i,
-          loggedIn,
-          username,
-          changedUsername,
-          usernameErr: shouldUpdateUsername ? false : prevUI.usernameErr,
-          changedPassword,
-          passwordErr: shouldUpdatePassword ? false : prevUI.passwordErr,
-          allowedPls: new Set(aPLs),
-          changedAllowedPls,
-          allowedPlsErr: shouldUpdateAllowedPls ? false : prevUI.allowedPlsErr,
-        });
-      });
-      return newInfo;
+    usersInfoDispatch({
+      type: "new-server-data",
+      serverData: usersInfo,
+      numPls,
     });
   }
   useUsersInfo(handleUsersInfo);
 
   function handleUsersLoggedIn(usersLoggedIn: AdminUsersLoggedInUpdate): void {
-    setUsersInfo((prevUsersInfo) => {
-      return prevUsersInfo.map((prevUserInfo, i) => {
-        const user = usersLoggedIn[i];
-        if (!user) {
-          return prevUserInfo;
-        }
-        return { ...prevUserInfo, loggedIn: user.loggedIn };
-      });
-    });
+    usersInfoDispatch({ type: "new-users-logged-in", usersLoggedIn });
   }
   useUsersLoggedIn(handleUsersLoggedIn);
 
   function handleInputChange(
-    id: number,
-    type: UsersSectionInputType,
+    userId: number,
+    inputType: UsersSectionInputType,
     newValue: string,
   ): void {
-    setUsersInfo((prevUsersInfo) => {
-      const userInfo = prevUsersInfo[id];
-      if (!userInfo) {
-        log.error(`handleInputChange: No userInfo found for id ${id}`);
-        return prevUsersInfo;
-      }
-      return prevUsersInfo.map((prevUserInfo, i) => {
-        if (i !== id) {
-          return prevUserInfo;
-        }
-        switch (type) {
-          case "username":
-            return { ...prevUserInfo, changedUsername: newValue };
-          case "password":
-            return { ...prevUserInfo, changedPassword: newValue };
-          case "allowed-pls":
-            return {
-              ...prevUserInfo,
-              changedAllowedPls: newValue,
-            };
-        }
-      });
-    });
+    usersInfoDispatch({ type: "new-input-value", inputType, userId, newValue });
   }
 
   function handleInputBlur(id: number, type: UsersSectionInputType): void {
-    const { usersInfo: newUI, columnErrs: newCE } = calculateUsersErrs({
+    const { usersInfo: newUsersInfo, columnErrs: newCE } = calculateUsersErrs({
       id,
       type,
       usersInfo,
@@ -166,7 +82,7 @@ export function UsersSection({ onDialogBoxConfig }: UsersSectionProps) {
       preserveNoColumnErrs: true,
       logger: log,
     });
-    setUsersInfo(newUI);
+    usersInfoDispatch({ type: "replace-users-info", newUsersInfo });
     setColumnErrs(newCE);
   }
 
@@ -179,14 +95,20 @@ export function UsersSection({ onDialogBoxConfig }: UsersSectionProps) {
       numPls,
       logger: log,
     });
-    let newUI = calculatedUI;
-    if (Object.values(newCE).every((err) => err === false)) {
-      sendUsersChangeRequest(newUI, numPls, log);
-      newUI = normalizeUsersInfoAfterSave(newUI, numPls, log);
+    const areNoColumnErrs = Object.values(newCE).every((err) => err === false);
+
+    if (areNoColumnErrs) {
+      sendUsersChangeRequest(calculatedUI, numPls, log);
     }
     //Flush sync so that the blur happens after the state has been updated:
     flushSync(() => {
-      setUsersInfo(newUI);
+      usersInfoDispatch({
+        type: "replace-users-info",
+        newUsersInfo: calculatedUI,
+      });
+      if (areNoColumnErrs) {
+        usersInfoDispatch({ type: "normalize-after-save", numPls });
+      }
       setColumnErrs(newCE);
     });
     if (document.activeElement instanceof HTMLElement) {

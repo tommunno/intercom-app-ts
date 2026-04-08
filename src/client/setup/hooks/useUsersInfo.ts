@@ -8,22 +8,27 @@ export function useUsersInfo(
   const onUsersInfoEvent = useEffectEvent(onUsersInfo);
 
   useEffect(() => {
-    const unsubscribe = setupWss.subscribe("ADMIN_LOGIN_RESPONSE", (update) => {
-      if (!update.success) {
-        return;
-      }
-      onUsersInfoEvent(update.adminSnapshot.usersInfo);
-    });
-    return unsubscribe;
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = setupWss.subscribe("ADMIN_UPDATE", (update) => {
-      if (!update.usersInfo) {
-        return;
-      }
-      onUsersInfoEvent(update.usersInfo);
-    });
-    return unsubscribe;
+    const unsubscribeAdminLoginResponse = setupWss.subscribe(
+      "ADMIN_LOGIN_RESPONSE",
+      (update) => {
+        if (!update.success) {
+          return;
+        }
+        onUsersInfoEvent(update.adminSnapshot.usersInfo);
+      },
+    );
+    const unsubscribeAdminUpdate = setupWss.subscribe(
+      "ADMIN_UPDATE",
+      (update) => {
+        if (!update.usersInfo) {
+          return;
+        }
+        onUsersInfoEvent(update.usersInfo);
+      },
+    );
+    return () => {
+      unsubscribeAdminLoginResponse();
+      unsubscribeAdminUpdate();
+    };
   }, []);
 }
