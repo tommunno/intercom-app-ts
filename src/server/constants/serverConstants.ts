@@ -1,4 +1,3 @@
-//Debugging:
 //Set to true and run tail -f dev_matrix_view.txt in terminal to see a live updating view of crosspoints
 export const ENABLE_DEV_MATRIX_VIEW = true;
 
@@ -16,14 +15,12 @@ export const GENERATED_CERT_FILE = "generated-server.cert";
 export const WEB_SERVER_DIR = "public";
 
 //AccountManager:
-export const MAX_NUM_USERS = 64;
-export const DEFAULT_NUM_USERS = 16;
 export const SESSION_DURATION_MS = 604_800_000; //7 * 24 * 60 * 60 * 1000 = 7 days
 export const SESSION_CLEANUP_INTERVAL_MS = 900_000; //15 * 60 * 1000 = 15 mins
 export const ACCOUNT_HEARTBEAT_DURATION_MS = 5000;
 export const ACCOUNT_STALE_HEARTBEAT_MS = 10000;
 
-//AdminAccontManager:
+//AdminAccountManager:
 export const DEFAULT_ADMIN_USERNAME = "admin";
 export const DEFAULT_ADMIN_PASSWORD = "intercomadmin123";
 
@@ -31,10 +28,6 @@ export const DEFAULT_ADMIN_PASSWORD = "intercomadmin123";
 export const SALT_ROUNDS = 10;
 
 //Audio:
-export const MAX_NUM_SOUNDCARD_CHANNELS = 64;
-export const DEFAULT_NUM_SOUNDCARD_CHANNELS = 16;
-export const MAX_NUM_PARTYLINES = 64;
-export const DEFAULT_NUM_PARTYLINES = 16;
 export const CHUNK_SIZE = 480;
 export const SHORT_TAIL_TIME_MS = 500;
 

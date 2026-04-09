@@ -1,5 +1,6 @@
 import type {
   AdminAudioConfigInfo,
+  AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminUsersChangeRequest,
   KeyPressInfo,
@@ -7,6 +8,7 @@ import type {
   PartylineInfo,
 } from "../../../shared/types/index.js";
 import type {
+  AudioAdminPartylinesChangeRequestResult,
   AudioAdminUsersChangeRequestResult,
   AudioMatrixConfig,
   AudioMatrixHandlers,
@@ -27,13 +29,14 @@ import {
   type DisallowedPlsInfo,
 } from "../../types/index.js";
 import { dataIsType, formatList } from "../../../shared/helpers.js";
+import { ENABLE_DEV_MATRIX_VIEW } from "../../constants/serverConstants.js";
 import {
   DEFAULT_NUM_PARTYLINES,
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   DEFAULT_NUM_USERS,
-  ENABLE_DEV_MATRIX_VIEW,
   MAX_NUM_PARTYLINES,
-} from "../../constants/serverConstants.js";
+  MAX_PARTYLINE_NAME_LENGTH,
+} from "../../../shared/constants/sharedConstants.js";
 import { devLogCrosspoints, getRemovedSetItems } from "../../serverHelpers.js";
 
 const BLANK_AUDIO_MATRIX_CONFIG: AudioMatrixConfig = {
@@ -410,6 +413,46 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     };
   }
 
+  processAdminPartylinesChangeRequest(
+    changeRequest: AdminPartylinesChangeRequest,
+  ): AudioAdminPartylinesChangeRequestResult {
+    let anyPlNotFound = false;
+    let anyPlNameNotValid = false;
+    changeRequest.forEach((req) => {
+      if (req.plName === null) {
+        return;
+      }
+      const pl = this.partylines[req.plId];
+      if (!pl) {
+        anyPlNotFound = true;
+        return;
+      }
+      const trimmedPlName = req.plName.trim();
+      if (!this.isPlNameValid(req.plName)) {
+        anyPlNameNotValid = true;
+        return;
+      }
+      pl.name = trimmedPlName;
+    });
+
+    let message = "";
+    if (anyPlNotFound) {
+      message += "Unable to find partylines";
+    }
+    if (anyPlNameNotValid) {
+      message += `${anyPlNotFound ? "; i" : "I"}nvalid data`;
+    }
+    if (message) {
+      return {
+        success: false,
+        message,
+      };
+    }
+    return {
+      success: true,
+    };
+  }
+
   get status(): ManagerStatus {
     return this._status;
   }
@@ -710,6 +753,10 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       portNum >= this._config.numUsers &&
       portNum < this.numPorts
     );
+  }
+
+  private isPlNameValid(name: string): boolean {
+    return name.length > 0 && name.length <= MAX_PARTYLINE_NAME_LENGTH;
   }
 
   private getSnapshot(): AudioMatrixSnapshot {

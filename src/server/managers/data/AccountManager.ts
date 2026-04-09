@@ -28,12 +28,14 @@ import {
 import {
   ACCOUNT_HEARTBEAT_DURATION_MS,
   ACCOUNT_STALE_HEARTBEAT_MS,
-  DEFAULT_NUM_USERS,
-  MAX_NUM_USERS,
   SALT_ROUNDS,
   SESSION_CLEANUP_INTERVAL_MS,
   SESSION_DURATION_MS,
 } from "../../constants/serverConstants.js";
+import {
+  DEFAULT_NUM_USERS,
+  MAX_NUM_USERS,
+} from "../../../shared/constants/sharedConstants.js";
 import {
   MAX_PASSWORD_LENGTH,
   MAX_USERNAME_LENGTH,

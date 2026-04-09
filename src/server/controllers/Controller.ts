@@ -44,6 +44,8 @@ export class Controller implements IController {
     ADMIN_HEARTBEAT_RESPONSE: this.handleAdminHeartbeatResponse.bind(this),
     ADMIN_LOGOUT: this.handleAdminLogout.bind(this),
     ADMIN_USERS_CHANGE_REQUEST: this.handleAdminUsersChangeRequest.bind(this),
+    ADMIN_PARTYLINES_CHANGE_REQUEST:
+      this.handleAdminPartylinesChangeRequest.bind(this),
     ADMIN_USER_LOGOUT: this.handleAdminUserLogout.bind(this),
     ADMIN_SOUNDCARD_CHANGE_REQUEST:
       this.handleAdminSoundcardChangeRequest.bind(this),
@@ -516,6 +518,29 @@ export class Controller implements IController {
     }
   }
 
+  private async handleAdminPartylinesChangeRequest(
+    changeRequest: WssPayloads[typeof WSS_UPSTREAM.ADMIN_PARTYLINES_CHANGE_REQUEST],
+    _clientId: string,
+    _: SessionTokens,
+  ): Promise<void> {
+    this.logger.info(`Admin partylines change request`);
+    const result =
+      this.audioController.processAdminPartylinesChangeRequest(changeRequest);
+
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      { partylinesInfo: this.audioController.getAdminPartylinesInfo() },
+      this.dataController.getLoggedInAdminClientIds(),
+    );
+    this.sendAudioInfosToUsers();
+
+    if (!result.success) {
+      this.logger.warn(
+        `handleAdminPartylinesChangeRequest: Unable to update all plNames: ${result.message}`,
+      );
+    }
+  }
+
   private async handleAdminUserLogout(
     { userId }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_USER_LOGOUT],
     _clientId: string,
@@ -681,11 +706,10 @@ export class Controller implements IController {
     });
   }
 
-  private sendAudioInfosToUsers(userIds: number[]): void {
-    userIds.forEach((userId) => {
+  //If no userIds passed in, send audioInfos to all logged in users:
+  private sendAudioInfosToUsers(userIds?: number[]): void {
+    const sendAudioInfo = (userId: number, clientId: string) => {
       const audioInfo = this.audioController.getAudioInfo(userId);
-      const clientId = this.dataController.isUserIdLoggedIn(userId);
-      if (!clientId) return;
       if (!audioInfo) {
         this.logger.error(
           `sendAudioInfosToUsers: Unable to send audioInfo update for userId ${userId}: No audioInfo exists`,
@@ -697,6 +721,19 @@ export class Controller implements IController {
         audioInfo,
         [clientId],
       );
+    };
+    if (!userIds) {
+      this.dataController.getLoggedInUserClientIds().forEach((clientId) => {
+        const userId = this.dataController.isClientIdLoggedIn(clientId);
+        if (userId === null) return;
+        sendAudioInfo(userId, clientId);
+      });
+      return;
+    }
+    userIds.forEach((userId) => {
+      const clientId = this.dataController.isUserIdLoggedIn(userId);
+      if (!clientId) return;
+      sendAudioInfo(userId, clientId);
     });
   }
 

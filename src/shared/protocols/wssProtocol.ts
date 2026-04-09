@@ -2,6 +2,7 @@
 import { dataIsObject, dataIsType } from "../helpers.js";
 import type {
   AdminLoginResponse,
+  AdminPartylinesChangeRequest,
   AdminUpdate,
   AdminUsersChangeRequest,
   AdminUsersLoggedInUpdate,
@@ -28,6 +29,7 @@ import {
   dataIsAdminUsersChangeRequest,
   dataIsAdminUpdate,
   dataIsAdminUsersLoggedInUpdate,
+  dataIsAdminPartylinesChangeRequest,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -44,6 +46,7 @@ export const WSS_UPSTREAM = {
   ADMIN_LOGIN: "ADMIN_LOGIN",
   ADMIN_LOGOUT: "ADMIN_LOGOUT",
   ADMIN_USERS_CHANGE_REQUEST: "ADMIN_USERS_CHANGE_REQUEST",
+  ADMIN_PARTYLINES_CHANGE_REQUEST: "ADMIN_PARTYLINES_CHANGE_REQUEST",
   ADMIN_USER_LOGOUT: "ADMIN_USER_LOGOUT",
   ADMIN_SOUNDCARD_CHANGE_REQUEST: "ADMIN_SOUNDCARD_CHANGE_REQUEST",
 } as const;
@@ -90,6 +93,8 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.ADMIN_LOGIN]: dataIsWssAdminLogin,
   [WSS_UPSTREAM.ADMIN_LOGOUT]: dataIsWssAdminLogout,
   [WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST]: dataIsWssAdminUsersChangeRequest,
+  [WSS_UPSTREAM.ADMIN_PARTYLINES_CHANGE_REQUEST]:
+    dataIsWssAdminPartylinesChangeRequest,
   [WSS_UPSTREAM.ADMIN_USER_LOGOUT]: dataIsWssAdminUserLogout,
   [WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST]:
     dataIsWssAdminSoundcardChangeRequest,
@@ -125,6 +130,7 @@ type PayloadMap = {
   [WSS_UPSTREAM.ADMIN_LOGIN]: null;
   [WSS_UPSTREAM.ADMIN_LOGOUT]: null;
   [WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST]: AdminUsersChangeRequest;
+  [WSS_UPSTREAM.ADMIN_PARTYLINES_CHANGE_REQUEST]: AdminPartylinesChangeRequest;
   [WSS_UPSTREAM.ADMIN_USER_LOGOUT]: { userId: number };
   [WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST]: { soundcardId: number };
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
@@ -222,6 +228,12 @@ export function dataIsWssAdminUsersChangeRequest(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST] {
   return dataIsAdminUsersChangeRequest(data);
+}
+
+export function dataIsWssAdminPartylinesChangeRequest(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_PARTYLINES_CHANGE_REQUEST] {
+  return dataIsAdminPartylinesChangeRequest(data);
 }
 
 export function dataIsWssAdminUserLogout(

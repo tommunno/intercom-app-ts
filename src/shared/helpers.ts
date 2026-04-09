@@ -3,7 +3,7 @@ import {
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   MAX_NUM_PARTYLINES,
   MAX_NUM_SOUNDCARD_CHANNELS,
-} from "../server/constants/serverConstants.js";
+} from "./constants/sharedConstants.js";
 
 export function isStringAndNotEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";

@@ -12,7 +12,7 @@ import {
 } from "../helpers/setupHelpers.js";
 import type { UsersSectionInfo } from "../types/index.js";
 
-const log = logger.child({ context: "UsersInfoReducer" });
+const log = logger.child({ context: "usersInfoReducer" });
 
 type UsersSectionInfoAction =
   | {
@@ -150,6 +150,7 @@ function handleNormalizeAfterSave(
     );
     return {
       ...userInfo,
+      changedUsername: sanitizeUsername(userInfo.changedUsername),
       changedPassword: "",
       changedAllowedPls: aPlsSetOrNull
         ? createAllowedPlsString([...aPlsSetOrNull], log)

@@ -1,6 +1,7 @@
 import type {
   AdminAudioConfigInfo,
   AdminInputGainsInfo,
+  AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminSoundcardsInfo,
   AdminUsersChangeRequest,
@@ -14,7 +15,10 @@ import type {
   RtcMediaStreamTrack,
   TrackAndStream,
 } from "../../types/index.js";
-import type { AudioAdminUsersChangeRequestResult } from "./IAudioMatrixManager.js";
+import type {
+  AudioAdminPartylinesChangeRequestResult,
+  AudioAdminUsersChangeRequestResult,
+} from "./IAudioMatrixManager.js";
 
 export interface AudioAdminInfos {
   inputGainsInfo: AdminInputGainsInfo;
@@ -45,7 +49,11 @@ export interface IAudioController {
 
   getAdminInfos: () => AudioAdminInfos;
   getAdminSoundcardsInfo: () => AdminSoundcardsInfo;
+  getAdminPartylinesInfo: () => AdminPartylinesInfo;
   processAdminUsersChangeRequest: (
     changeRequest: AdminUsersChangeRequest,
   ) => AudioAdminUsersChangeRequestResult;
+  processAdminPartylinesChangeRequest: (
+    changeRequest: AdminPartylinesChangeRequest,
+  ) => AudioAdminPartylinesChangeRequestResult;
 }

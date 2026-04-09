@@ -4,11 +4,11 @@ import type {
   ManagerStatus,
   TailState,
 } from "../../../shared/types/index.js";
+import { SHORT_TAIL_TIME_MS } from "../../constants/serverConstants.js";
 import {
   DEFAULT_NUM_PARTYLINES,
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
-  SHORT_TAIL_TIME_MS,
-} from "../../constants/serverConstants.js";
+} from "../../../shared/constants/sharedConstants.js";
 import type {
   ITailManager,
   ILogger,

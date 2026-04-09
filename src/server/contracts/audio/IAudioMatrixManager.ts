@@ -1,5 +1,6 @@
 import type {
   AdminAudioConfigInfo,
+  AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminUsersChangeRequest,
   KeyPressInfo,
@@ -54,6 +55,12 @@ export type AudioAdminUsersChangeRequestResult =
       disallowedPlsInfos: DisallowedPlsInfo[];
     };
 
+export type AudioAdminPartylinesChangeRequestResult =
+  | {
+      success: true;
+    }
+  | { success: false; message: string };
+
 export interface IAudioMatrixManager {
   init: () => void;
   populate: (
@@ -80,6 +87,9 @@ export interface IAudioMatrixManager {
   processAdminUsersChangeRequest: (
     changeRequest: AdminUsersChangeRequest,
   ) => AudioAdminUsersChangeRequestResult;
+  processAdminPartylinesChangeRequest: (
+    changeRequest: AdminPartylinesChangeRequest,
+  ) => AudioAdminPartylinesChangeRequestResult;
   status: ManagerStatus;
   config: AudioMatrixConfig;
 }

@@ -9,7 +9,7 @@ import {
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   DEFAULT_NUM_USERS,
   MAX_NUM_SOUNDCARD_CHANNELS,
-} from "../../constants/serverConstants.js";
+} from "../../../shared/constants/sharedConstants.js";
 import {
   type AudioEngineConfig,
   type AudioEngineHandlers,

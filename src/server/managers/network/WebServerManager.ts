@@ -104,6 +104,12 @@ export class WebServerManager implements IWebServerManager {
       },
     );
 
+    this.app.use((rq: Request, rs: Response, _n: NextFunction) => {
+      rs.status(404).sendFile(
+        path.join(process.cwd(), WEB_SERVER_DIR, "404.html"),
+      );
+    });
+
     this.app.use((e: unknown, rq: Request, rs: Response, n: NextFunction) =>
       this.handleErrors(e, rq, rs, n),
     );
@@ -428,7 +434,7 @@ export class WebServerManager implements IWebServerManager {
     err: unknown,
     req: Request,
     res: Response,
-    next: NextFunction,
+    _next: NextFunction,
   ) {
     if (err instanceof SyntaxError && "body" in err) {
       this.logger.error(`Bad JSON received from ${req.ip}`);
@@ -449,7 +455,12 @@ export class WebServerManager implements IWebServerManager {
         message: "The request body is too large.",
       });
     }
-    next(err);
+
+    this.logger.error("Unhandled web server error", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 
   private setPorts(httpPort: number, httpsPort: number | null): void {

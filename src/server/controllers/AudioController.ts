@@ -1,5 +1,7 @@
 //Types:
 import type {
+  AdminPartylinesChangeRequest,
+  AdminPartylinesInfo,
   AdminSoundcardsInfo,
   AdminUsersChangeRequest,
   AudioInfo,
@@ -8,6 +10,7 @@ import type {
 } from "../../shared/types/index.js";
 import type {
   AudioAdminInfos,
+  AudioAdminPartylinesChangeRequestResult,
   AudioAdminUsersChangeRequestResult,
   AudioEngineConfig,
   AudioEnginePopulateConfig,
@@ -196,10 +199,22 @@ export class AudioController implements IAudioController {
     return this.audioEngineManager.getAdminSoundcardsInfo();
   }
 
+  getAdminPartylinesInfo(): AdminPartylinesInfo {
+    return this.audioMatrixManager.getAdminPartylinesInfo();
+  }
+
   processAdminUsersChangeRequest(
     changeRequest: AdminUsersChangeRequest,
   ): AudioAdminUsersChangeRequestResult {
     return this.audioMatrixManager.processAdminUsersChangeRequest(
+      changeRequest,
+    );
+  }
+
+  processAdminPartylinesChangeRequest(
+    changeRequest: AdminPartylinesChangeRequest,
+  ): AudioAdminPartylinesChangeRequestResult {
+    return this.audioMatrixManager.processAdminPartylinesChangeRequest(
       changeRequest,
     );
   }

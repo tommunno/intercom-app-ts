@@ -18,11 +18,11 @@ export interface PartylineSnapshot {
 }
 
 export interface IPartyline {
-  id: number;
+  readonly id: number;
   name: string;
-  portsTalking: ReadonlySet<number>;
-  portsListening: ReadonlySet<number>;
-  state: PartylineState;
+  readonly portsTalking: ReadonlySet<number>;
+  readonly portsListening: ReadonlySet<number>;
+  readonly state: PartylineState;
   isPortTalking: (portNum: number) => boolean;
   isPortListening: (portNum: number) => boolean;
   setPortTalking: (portNum: number, state: boolean) => SuccessMessage;

@@ -23,7 +23,7 @@ export interface UsersSectionRowProps {
 
 const log = logger.child({ context: "UsersSectionRow" });
 
-export default function UsersSectionRow({
+export function UsersSectionRow({
   userInfo,
   numPls,
   onInputChange,
@@ -74,7 +74,7 @@ export default function UsersSectionRow({
   return (
     <tr>
       <td>
-        <p className="user-number">{id + 1}</p>
+        <p className="row-number">{id + 1}</p>
       </td>
       <td>
         <input

@@ -1,4 +1,5 @@
 import {
+  MAX_PARTYLINE_NAME_LENGTH,
   MAX_PASSWORD_LENGTH,
   MAX_USERNAME_LENGTH,
   MIN_PASSWORD_LENGTH,
@@ -145,4 +146,12 @@ export function doAllowedPlsMatch(
 export function isPlValid(pl: number, numPls: number): boolean {
   const isValid = dataIsType("safeIntegerNum", pl) && pl >= 0 && pl < numPls;
   return isValid;
+}
+
+export function sanitizePlName(name: string): string {
+  return name.trim();
+}
+
+export function validatePlName(name: string): boolean {
+  return name.length > 0 && name.length <= MAX_PARTYLINE_NAME_LENGTH;
 }

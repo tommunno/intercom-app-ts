@@ -6,17 +6,20 @@ import {
 } from "../../../../../shared/constants/sharedConstants.js";
 import type { UsersSectionColumnErrs } from "./UsersSection.js";
 
-export interface UsersSectionProps {
+export interface UsersSectionBannerProps {
   columnErrs: UsersSectionColumnErrs;
   numPls: number;
 }
 
-export function UsersSectionBanner({ columnErrs, numPls }: UsersSectionProps) {
+export function UsersSectionBanner({
+  columnErrs,
+  numPls,
+}: UsersSectionBannerProps) {
   const { usernameErr, passwordErr, allowedPlsErr } = columnErrs;
   const sectionBannerRef = useRef<HTMLDivElement | null>(null);
 
   const columnErrsVisible = Object.values(columnErrs).some((e) => e === true);
-  const prevColumnErrsVisibleRef = useRef(columnErrsVisible);
+  const prevColumnErrsVisibleRef = useRef<boolean>(columnErrsVisible);
 
   //Scroll to the error banner if it has gone from not visible to visible:
   useEffect(() => {

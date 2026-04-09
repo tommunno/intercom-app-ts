@@ -1,7 +1,7 @@
 import { useReducer, useState } from "react";
 import { flushSync } from "react-dom";
 import { UsersSectionBanner } from "./UsersSectionBanner.jsx";
-import UsersSectionRow from "./UsersSectionRow.jsx";
+import { UsersSectionRow } from "./UsersSectionRow.jsx";
 import logger from "../../../../shared/logging/logger.js";
 import type {
   AdminUsersLoggedInUpdate,
@@ -45,10 +45,10 @@ export function UsersSection() {
   });
   const { numPartylines: numPls } = audioConfigInfo;
 
-  function handleUsersInfo(usersInfo: AdminUsersInfo): void {
+  function handleUsersInfo(newUsersInfo: AdminUsersInfo): void {
     usersInfoDispatch({
       type: "new-server-data",
-      serverData: usersInfo,
+      serverData: newUsersInfo,
       numPls,
     });
   }
