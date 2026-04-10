@@ -4,14 +4,16 @@ import type {
   AdminPartylinesInfo,
   AdminSoundcardsInfo,
   AdminUsersChangeRequest,
+  AllResolvedAPls,
   AudioInfo,
   KeyPressInfo,
   MergedPartylineInfo,
 } from "../../shared/types/index.js";
 import type {
   AudioAdminInfos,
-  AudioAdminPartylinesChangeRequestResult,
-  AudioAdminUsersChangeRequestResult,
+  AudioAdminPartylinesProcessResult,
+  AudioAdminUsersApplyResult,
+  AudioAdminUsersValidationResult,
   AudioEngineConfig,
   AudioEnginePopulateConfig,
   AudioHandlers,
@@ -203,20 +205,24 @@ export class AudioController implements IAudioController {
     return this.audioMatrixManager.getAdminPartylinesInfo();
   }
 
-  processAdminUsersChangeRequest(
-    changeRequest: AdminUsersChangeRequest,
-  ): AudioAdminUsersChangeRequestResult {
-    return this.audioMatrixManager.processAdminUsersChangeRequest(
-      changeRequest,
+  validateAdminUsersChangeRequest(
+    request: AdminUsersChangeRequest,
+  ): AudioAdminUsersValidationResult {
+    return this.audioMatrixManager.validateAdminUsersChangeRequest(request);
+  }
+
+  applyAdminUsersChangeRequest(
+    allResolvedAPls: AllResolvedAPls,
+  ): AudioAdminUsersApplyResult {
+    return this.audioMatrixManager.applyAdminUsersChangeRequest(
+      allResolvedAPls,
     );
   }
 
   processAdminPartylinesChangeRequest(
-    changeRequest: AdminPartylinesChangeRequest,
-  ): AudioAdminPartylinesChangeRequestResult {
-    return this.audioMatrixManager.processAdminPartylinesChangeRequest(
-      changeRequest,
-    );
+    request: AdminPartylinesChangeRequest,
+  ): AudioAdminPartylinesProcessResult {
+    return this.audioMatrixManager.processAdminPartylinesChangeRequest(request);
   }
 
   //Private methods:

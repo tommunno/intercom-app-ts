@@ -55,7 +55,7 @@ export class DataManager implements IDataManager {
           sessionTokenInfos: [],
         },
         {
-          username: "ben",
+          username: "tom",
           passwordHash: null,
           sessionTokenInfos: [
             {
@@ -69,11 +69,21 @@ export class DataManager implements IDataManager {
           ],
         },
         {
-          username: "luke",
+          username: "user-3",
           passwordHash: null,
           sessionTokenInfos: [
             {
               token: "ghi",
+              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            },
+          ],
+        },
+        {
+          username: "ryan",
+          passwordHash: null,
+          sessionTokenInfos: [
+            {
+              token: "jkl",
               expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
             },
           ],

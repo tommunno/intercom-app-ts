@@ -478,54 +478,78 @@ export class Controller implements IController {
     clientId: string,
     _: SessionTokens,
   ): Promise<void> {
-    this.logger.info(`Admin users change request`);
     const loggedIn = this.isAdminClientIdLoggedIn(
       clientId,
       "Ignored admin users change request",
     );
     if (!loggedIn) return;
-    const clientIds = this.dataController.getLoggedInAdminClientIds();
-
-    const audioResult =
-      this.audioController.processAdminUsersChangeRequest(changeRequest);
-    const dataResult =
-      await this.dataController.processAdminUsersChangeRequest(changeRequest);
+    const dataVResult =
+      this.dataController.validateAdminUsersChangeRequest(changeRequest);
+    const audioVResult =
+      this.audioController.validateAdminUsersChangeRequest(changeRequest);
+    let errors = new Set<string>();
+    if (!dataVResult.success) {
+      errors = new Set([...errors, ...dataVResult.errors]);
+    }
+    if (!audioVResult.success) {
+      errors = new Set([...errors, ...audioVResult.errors]);
+    }
+    if (!dataVResult.success || !audioVResult.success) {
+      const errMessage = formatList([...errors]);
+      console.warn(
+        `Admin users change request validation failed: ${errMessage}`,
+      );
+      this.networkController.sendWssMessage(
+        "ADMIN_ERROR",
+        { message: errMessage },
+        [clientId],
+      );
+      return;
+    }
+    const { userIdsToUpdate, userIdsToHardLogout } =
+      await this.dataController.applyAdminUsersChangeRequest(changeRequest);
+    const { userIdsToUpdate: audioIdsToUpdate, disallowedPlsInfos } =
+      this.audioController.applyAdminUsersChangeRequest(
+        audioVResult.allResolvedAPls,
+      );
 
     this.networkController.sendWssMessage(
       "ADMIN_UPDATE",
       { usersInfo: this.createAdminUsersInfo() },
-      clientIds,
+      this.dataController.getLoggedInAdminClientIds(),
     );
-    this.sendUserInfosToUsers(dataResult.userIdsToUpdate);
-    this.hardLogoutUsers(dataResult.userIdsToHardLogout);
-    this.sendAudioInfosToUsers(audioResult.userIdsToUpdate);
 
-    const errs: string[] = [];
-    if (!audioResult.success) {
-      errs.push(audioResult.message);
-    }
-    if (!dataResult.success) {
-      errs.push(dataResult.message);
-    }
-    if (errs.length > 0) {
-      this.logger.warn(
-        `handleAdminUsersChangeRequest: Unable to update all users: ${formatList(errs)}`,
-      );
-    }
-    const { disallowedPlsInfos: infos } = audioResult;
-    if (infos.length > 0) {
-      this.audioController.processDisallowedPlsInfos(infos);
-    }
+    this.sendUserInfosToUsers(userIdsToUpdate);
+    this.hardLogoutUsers(userIdsToHardLogout);
+    this.sendAudioInfosToUsers(audioIdsToUpdate);
+    this.audioController.processDisallowedPlsInfos(disallowedPlsInfos);
   }
 
   private async handleAdminPartylinesChangeRequest(
     changeRequest: WssPayloads[typeof WSS_UPSTREAM.ADMIN_PARTYLINES_CHANGE_REQUEST],
-    _clientId: string,
+    clientId: string,
     _: SessionTokens,
   ): Promise<void> {
-    this.logger.info(`Admin partylines change request`);
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin partylines change request",
+    );
+    if (!loggedIn) return;
+
     const result =
       this.audioController.processAdminPartylinesChangeRequest(changeRequest);
+
+    if (!result.success) {
+      this.logger.warn(
+        `Admin partylines change request validation failed: ${result.message}`,
+      );
+      this.networkController.sendWssMessage(
+        "ADMIN_ERROR",
+        { message: result.message },
+        [clientId],
+      );
+      return;
+    }
 
     this.networkController.sendWssMessage(
       "ADMIN_UPDATE",
@@ -533,19 +557,18 @@ export class Controller implements IController {
       this.dataController.getLoggedInAdminClientIds(),
     );
     this.sendAudioInfosToUsers();
-
-    if (!result.success) {
-      this.logger.warn(
-        `handleAdminPartylinesChangeRequest: Unable to update all plNames: ${result.message}`,
-      );
-    }
   }
 
   private async handleAdminUserLogout(
     { userId }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_USER_LOGOUT],
-    _clientId: string,
+    clientId: string,
     _: SessionTokens,
   ): Promise<void> {
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin user logout request",
+    );
+    if (!loggedIn) return;
     this.hardLogoutUsers([userId]);
   }
 
@@ -553,9 +576,15 @@ export class Controller implements IController {
     {
       soundcardId,
     }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST],
-    _clientId: string,
+    clientId: string,
     _: SessionTokens,
   ): Promise<void> {
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin soundcard change request",
+    );
+    if (!loggedIn) return;
+
     this.audioController.setRequestedSoundcardId(soundcardId);
     const clientIds = this.dataController.getLoggedInAdminClientIds();
     this.networkController.sendWssMessage(

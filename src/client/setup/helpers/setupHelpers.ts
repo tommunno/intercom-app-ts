@@ -99,7 +99,7 @@ export function createAllowedPlsSetOrNull(
       if (trimmed === "") continue;
       //Take one away from the user provided value, because pls are indexed as 1 for the user, and as 0 for the backend:
       const numVal = Number(trimmed) - 1;
-      if (!isPlValid(numVal, numPls)) {
+      if (!validatePl(numVal, numPls)) {
         return null;
       }
       if (lastVal === null) {
@@ -143,7 +143,7 @@ export function doAllowedPlsMatch(
   return true;
 }
 
-export function isPlValid(pl: number, numPls: number): boolean {
+export function validatePl(pl: number, numPls: number): boolean {
   const isValid = dataIsType("safeIntegerNum", pl) && pl >= 0 && pl < numPls;
   return isValid;
 }

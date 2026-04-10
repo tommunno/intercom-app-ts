@@ -3,13 +3,15 @@ import type {
   AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminUsersChangeRequest,
+  AllResolvedAPls,
   KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
 } from "../../../shared/types/index.js";
 import type {
-  AudioAdminPartylinesChangeRequestResult,
-  AudioAdminUsersChangeRequestResult,
+  AudioAdminPartylinesProcessResult,
+  AudioAdminUsersApplyResult,
+  AudioAdminUsersValidationResult,
   AudioMatrixConfig,
   AudioMatrixHandlers,
   AudioMatrixPopulateConfig,
@@ -335,122 +337,163 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       return { numUsers: 0, numPartylines: 0 };
     }
     return {
-      numUsers: this._config.numPartylines,
+      numUsers: this._config.numUsers,
       numPartylines: this._config.numPartylines,
     };
   }
 
-  //For admins updating info about users
-  //If users have been disallowed from interacting with certain PLs, disallowedPlsInfos are returned. The controller would need to act on these in order to turn off those keys if it wants to (eg through the TailManager)
-  processAdminUsersChangeRequest(
-    changeRequest: AdminUsersChangeRequest,
-  ): AudioAdminUsersChangeRequestResult {
+  validateAdminUsersChangeRequest(
+    request: AdminUsersChangeRequest,
+  ): AudioAdminUsersValidationResult {
     const result = this.checkAndWarnIfNotRunning(
-      "process admin users change request",
+      "validate admin users change request",
     );
-    if (result)
+    if (result) {
       return {
         success: false,
-        message: "Internal server error",
+        errors: new Set(["internal server error"]),
+      };
+    }
+
+    //Don't allow duplicate userIds:
+    if (request.length !== new Set(request.map((c) => c.userId)).size) {
+      return {
+        success: false,
+        errors: new Set(["duplicate userIds in request"]),
+      };
+    }
+    const errors: Set<string> = new Set();
+    //<userId, resolvedAPls>:
+    const allResolvedAPls: AllResolvedAPls = new Map();
+
+    for (const { userId, allowedPls: aPls } of request) {
+      const foundAPlsInfo = this._config.allowedPlsInfos[userId];
+      if (!foundAPlsInfo) {
+        errors.add("allowed PLs record not found");
+      }
+      if (aPls !== null) {
+        const resolvedAPls = this.resolveAllowedPls(aPls);
+        if (!resolvedAPls) {
+          errors.add("allowed PLs invalid");
+        } else {
+          allResolvedAPls.set(userId, resolvedAPls);
+        }
+      }
+    }
+    if (errors.size) {
+      return {
+        success: false,
+        errors,
+      };
+    }
+    return { success: true, allResolvedAPls };
+  }
+
+  //For admins updating info about users
+  //If users have been disallowed from interacting with certain PLs, disallowedPlsInfos are returned. The controller would need to act on these in order to turn off those keys if it wants to (eg through the TailManager)
+  applyAdminUsersChangeRequest(
+    allResolvedAPls: AllResolvedAPls,
+  ): AudioAdminUsersApplyResult {
+    const result = this.checkAndWarnIfNotRunning(
+      "apply admin users change request",
+    );
+    if (result) {
+      return {
         userIdsToUpdate: [],
         disallowedPlsInfos: [],
       };
-
-    let anyAplsNotFound = false;
-    let anyDataNotValid = false;
+    }
     const userIdsToUpdate: number[] = [];
     const disallowedPlsInfos: DisallowedPlsInfo[] = [];
 
-    for (const userChange of changeRequest) {
-      const { userId: id, allowedPls: aPls } = userChange;
-      if (!aPls) continue;
-
-      const foundAPlsInfo = this._config.allowedPlsInfos[id];
+    allResolvedAPls.forEach((resolvedAPls, userId) => {
+      const foundAPlsInfo = this._config.allowedPlsInfos[userId];
       if (!foundAPlsInfo) {
-        this.logger.warn(
-          `Unable to update allowed PLs: allowedPlsInfo at ${id} does not exist`,
+        this.logger.error(
+          `applyAdminUsersChangeRequest: Invariant violation: no aPlsInfo found for userId ${userId}. Will not update allowed PLs`,
         );
-        anyAplsNotFound = true;
-        continue;
+        return;
       }
 
-      const resolvedAPls = this.resolveAllowedPls(aPls);
-
-      if (resolvedAPls) {
-        const oldAPls = foundAPlsInfo.allowedPls;
-        foundAPlsInfo.allowedPls = resolvedAPls;
-        userIdsToUpdate.push(id);
-        disallowedPlsInfos.push({
-          userId: id,
-          disallowedPls: getRemovedSetItems(oldAPls, resolvedAPls),
-        });
-      } else {
-        this.logger.warn(
-          `Unable to update allowed PLs for userId ${id}. The data is invalid`,
-        );
-        anyDataNotValid = true;
-      }
-    }
-    let message = "";
-    if (anyAplsNotFound) {
-      message += `Unable to find allowed PL records for one or more users`;
-    }
-    if (anyDataNotValid) {
-      message += `${anyAplsNotFound ? "; i" : "I"}nvalid data`;
-    }
-    if (message) {
-      return {
-        success: false,
-        message,
-        userIdsToUpdate,
-        disallowedPlsInfos,
-      };
-    }
-    return {
-      success: true,
-      userIdsToUpdate,
-      disallowedPlsInfos,
-    };
+      const oldAPls = foundAPlsInfo.allowedPls;
+      foundAPlsInfo.allowedPls = resolvedAPls;
+      userIdsToUpdate.push(userId);
+      disallowedPlsInfos.push({
+        userId,
+        disallowedPls: getRemovedSetItems(oldAPls, resolvedAPls),
+      });
+    });
+    return { userIdsToUpdate, disallowedPlsInfos };
   }
 
   processAdminPartylinesChangeRequest(
-    changeRequest: AdminPartylinesChangeRequest,
-  ): AudioAdminPartylinesChangeRequestResult {
-    let anyPlNotFound = false;
-    let anyPlNameNotValid = false;
-    changeRequest.forEach((req) => {
-      if (req.plName === null) {
-        return;
-      }
-      const pl = this.partylines[req.plId];
-      if (!pl) {
-        anyPlNotFound = true;
-        return;
-      }
-      const trimmedPlName = req.plName.trim();
-      if (!this.isPlNameValid(req.plName)) {
-        anyPlNameNotValid = true;
-        return;
-      }
-      pl.name = trimmedPlName;
-    });
-
-    let message = "";
-    if (anyPlNotFound) {
-      message += "Unable to find partylines";
-    }
-    if (anyPlNameNotValid) {
-      message += `${anyPlNotFound ? "; i" : "I"}nvalid data`;
-    }
-    if (message) {
+    request: AdminPartylinesChangeRequest,
+  ): AudioAdminPartylinesProcessResult {
+    const result = this.checkAndWarnIfNotRunning(
+      "process admin partylines change request",
+    );
+    if (result) {
       return {
         success: false,
-        message,
+        message: "internal server error",
       };
     }
-    return {
-      success: true,
-    };
+    const vResult = this.validateAdminPartylinesChangeRequest(request);
+    if (!vResult.success) {
+      return { success: false, message: vResult.message };
+    }
+    this.applyAdminPartylinesChangeRequest(request);
+    return { success: true };
+  }
+
+  private validateAdminPartylinesChangeRequest(
+    request: AdminPartylinesChangeRequest,
+  ): { success: true } | { success: false; message: string } {
+    //Don't allow duplicate plIds:
+    if (request.length !== new Set(request.map((c) => c.plId)).size) {
+      return {
+        success: false,
+        message: "duplicate PL Ids in request",
+      };
+    }
+
+    const errors: Set<string> = new Set();
+
+    for (const { plId, plName } of request) {
+      const foundPl = this.partylines[plId];
+      if (!foundPl) {
+        errors.add("PL not found");
+      }
+      if (plName !== null) {
+        if (!this.validatePlName(plName.trim())) {
+          errors.add("PL name invalid");
+        }
+      }
+    }
+    if (errors.size) {
+      return {
+        success: false,
+        message: formatList([...errors]),
+      };
+    }
+    return { success: true };
+  }
+
+  private applyAdminPartylinesChangeRequest(
+    request: AdminPartylinesChangeRequest,
+  ): void {
+    request.forEach(({ plId, plName }) => {
+      const foundPl = this.partylines[plId];
+      if (!foundPl) {
+        this.logger.error(
+          `applyAdminPartylinesChangeRequest: Invariant violation: no PL found for plId ${plId}. Will not update plName`,
+        );
+        return;
+      }
+      if (plName !== null) {
+        foundPl.name = plName.trim();
+      }
+    });
   }
 
   get status(): ManagerStatus {
@@ -755,7 +798,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     );
   }
 
-  private isPlNameValid(name: string): boolean {
+  private validatePlName(name: string): boolean {
     return name.length > 0 && name.length <= MAX_PARTYLINE_NAME_LENGTH;
   }
 

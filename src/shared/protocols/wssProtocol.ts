@@ -69,6 +69,7 @@ export const WSS_DOWNSTREAM_SETUP = {
   ADMIN_FORCE_LOGOUT: "ADMIN_FORCE_LOGOUT",
   ADMIN_UPDATE: "ADMIN_UPDATE",
   ADMIN_USERS_LOGGED_IN_UPDATE: "ADMIN_USERS_LOGGED_IN_UPDATE",
+  ADMIN_ERROR: "ADMIN_ERROR",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -113,6 +114,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: dataIsWssAdminUpdate,
   [WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE]:
     dataIsWssAdminUsersLoggedInUpdate,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_ERROR]: dataIsWssAdminError,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -153,6 +155,7 @@ type PayloadMap = {
   [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: null;
   [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: AdminUpdate;
   [WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE]: AdminUsersLoggedInUpdate;
+  [WSS_DOWNSTREAM_SETUP.ADMIN_ERROR]: { message: string };
 };
 
 export type WssPayloads = {
@@ -329,4 +332,10 @@ export function dataIsWssAdminUsersLoggedInUpdate(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE] {
   return dataIsAdminUsersLoggedInUpdate(data);
+}
+
+export function dataIsWssAdminError(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_ERROR] {
+  return dataIsObject(data) && dataIsType("string", data.message);
 }

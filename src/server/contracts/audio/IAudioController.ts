@@ -5,6 +5,7 @@ import type {
   AdminPartylinesInfo,
   AdminSoundcardsInfo,
   AdminUsersChangeRequest,
+  AllResolvedAPls,
   AudioInfo,
   KeyPressInfo,
 } from "../../../shared/types/index.js";
@@ -16,8 +17,9 @@ import type {
   TrackAndStream,
 } from "../../types/index.js";
 import type {
-  AudioAdminPartylinesChangeRequestResult,
-  AudioAdminUsersChangeRequestResult,
+  AudioAdminPartylinesProcessResult,
+  AudioAdminUsersApplyResult,
+  AudioAdminUsersValidationResult,
 } from "./IAudioMatrixManager.js";
 
 export interface AudioAdminInfos {
@@ -50,10 +52,13 @@ export interface IAudioController {
   getAdminInfos: () => AudioAdminInfos;
   getAdminSoundcardsInfo: () => AdminSoundcardsInfo;
   getAdminPartylinesInfo: () => AdminPartylinesInfo;
-  processAdminUsersChangeRequest: (
-    changeRequest: AdminUsersChangeRequest,
-  ) => AudioAdminUsersChangeRequestResult;
+  validateAdminUsersChangeRequest: (
+    request: AdminUsersChangeRequest,
+  ) => AudioAdminUsersValidationResult;
+  applyAdminUsersChangeRequest: (
+    allResolvedAPls: AllResolvedAPls,
+  ) => AudioAdminUsersApplyResult;
   processAdminPartylinesChangeRequest: (
-    changeRequest: AdminPartylinesChangeRequest,
-  ) => AudioAdminPartylinesChangeRequestResult;
+    request: AdminPartylinesChangeRequest,
+  ) => AudioAdminPartylinesProcessResult;
 }

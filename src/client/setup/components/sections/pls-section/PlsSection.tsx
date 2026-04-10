@@ -33,7 +33,6 @@ export function PlsSection() {
       id: plId,
       plsInfo,
       plNameColumnErr,
-      preserveNoColumnErrs: true,
       logger: log,
     });
     plsInfoDispatch({ type: "replace-pls-info", newPlsInfo });

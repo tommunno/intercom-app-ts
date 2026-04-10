@@ -15,7 +15,8 @@ export function UsersSectionBanner({
   columnErrs,
   numPls,
 }: UsersSectionBannerProps) {
-  const { usernameErr, passwordErr, allowedPlsErr } = columnErrs;
+  const { usernameErr, passwordErr, allowedPlsErr, usernameClashesErr } =
+    columnErrs;
   const sectionBannerRef = useRef<HTMLDivElement | null>(null);
 
   const columnErrsVisible = Object.values(columnErrs).some((e) => e === true);
@@ -60,6 +61,7 @@ export function UsersSectionBanner({
           {allowedPlsErr && (
             <li>{`Allowed PLs must be 1-${numPls} in format '2, 4-6, 8'`}</li>
           )}
+          {usernameClashesErr && <li>{"Usernames must be unique"}</li>}
         </ul>
       </div>
     </div>

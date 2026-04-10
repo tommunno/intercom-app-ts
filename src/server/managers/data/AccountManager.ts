@@ -12,7 +12,8 @@ import {
 } from "../../../shared/types/index.js";
 //Contracts:
 import {
-  type AccountAdminUsersChangeRequestResult,
+  type AccountAdminUsersApplyResult,
+  type AccountAdminUsersValidationResult,
   type AccountHandlers,
   type HardLoginUserParams,
   type IAccountManager,
@@ -114,22 +115,6 @@ export class AccountManager implements IAccountManager {
     this.handlers = handlers;
   }
 
-  getAdminUsersLoggedInUpdate(): AdminUsersLoggedInUpdate {
-    const result = this.checkAndWarnIfNotRunning(
-      "get admin users logged in update",
-    );
-    if (result) return [];
-    const update: AdminUsersLoggedInUpdate = [];
-    this.users.forEach((user, userId) => {
-      const { loggedIn } = user;
-      update.push({
-        userId,
-        loggedIn,
-      });
-    });
-    return update;
-  }
-
   private get activeHandlers(): AccountHandlers {
     if (!this.handlers)
       throw new Error("AccountManager handlers not initialized!");
@@ -177,11 +162,12 @@ export class AccountManager implements IAccountManager {
       const { passwordHash: p, sessionTokenInfos: sTs } = pUser;
       const u = pUser.username.trim();
 
-      const { success, clash } = this.validateUsername({ name: u, usernames });
+      const isUsernameValid = this.validateUsername(u);
+      const isUsernameUnique = this.isUsernameUnique({ name: u, usernames });
 
-      if (!success) {
+      if (!isUsernameValid || !isUsernameUnique) {
         this.logger.warn(
-          `Username invalid in loaded data for userId ${i}${clash ? " (name clash)" : ""}. Will set the username to ${newUser.username} instead`,
+          `Username invalid in loaded data for userId ${i}${!isUsernameUnique ? " (name clash)" : ""}. Will set the username to ${newUser.username} instead`,
         );
       } else {
         newUser.username = u;
@@ -192,14 +178,13 @@ export class AccountManager implements IAccountManager {
         this.logger,
         i,
       );
-
       this.users.set(i, newUser);
       usernames.add(newUser.username);
     }
   }
 
-  // If name === currentName, we treat it as valid even though it exists in the usernames set
-  private validateUsername({
+  // If name === currentName, we treat it as unique even though it exists in the usernames set
+  private isUsernameUnique({
     name,
     usernames,
     currentName,
@@ -207,21 +192,23 @@ export class AccountManager implements IAccountManager {
     name: string;
     usernames?: Set<string>;
     currentName?: string;
-  }): { success: boolean; clash: boolean } {
-    if (currentName && name === currentName)
-      return { success: true, clash: false };
+  }): boolean {
+    if (currentName && name === currentName) return true;
 
     if (!usernames) {
       usernames = new Set<string>(
         Array.from(this.users.values()).map((u) => u.username),
       );
     }
-    const clash = usernames.has(name);
-    return {
-      success:
-        !clash && name.length !== 0 && name.length <= MAX_USERNAME_LENGTH,
-      clash,
-    };
+    return !usernames.has(name);
+  }
+
+  private doAnyUsernamesClash(usernames: string[]): boolean {
+    return new Set(usernames).size !== usernames.length;
+  }
+
+  private validateUsername(name: string): boolean {
+    return name.length !== 0 && name.length <= MAX_USERNAME_LENGTH;
   }
 
   private validatePassword(password: string): boolean {
@@ -236,7 +223,7 @@ export class AccountManager implements IAccountManager {
     id: number,
     usernames: Set<string>,
   ): string {
-    const base = `user-${id}`;
+    const base = `user-${id + 1}`;
 
     if (!usernames.has(base)) return base;
 
@@ -715,94 +702,113 @@ export class AccountManager implements IAccountManager {
     return clientIds;
   }
 
-  //For admins updating info about users. Passwords are expected as plain text here.
-  async processAdminUsersChangeRequest(
-    changeRequest: AdminUsersChangeRequest,
-  ): Promise<AccountAdminUsersChangeRequestResult> {
+  getAdminUsersLoggedInUpdate(): AdminUsersLoggedInUpdate {
     const result = this.checkAndWarnIfNotRunning(
-      "process admin users change request",
+      "get admin users logged in update",
     );
-    if (result)
+    if (result) return [];
+    const update: AdminUsersLoggedInUpdate = [];
+    this.users.forEach((user, userId) => {
+      const { loggedIn } = user;
+      update.push({
+        userId,
+        loggedIn,
+      });
+    });
+    return update;
+  }
+
+  validateAdminUsersChangeRequest(
+    request: AdminUsersChangeRequest,
+  ): AccountAdminUsersValidationResult {
+    const notRunning = this.checkAndWarnIfNotRunning(
+      "validate admin users change request",
+    );
+    if (notRunning) {
+      return { success: false, errors: new Set(["internal server error"]) };
+    }
+    //Don't allow duplicate userIds:
+    if (request.length !== new Set(request.map((c) => c.userId)).size) {
       return {
         success: false,
-        message: "Internal server error",
-        userIdsToUpdate: [],
-        userIdsToHardLogout: [],
+        errors: new Set(["duplicate userIds in request"]),
       };
+    }
+    const errors: Set<string> = new Set();
+    //<userId, username>:
+    const newUsernames: Map<number, string> = new Map();
+    this.users.forEach((user, userId) => {
+      newUsernames.set(userId, user.username);
+    });
+    for (const { userId, username, password } of request) {
+      const foundUser = this.users.get(userId);
+      if (!foundUser) {
+        errors.add("user not found");
+      }
+      if (username !== null) {
+        const trimmedU = username.trim();
+        newUsernames.set(userId, trimmedU);
+        if (!this.validateUsername(trimmedU)) {
+          errors.add("username invalid");
+        }
+      }
+      if (password !== null && !this.validatePassword(password)) {
+        errors.add("password invalid");
+      }
+    }
+    if (this.doAnyUsernamesClash([...newUsernames.values()])) {
+      errors.add("usernames clash");
+    }
+    if (errors.size) {
+      return {
+        success: false,
+        errors,
+      };
+    }
+    return { success: true };
+  }
 
-    let anyUserNotFound = false;
-    let anyDataNotValid = false;
-    let anyUsernameClash = false;
+  async applyAdminUsersChangeRequest(
+    request: AdminUsersChangeRequest,
+  ): Promise<AccountAdminUsersApplyResult> {
+    const notRunning = this.checkAndWarnIfNotRunning(
+      "apply admin users change request",
+    );
+    if (notRunning) {
+      return { userIdsToUpdate: [], userIdsToHardLogout: [] };
+    }
     const userIdsToUpdate: number[] = [];
     const userIdsToHardLogout: number[] = [];
-
-    for (const userChange of changeRequest) {
-      const { userId: id, username: u, password: p } = userChange;
-
-      const foundUser = this.users.get(id);
+    //Apply usernames first whilst their uniqueness is still valid!:
+    request.forEach(({ userId, username }) => {
+      const foundUser = this.users.get(userId);
       if (!foundUser) {
-        this.logger.warn(`Unable to update user: userId ${id} does not exist`);
-        anyUserNotFound = true;
+        this.logger.error(
+          `applyAdminUsersChangeRequest: Invariant violation: no user found for userId ${userId}. Will not update username`,
+        );
+        return;
+      }
+      if (username !== null) {
+        foundUser.username = username.trim();
+        userIdsToUpdate.push(userId);
+      }
+    });
+    //Now update passwords async:
+    for (const { userId, password } of request) {
+      const foundUser = this.users.get(userId);
+      if (!foundUser) {
+        this.logger.error(
+          `applyAdminUsersChangeRequest: Invariant violation: no user found for userId ${userId}. Will not update password`,
+        );
         continue;
       }
-
-      if (p !== null) {
-        if (this.validatePassword(p)) {
-          const hash = await bcrypt.hash(p, SALT_ROUNDS);
-          foundUser.passwordHash = hash;
-          userIdsToHardLogout.push(id);
-        } else {
-          this.logger.warn(
-            `Unable to update password for userId ${id}. The password is invalid`,
-          );
-          anyDataNotValid = true;
-        }
-      }
-      if (u !== null) {
-        const trimmedU = u.trim();
-        //Rebuild the usernames set each time in validateUsername, because usernames could have changed during the await above:
-        const { success, clash } = this.validateUsername({
-          name: trimmedU,
-          currentName: foundUser.username,
-        });
-        if (success) {
-          foundUser.username = trimmedU;
-          userIdsToUpdate.push(id);
-        } else {
-          this.logger.warn(
-            `Unable to update username for userId ${id}. The username is invalid${clash ? " (name clash)" : ""}`,
-          );
-          if (clash) {
-            anyUsernameClash = true;
-          } else {
-            anyDataNotValid = true;
-          }
-        }
+      if (password !== null) {
+        const hash = await bcrypt.hash(password, SALT_ROUNDS);
+        foundUser.passwordHash = hash;
+        userIdsToHardLogout.push(userId);
       }
     }
-    let message = "";
-    if (anyUserNotFound) {
-      message += "Unable to find users";
-    }
-    if (anyDataNotValid) {
-      message += `${anyUserNotFound ? "; i" : "I"}nvalid data`;
-    }
-    if (anyUsernameClash) {
-      message += `${anyUserNotFound || anyDataNotValid ? "; u" : "U"}sernames are not unique`;
-    }
-    if (message) {
-      return {
-        success: false,
-        message,
-        userIdsToUpdate,
-        userIdsToHardLogout,
-      };
-    }
-    return {
-      success: true,
-      userIdsToUpdate,
-      userIdsToHardLogout,
-    };
+    return { userIdsToUpdate, userIdsToHardLogout };
   }
 
   get numUsers(): number {
@@ -812,12 +818,6 @@ export class AccountManager implements IAccountManager {
       );
     }
     return this._numUsers;
-  }
-
-  private resolveAllowedPls(pls: number[]): number[] {
-    return Array.from(new Set(pls))
-      .filter((n) => n >= 0 && n < this.numPartylines)
-      .sort((a, b) => a - b);
   }
 
   private checkAndWarnIfNotRunning(action: string): AuthResult | null {

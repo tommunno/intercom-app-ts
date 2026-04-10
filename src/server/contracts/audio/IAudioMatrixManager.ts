@@ -3,6 +3,7 @@ import type {
   AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminUsersChangeRequest,
+  AllResolvedAPls,
   KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
@@ -42,20 +43,16 @@ export interface AudioMatrixHandlers {
   onCrosspointChange: (crosspointChange: CrosspointChange) => void;
 }
 
-export type AudioAdminUsersChangeRequestResult =
-  | {
-      success: true;
-      userIdsToUpdate: number[];
-      disallowedPlsInfos: DisallowedPlsInfo[];
-    }
-  | {
-      success: false;
-      message: string;
-      userIdsToUpdate: number[];
-      disallowedPlsInfos: DisallowedPlsInfo[];
-    };
+export type AudioAdminUsersValidationResult =
+  | { success: true; allResolvedAPls: AllResolvedAPls }
+  | { success: false; errors: Set<string> };
 
-export type AudioAdminPartylinesChangeRequestResult =
+export type AudioAdminUsersApplyResult = {
+  userIdsToUpdate: number[];
+  disallowedPlsInfos: DisallowedPlsInfo[];
+};
+
+export type AudioAdminPartylinesProcessResult =
   | {
       success: true;
     }
@@ -84,12 +81,15 @@ export interface IAudioMatrixManager {
   ) => boolean;
   getAdminPartylinesInfo: () => AdminPartylinesInfo;
   getAdminAudioConfigInfo: () => AdminAudioConfigInfo;
-  processAdminUsersChangeRequest: (
-    changeRequest: AdminUsersChangeRequest,
-  ) => AudioAdminUsersChangeRequestResult;
+  validateAdminUsersChangeRequest: (
+    request: AdminUsersChangeRequest,
+  ) => AudioAdminUsersValidationResult;
+  applyAdminUsersChangeRequest: (
+    allResolvedAPls: AllResolvedAPls,
+  ) => AudioAdminUsersApplyResult;
   processAdminPartylinesChangeRequest: (
     changeRequest: AdminPartylinesChangeRequest,
-  ) => AudioAdminPartylinesChangeRequestResult;
+  ) => AudioAdminPartylinesProcessResult;
   status: ManagerStatus;
   config: AudioMatrixConfig;
 }

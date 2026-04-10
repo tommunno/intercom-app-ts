@@ -26,13 +26,11 @@ export interface UsersSectionColumnErrs {
   usernameErr: boolean;
   passwordErr: boolean;
   allowedPlsErr: boolean;
+  usernameClashesErr: boolean;
 }
 
 //While typing: show “changed” state only
-//on blur: show field-level error locally on that field
-//on save with errors: escalate to banner-level summary
-//while banner is visible: keep the summary live updated on blur
-//once banner is cleared: don’t re-escalate again until the next save attempt
+//on blur: show banner-level summary for errors
 
 export function UsersSection() {
   const [isHidden, setIsHidden] = useState<boolean>(false);
@@ -42,6 +40,7 @@ export function UsersSection() {
     usernameErr: false,
     passwordErr: false,
     allowedPlsErr: false,
+    usernameClashesErr: false,
   });
   const { numPartylines: numPls } = audioConfigInfo;
 
@@ -74,7 +73,6 @@ export function UsersSection() {
       usersInfo,
       columnErrs,
       numPls,
-      preserveNoColumnErrs: true,
       logger: log,
     });
     usersInfoDispatch({ type: "replace-users-info", newUsersInfo });
@@ -90,11 +88,12 @@ export function UsersSection() {
       numPls,
       logger: log,
     });
-    const areNoColumnErrs = Object.values(newCE).every((err) => err === false);
+    const areNoColumnErrs = Object.values(newCE).every((err) => !err);
 
     if (areNoColumnErrs) {
       sendUsersChangeRequest(calculatedUI, numPls, log);
     }
+
     //Flush sync so that the blur happens after the state has been updated:
     flushSync(() => {
       usersInfoDispatch({

@@ -45,7 +45,10 @@ export function calculateUsersErrs(
     params;
 
   let idFound = false;
+  const changedUsernames: string[] = [];
   const newUsersInfo: UsersSectionInfo = usersInfo.map((userInfo, i) => {
+    changedUsernames.push(userInfo.changedUsername);
+
     const idMatches = id === i;
     if (idMatches) idFound = true;
 
@@ -89,28 +92,25 @@ export function calculateUsersErrs(
     return userInfo;
   });
   if (id !== null && !idFound) {
-    logger.error(
-      `calculateUsersErrs: id ${id} not found. No changes have been made`,
-    );
-    return { usersInfo, columnErrs };
+    logger.error(`calculateUsersErrs: id ${id} not found`);
   }
 
   //If preserveNoColumnErrs=true, if all column errors are currently false, then we preserve that state:
-  if (
-    preserveNoColumnErrs &&
-    Object.values(columnErrs).every((err) => err === false)
-  ) {
+  if (preserveNoColumnErrs && Object.values(columnErrs).every((err) => !err)) {
     return { usersInfo: newUsersInfo, columnErrs };
   }
 
   const columnUsernameErr = newUsersInfo.some((u) => u.usernameErr);
   const columnPasswordErr = newUsersInfo.some((u) => u.passwordErr);
   const columnAllowedPlsErr = newUsersInfo.some((u) => u.allowedPlsErr);
+  const columnUsernameClashesErr =
+    changedUsernames.length !== new Set(changedUsernames).size;
 
   const newColumnErrs: UsersSectionColumnErrs = {
     usernameErr: columnUsernameErr,
     passwordErr: columnPasswordErr,
     allowedPlsErr: columnAllowedPlsErr,
+    usernameClashesErr: columnUsernameClashesErr,
   };
 
   return { usersInfo: newUsersInfo, columnErrs: newColumnErrs };
