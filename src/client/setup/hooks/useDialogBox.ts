@@ -8,7 +8,7 @@ export function useDialogBox(): DialogBoxContextValue {
   const dialogBoxContext = useContext(DialogBoxContext);
   if (!dialogBoxContext) {
     throw new Error(
-      "useDialogBoxContext must be used within a DialogBoxContext provider",
+      "useDialogBox must be used within a DialogBoxContext provider",
     );
   }
   return dialogBoxContext;

@@ -491,38 +491,6 @@ h2 {
   column-gap: 12px;
 }
 
-.popup-error-icon {
-  display: none;
-}
-
-.popup.error .popup-error-icon {
-  display: inline;
-}
-
-.popup-success-icon {
-  display: none;
-}
-
-.popup.success .popup-success-icon {
-  display: inline;
-}
-
-.popup-warning-icon {
-  display: none;
-}
-
-.popup.warning .popup-warning-icon {
-  display: inline;
-}
-
-.popup-info-icon {
-  display: none;
-}
-
-.popup.info .popup-info-icon {
-  display: inline;
-}
-
 .popup .popup-title {
   font-size: 12px;
   min-width: auto;

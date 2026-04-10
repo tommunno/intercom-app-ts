@@ -1,4 +1,5 @@
 import type {
+  AdminUpdate,
   AdminWebServerInfo,
   RtcIceCandidateInitWire,
   RtcOfferWire,
@@ -17,6 +18,13 @@ export interface NetworkAdminInfos {
   webServerInfo: AdminWebServerInfo;
 }
 
+export interface SendAdminUpdateAndPopupsParams {
+  updateTarget: string;
+  update: AdminUpdate;
+  originClientId: string;
+  loggedInClientIds: string[];
+}
+
 export interface NetworkHandlers
   extends WebServerHandlers, WssHandlers, WebRtcHandlers {}
 
@@ -28,6 +36,7 @@ export interface INetworkController {
 
   //WssManager:
   sendWssMessage: WssSendMessage;
+  sendAdminUpdateAndPopups: (params: SendAdminUpdateAndPopupsParams) => void;
   //WssManager Helpers:
   sendUserLoginFailureMessage: (clientId: string, message?: string) => void;
   sendAdminLoginFailureMessage: (clientId: string, message?: string) => void;

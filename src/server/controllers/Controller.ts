@@ -29,7 +29,11 @@ import type {
   SessionTokens,
   WssCommandMap,
 } from "../types/index.js";
-import { formatList, validateServerConstants } from "../../shared/helpers.js";
+import {
+  capitalizeFirstLetter,
+  formatList,
+  validateServerConstants,
+} from "../../shared/helpers.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
@@ -496,12 +500,16 @@ export class Controller implements IController {
     }
     if (!dataVResult.success || !audioVResult.success) {
       const errMessage = formatList([...errors]);
-      console.warn(
+      this.logger.warn(
         `Admin users change request validation failed: ${errMessage}`,
       );
       this.networkController.sendWssMessage(
-        "ADMIN_ERROR",
-        { message: errMessage },
+        "ADMIN_POPUP",
+        {
+          type: "error",
+          title: "Unable To Update Users",
+          message: capitalizeFirstLetter(errMessage),
+        },
         [clientId],
       );
       return;
@@ -513,11 +521,12 @@ export class Controller implements IController {
         audioVResult.allResolvedAPls,
       );
 
-    this.networkController.sendWssMessage(
-      "ADMIN_UPDATE",
-      { usersInfo: this.createAdminUsersInfo() },
-      this.dataController.getLoggedInAdminClientIds(),
-    );
+    this.networkController.sendAdminUpdateAndPopups({
+      updateTarget: "Users section",
+      update: { usersInfo: this.createAdminUsersInfo() },
+      originClientId: clientId,
+      loggedInClientIds: this.dataController.getLoggedInAdminClientIds(),
+    });
 
     this.sendUserInfosToUsers(userIdsToUpdate);
     this.hardLogoutUsers(userIdsToHardLogout);
@@ -544,18 +553,23 @@ export class Controller implements IController {
         `Admin partylines change request validation failed: ${result.message}`,
       );
       this.networkController.sendWssMessage(
-        "ADMIN_ERROR",
-        { message: result.message },
+        "ADMIN_POPUP",
+        {
+          type: "error",
+          title: "Unable To Update Partylines",
+          message: capitalizeFirstLetter(result.message),
+        },
         [clientId],
       );
       return;
     }
 
-    this.networkController.sendWssMessage(
-      "ADMIN_UPDATE",
-      { partylinesInfo: this.audioController.getAdminPartylinesInfo() },
-      this.dataController.getLoggedInAdminClientIds(),
-    );
+    this.networkController.sendAdminUpdateAndPopups({
+      updateTarget: "Partylines section",
+      update: { partylinesInfo: this.audioController.getAdminPartylinesInfo() },
+      originClientId: clientId,
+      loggedInClientIds: this.dataController.getLoggedInAdminClientIds(),
+    });
     this.sendAudioInfosToUsers();
   }
 
@@ -586,12 +600,13 @@ export class Controller implements IController {
     if (!loggedIn) return;
 
     this.audioController.setRequestedSoundcardId(soundcardId);
-    const clientIds = this.dataController.getLoggedInAdminClientIds();
-    this.networkController.sendWssMessage(
-      "ADMIN_UPDATE",
-      { soundcardsInfo: this.audioController.getAdminSoundcardsInfo() },
-      clientIds,
-    );
+
+    this.networkController.sendAdminUpdateAndPopups({
+      updateTarget: "Soundcard Device",
+      update: { soundcardsInfo: this.audioController.getAdminSoundcardsInfo() },
+      originClientId: clientId,
+      loggedInClientIds: this.dataController.getLoggedInAdminClientIds(),
+    });
   }
 
   //Handle WebRtc:

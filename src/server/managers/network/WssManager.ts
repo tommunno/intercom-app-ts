@@ -157,9 +157,6 @@ export class WssManager implements IWssManager {
       const cookies = this.parseCookies(req.headers.cookie);
       const userSessionToken = cookies["userSessionToken"];
       const adminSessionToken = cookies["adminSessionToken"];
-      this.logger.info(
-        `New wss client userSessionToken: ${userSessionToken}, adminSessionToken: ${adminSessionToken}`,
-      );
       const clientId = this.generateClientId();
 
       this.logger.info(`New connection: ${clientId}`);

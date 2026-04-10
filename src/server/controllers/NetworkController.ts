@@ -22,6 +22,7 @@ import type {
   ITurnServerManager,
   NetworkHandlers,
   NetworkAdminInfos,
+  SendAdminUpdateAndPopupsParams,
 } from "../contracts/index.js";
 import type {
   NetworkData,
@@ -103,6 +104,32 @@ export class NetworkController implements INetworkController {
     clientIds: string[],
   ): void {
     this.wssManager.sendMessage(type, payload, clientIds);
+  }
+
+  sendAdminUpdateAndPopups(params: SendAdminUpdateAndPopupsParams): void {
+    const { updateTarget, update, originClientId, loggedInClientIds } = params;
+
+    this.sendWssMessage("ADMIN_UPDATE", update, loggedInClientIds);
+
+    this.sendWssMessage(
+      "ADMIN_POPUP",
+      {
+        type: "info",
+        title: "Info",
+        message: `Another admin has updated the ${updateTarget}`,
+      },
+      loggedInClientIds.filter((id) => id !== originClientId),
+    );
+
+    this.sendWssMessage(
+      "ADMIN_POPUP",
+      {
+        type: "success",
+        title: "Success",
+        message: `Successfully updated the ${updateTarget}`,
+      },
+      [originClientId],
+    );
   }
 
   //WssManager Helpers:

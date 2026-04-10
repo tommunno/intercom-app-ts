@@ -81,6 +81,7 @@ export function UsersSection() {
 
   function handleSaveChanges(e: React.MouseEvent<HTMLButtonElement>): void {
     e.preventDefault();
+
     const { usersInfo: calculatedUI, columnErrs: newCE } = calculateUsersErrs({
       id: null,
       usersInfo,

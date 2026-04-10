@@ -3,6 +3,7 @@ import { dataIsObject, dataIsType } from "../helpers.js";
 import type {
   AdminLoginResponse,
   AdminPartylinesChangeRequest,
+  AdminPopup,
   AdminUpdate,
   AdminUsersChangeRequest,
   AdminUsersLoggedInUpdate,
@@ -30,6 +31,7 @@ import {
   dataIsAdminUpdate,
   dataIsAdminUsersLoggedInUpdate,
   dataIsAdminPartylinesChangeRequest,
+  dataIsAdminPopup,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -69,7 +71,7 @@ export const WSS_DOWNSTREAM_SETUP = {
   ADMIN_FORCE_LOGOUT: "ADMIN_FORCE_LOGOUT",
   ADMIN_UPDATE: "ADMIN_UPDATE",
   ADMIN_USERS_LOGGED_IN_UPDATE: "ADMIN_USERS_LOGGED_IN_UPDATE",
-  ADMIN_ERROR: "ADMIN_ERROR",
+  ADMIN_POPUP: "ADMIN_POPUP",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -114,7 +116,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: dataIsWssAdminUpdate,
   [WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE]:
     dataIsWssAdminUsersLoggedInUpdate,
-  [WSS_DOWNSTREAM_SETUP.ADMIN_ERROR]: dataIsWssAdminError,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_POPUP]: dataIsWssAdminPopup,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -155,7 +157,7 @@ type PayloadMap = {
   [WSS_DOWNSTREAM_SETUP.ADMIN_FORCE_LOGOUT]: null;
   [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: AdminUpdate;
   [WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE]: AdminUsersLoggedInUpdate;
-  [WSS_DOWNSTREAM_SETUP.ADMIN_ERROR]: { message: string };
+  [WSS_DOWNSTREAM_SETUP.ADMIN_POPUP]: AdminPopup;
 };
 
 export type WssPayloads = {
@@ -334,8 +336,8 @@ export function dataIsWssAdminUsersLoggedInUpdate(
   return dataIsAdminUsersLoggedInUpdate(data);
 }
 
-export function dataIsWssAdminError(
+export function dataIsWssAdminPopup(
   data: unknown,
-): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_ERROR] {
-  return dataIsObject(data) && dataIsType("string", data.message);
+): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_POPUP] {
+  return dataIsAdminPopup(data);
 }

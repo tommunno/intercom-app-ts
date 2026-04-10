@@ -36,3 +36,4 @@ export * from "./AdminUsersChangeRequest.js";
 export * from "./AdminPartylinesChangeRequest.js";
 export * from "./AdminUsersLoggedInUpdate.js";
 export * from "./AllResolvedAPls.js";
+export * from "./AdminPopup.js";
