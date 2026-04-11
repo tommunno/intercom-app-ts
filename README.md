@@ -79,8 +79,6 @@ Clients are required to connect via HTTPS. By default, a self-signed certificate
 
 At present, the app requires a soundcard with at least one input and one output. You may need to create an aggregate device in macOS’s Audio MIDI Setup to achieve this. The app currently maps your Mac’s soundcard channels one-to-one with the partyline channels.
 
-Soundcard device selection has not yet been added to the setup page GUI.
-
 To allow remote clients to connect, you can set up port forwarding for the HTTPS port, the HTTP port (optional, for HTTPS redirection), and eventually the TURN server port once TURN support has been implemented.
 
 ## What currently works
@@ -89,34 +87,36 @@ To allow remote clients to connect, you can set up port forwarding for the HTTPS
 - Audio mixing via the native N-API audio engine, currently requiring a soundcard with at least one input and one output
 - Audio matrix crosspoint logic
 - Tail logic for more natural audio behaviour when key states change (see the `TailManager` section below)
-- WebRTC for local connections, with TURN server support still to be implemented
-- Display and configuration of client usernames, passwords, and allowed PLs (partylines) in the setup page
+- WebRTC for local connections, with TURN server support still to be fully implemented
+- Setup page display and configuration for:
+  - client usernames
+  - passwords
+  - allowed PLs (partylines)
+  - partyline names
+- Remote user logout from the setup page
+- Soundcard device selection, with hot-plugging support still to be improved
+- Web Server status display, including live CPU and memory usage
+- Admin popup notifications and visual feedback when configuration changes are made
+- Warning and error banners in the setup page to alert the admin when:
+  - the HTTPS or TURN server cannot start because the configured port is already in use
+  - no valid soundcard device is available
+  - no valid SSL certificate files are present
+  - audio loss is detected
 
 ## What is still to be implemented
 
-- Most of the setup page GUI beyond the existing Users section, including:
-  - live web server stats
-  - TURN server configuration
-  - input level meters for each user
-  - user input gain control
-  - remote user logout
-  - partyline name configuration
-  - soundcard device selection
-  - global intercom settings, including the number of users, partylines, and soundcard channels
-  - troubleshooting options such as restarting the Audio Matrix and TURN server
-  - live logging in the GUI
-  - admin credential configuration
-  - notifications and visual feedback when the admin changes the configuration
-  - warning and error banners to alert the admin when:
-    - the HTTP or HTTPS servers are not running
-    - no valid soundcard is available
-    - no valid `server.cert` and `server.key` files are present
-    - at present, these alerts are only visible in the console
-- TURN server integration
+- TURN server configuration
+- Input level meters for each user
+- User input gain control
+- Global intercom settings, including the number of users, partylines, and soundcard channels
+- Troubleshooting options such as restarting the Audio Engine and TURN server from the GUI
+- Live logging in the GUI
+- Admin credential configuration
 - Automatically disabling talk and listen keys when a user no longer has access to a partyline
 - The client-side Mute Mic button
 - Listen keys flashing to indicate active speech on the partyline
 - A `config.json` file for admin HTTP, HTTPS, and TURN port configuration
+- Handling soundcard hot-plugging properly when devices are connected or disconnected while the app is running
 - Data persistence
 - Integrating the native Android app with this version of the project
 
