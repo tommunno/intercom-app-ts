@@ -30,6 +30,7 @@ export const SALT_ROUNDS = 10;
 //Audio:
 export const CHUNK_SIZE = 480;
 export const SHORT_TAIL_TIME_MS = 500;
+export const AUDIO_LOSS_DETECTION_TIME_MS = 4000;
 
 //WebRtc:
 export const WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;

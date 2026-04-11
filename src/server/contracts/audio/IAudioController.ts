@@ -27,11 +27,16 @@ export interface AudioAdminInfos {
   partylinesInfo: AdminPartylinesInfo;
   soundcardsInfo: AdminSoundcardsInfo;
   audioConfigInfo: AdminAudioConfigInfo;
+  audioBannersInfo: {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  };
 }
 
 export interface AudioHandlers {
   onAudioInfoUpdate: (userId: number, audioInfo: AudioInfo) => void;
   onAudioRestart: () => void;
+  onAudioLossDetectedChange: () => void;
 }
 
 export interface IAudioController {
@@ -52,6 +57,10 @@ export interface IAudioController {
   getAdminInfos: () => AudioAdminInfos;
   getAdminSoundcardsInfo: () => AdminSoundcardsInfo;
   getAdminPartylinesInfo: () => AdminPartylinesInfo;
+  getAdminAudioBannersInfo: () => {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  };
   validateAdminUsersChangeRequest: (
     request: AdminUsersChangeRequest,
   ) => AudioAdminUsersValidationResult;

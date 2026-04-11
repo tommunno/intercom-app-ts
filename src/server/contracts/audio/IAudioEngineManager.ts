@@ -35,6 +35,7 @@ export type DeviceValidResponse =
 
 export interface AudioEngineHandlers {
   onAudio: (buffer: Buffer) => void;
+  onAudioLossDetectedChange: (lossDetected: boolean) => void;
 }
 
 export interface IAudioEngineManager {
@@ -50,4 +51,8 @@ export interface IAudioEngineManager {
   getAdminSoundcardsInfo: () => AdminSoundcardsInfo;
   status: ManagerStatus;
   config: AudioEngineConfig;
+  getAdminAudioBannersInfo: () => {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  };
 }

@@ -189,11 +189,13 @@ export class AudioController implements IAudioController {
     const partylinesInfo = this.audioMatrixManager.getAdminPartylinesInfo();
     const soundcardsInfo = this.audioEngineManager.getAdminSoundcardsInfo();
     const audioConfigInfo = this.audioMatrixManager.getAdminAudioConfigInfo();
+    const audioBannersInfo = this.audioEngineManager.getAdminAudioBannersInfo();
     return {
       inputGainsInfo,
       partylinesInfo,
       soundcardsInfo,
       audioConfigInfo,
+      audioBannersInfo,
     };
   }
 
@@ -203,6 +205,13 @@ export class AudioController implements IAudioController {
 
   getAdminPartylinesInfo(): AdminPartylinesInfo {
     return this.audioMatrixManager.getAdminPartylinesInfo();
+  }
+
+  getAdminAudioBannersInfo(): {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  } {
+    return this.audioEngineManager.getAdminAudioBannersInfo();
   }
 
   validateAdminUsersChangeRequest(
@@ -235,6 +244,7 @@ export class AudioController implements IAudioController {
   private bindListeners(): void {
     this.audioEngineManager.setHandlers({
       onAudio: (b) => this.handleEngineAudio(b),
+      onAudioLossDetectedChange: () => this.handleAudioLossDetectedChange(),
     });
     this.audioMatrixManager.setHandlers({
       onCrosspointChange: (c) => this.handleMatrixCrosspointChange(c),
@@ -372,6 +382,10 @@ export class AudioController implements IAudioController {
       return;
     }
     this.webRtcMediaBridge.pushAudio(buffer);
+  }
+
+  private handleAudioLossDetectedChange(): void {
+    this.activeHandlers.onAudioLossDetectedChange();
   }
 
   //AudioMatrixManager:

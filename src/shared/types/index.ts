@@ -38,3 +38,4 @@ export * from "./AdminUsersLoggedInUpdate.js";
 export * from "./AllResolvedAPls.js";
 export * from "./AdminPopup.js";
 export * from "./Ipv4Interfaces.js";
+export * from "./AdminBannersInfo.js";

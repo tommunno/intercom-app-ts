@@ -192,7 +192,7 @@ h2 {
   line-height: 1.7;
   margin-bottom: 1rem;
   align-items: center; /* Vertically centers items */
-  gap: 0.5rem; /* Optional: adds spacing between icon and text */
+  gap: 16px;
   transition:
     opacity 1s ease,
     visibility 1s ease;
@@ -203,6 +203,7 @@ h2 {
   visibility: hidden;
   padding: 0;
   margin: 0;
+  border: none;
 }
 
 .banners.visible {
@@ -215,22 +216,49 @@ h2 {
   max-height: 1000px;
   visibility: visible;
   margin-bottom: 5px;
-  padding: 15px 20px 15px 20px;
+  padding: 10px 16px 10px 16px;
+  border-width: 0.5px;
 }
 
 .banner.warning {
   background-color: #fff3bf;
   color: #856404;
-  border: 1px solid #ffec99;
   border-radius: 8px;
+}
+
+.banner.warning.visible {
+  border: 0.5px solid #ffec99;
 }
 
 .banner.error {
   background-color: #e9bebe;
-  border: 1px solid #d58585;
-
   color: #663434;
   border-radius: 8px;
+}
+
+.banner.error.visible {
+  border: 0.5px solid#d58585;
+}
+
+.banner-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.banner-title {
+  font-weight: 600;
+  line-height: 1.7;
+}
+
+.banner-message {
+  font-weight: 500;
+  line-height: 1.7;
+  opacity: 0.9;
+}
+
+.banner code {
+  margin: 0 3px;
 }
 
 .warning-icon,
@@ -1103,9 +1131,9 @@ form select.error {
   font-size: 10px;
 }
 
-.restart-audio-matrix-btn {
+/* .restart-audio-matrix-btn {
   margin-bottom: 0;
-}
+} */
 
 .refresh-user-btn {
   border: 2px solid #43174e;

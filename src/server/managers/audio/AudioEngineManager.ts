@@ -20,6 +20,7 @@ import type { DeviceValidResponse, ILogger } from "../../contracts/index.js";
 
 //Native binding:
 import engine, { type AudioEngine, type PortAudioDevice } from "audio-engine";
+import { AUDIO_LOSS_DETECTION_TIME_MS } from "../../constants/serverConstants.js";
 
 const BLANK_AUDIO_ENGINE_CONFIG: AudioEngineConfig = {
   numUsers: DEFAULT_NUM_USERS,
@@ -41,6 +42,13 @@ export class AudioEngineManager implements IAudioEngineManager {
   private pushAudioRunningErr: boolean = false;
   private engineCreated: boolean = false;
   private pushAudioChannelErrs: boolean[] = [];
+  private detectAudioLossErr: boolean = false;
+  //This will be true if there are no valid soundcard devices present:
+  private soundcardDevicesErr: boolean = false;
+  //This is set to true if the audioEngine detects a loss of audio:
+  private audioLossDetected: boolean = false;
+  private audioLossDetectionTimerId: ReturnType<typeof setInterval> | null =
+    null;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AudioEngineManager" });
@@ -84,12 +92,13 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
     if (!this.engineCreated) {
       throw new Error(
-        "Invariant broken: start() called but engineCreated is false",
+        "Invariant violation: start() called but engineCreated is false",
       );
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
     this.addAudioCallback();
+    this.startAudioLossDetection();
     this._status = "RUNNING";
   }
 
@@ -112,6 +121,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       }
     }
 
+    this.stopAudioLossDetection();
     this.resetRuntimeFields();
 
     this._status = "INITIALIZED";
@@ -236,6 +246,16 @@ export class AudioEngineManager implements IAudioEngineManager {
       });
   }
 
+  getAdminAudioBannersInfo(): {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  } {
+    return {
+      audioLossDetected: this.audioLossDetected,
+      soundcardDevicesErr: this.soundcardDevicesErr,
+    };
+  }
+
   get status(): ManagerStatus {
     return this._status;
   }
@@ -254,7 +274,10 @@ export class AudioEngineManager implements IAudioEngineManager {
     this.setRequestedSoundcardId(config.requestedSoundcardId);
 
     const device = this.setSoundcardId();
-    if (!device) return false;
+    if (!device) {
+      this.soundcardDevicesErr = true;
+      return false;
+    }
 
     this.setNumSoundcardChannels(device);
 
@@ -435,12 +458,54 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
   }
 
+  private startAudioLossDetection(): void {
+    this.audioLossDetectionTimerId = setInterval(
+      () => this.detectAudioLoss(),
+      AUDIO_LOSS_DETECTION_TIME_MS,
+    );
+  }
+
+  private stopAudioLossDetection(): void {
+    if (this.audioLossDetectionTimerId !== null) {
+      clearInterval(this.audioLossDetectionTimerId);
+      this.audioLossDetectionTimerId = null;
+      this.audioLossDetected = false;
+    }
+  }
+
+  private detectAudioLoss(): void {
+    const prevLossDetected = this.audioLossDetected;
+    try {
+      this.audioLossDetected = !this.engine.isSoundcardAlive();
+      this.detectAudioLossErr = false;
+    } catch (err) {
+      if (this.detectAudioLossErr) {
+        return;
+      }
+      this.logger.error("detectAudioLoss error:", err);
+      this.detectAudioLossErr = true;
+      return;
+    }
+    if (prevLossDetected !== this.audioLossDetected) {
+      this.activeHandlers.onAudioLossDetectedChange(this.audioLossDetected);
+      if (this.audioLossDetected) {
+        this.logger.error("Soundcard audio loss detected");
+        return;
+      }
+      this.logger.success("Soundcard audio recovered");
+    }
+  }
+
   private resetRuntimeFields(): void {
     this._config = { ...BLANK_AUDIO_ENGINE_CONFIG };
     this.device = null;
     this.engineCreated = false;
     this.pushAudioRunningErr = false;
     this.pushAudioChannelErrs = [];
+    this.detectAudioLossErr = false;
+    this.soundcardDevicesErr = false;
+    this.audioLossDetected = false;
+    this.audioLossDetectionTimerId = null;
   }
 
   private get activeHandlers(): AudioEngineHandlers {

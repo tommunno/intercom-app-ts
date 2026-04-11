@@ -90,6 +90,7 @@ export class Controller implements IController {
     this.audioController.setHandlers({
       onAudioInfoUpdate: (u, a) => this.handleAudioInfoUpdate(u, a),
       onAudioRestart: () => this.handleAudioRestart(),
+      onAudioLossDetectedChange: () => this.handleAudioLossDetectedChange(),
     });
 
     this.networkController.setHandlers({
@@ -207,6 +208,14 @@ export class Controller implements IController {
         afterAudioRestart: true,
       });
     });
+  }
+
+  private handleAudioLossDetectedChange(): void {
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      { bannersInfo: this.audioController.getAdminAudioBannersInfo() },
+      this.dataController.getLoggedInAdminClientIds(),
+    );
   }
 
   //Handle HTTP:
@@ -418,8 +427,13 @@ export class Controller implements IController {
 
     //Login Success:
     const { webServerInfo } = this.networkController.getAdminInfos();
-    const { inputGainsInfo, partylinesInfo, soundcardsInfo, audioConfigInfo } =
-      this.audioController.getAdminInfos();
+    const {
+      inputGainsInfo,
+      partylinesInfo,
+      soundcardsInfo,
+      audioConfigInfo,
+      audioBannersInfo,
+    } = this.audioController.getAdminInfos();
     const usersInfo = this.createAdminUsersInfo();
 
     //Ultimately do this:
@@ -434,6 +448,7 @@ export class Controller implements IController {
       soundcardsInfo,
       audioConfigInfo,
       loggingInfo,
+      bannersInfo: audioBannersInfo,
     };
 
     this.networkController.sendWssMessage(

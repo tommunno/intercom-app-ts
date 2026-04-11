@@ -4,6 +4,10 @@ import {
   type AdminAudioConfigInfo,
 } from "./AdminAudioConfigInfo.js";
 import {
+  dataIsAdminBannersInfo,
+  type AdminBannersInfo,
+} from "./AdminBannersInfo.js";
+import {
   dataIsAdminInputGainsInfo,
   type AdminInputGainsInfo,
 } from "./AdminInputGainsInfo.js";
@@ -34,6 +38,7 @@ export interface AdminSnapshot {
   soundcardsInfo: AdminSoundcardsInfo;
   audioConfigInfo: AdminAudioConfigInfo;
   loggingInfo: AdminLoggingInfo;
+  bannersInfo: AdminBannersInfo;
 }
 
 //Sent on updates, everything optional:
@@ -50,6 +55,7 @@ const ADMIN_SNAPSHOT_VALIDATORS: Record<
   soundcardsInfo: dataIsAdminSoundcardsInfo,
   audioConfigInfo: dataIsAdminAudioConfigInfo,
   loggingInfo: dataIsAdminLoggingInfo,
+  bannersInfo: dataIsAdminBannersInfo,
 };
 
 export function dataIsAdminSnapshot(data: unknown): data is AdminSnapshot {

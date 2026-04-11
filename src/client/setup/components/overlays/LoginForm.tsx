@@ -28,6 +28,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [errMessage, setErrMessage] = useState<string | null>(null);
   const [passwordVisible, setPasswordVisible] = useState<boolean>(false);
   const windowWrapperRef = useRef<HTMLDivElement | null>(null);
+  const usernameInputRef = useRef<HTMLInputElement | null>(null);
 
   const onLoginEvent = useEffectEvent(onLogin);
 
@@ -35,6 +36,10 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     setupWss.connect();
     setupWss.send("ADMIN_LOGIN", null);
   }
+
+  useEffect(() => {
+    usernameInputRef.current?.focus();
+  }, []);
 
   //Hard Login Response:
   useEffect(() => {
@@ -121,6 +126,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             <div className="username-input-group input-group">
               <label htmlFor="username">Username</label>
               <input
+                ref={usernameInputRef}
                 type="text"
                 id="username"
                 name="username"

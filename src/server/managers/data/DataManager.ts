@@ -47,48 +47,48 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       numUsers: 16,
-      persistedUsers: [
-        {
-          username: "tom",
-          passwordHash:
-            "$2b$10$XbICIHnhbBCPaE0g5BaCveWKiuXiw4y0H9q7RG/uYumJCsyyQxNeu",
-          sessionTokenInfos: [],
-        },
-        {
-          username: "tom",
-          passwordHash: null,
-          sessionTokenInfos: [
-            {
-              token: "abc",
-              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            },
-            {
-              token: "def",
-              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            },
-          ],
-        },
-        {
-          username: "user-3",
-          passwordHash: null,
-          sessionTokenInfos: [
-            {
-              token: "ghi",
-              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            },
-          ],
-        },
-        {
-          username: "ryan",
-          passwordHash: null,
-          sessionTokenInfos: [
-            {
-              token: "jkl",
-              expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-            },
-          ],
-        },
-      ],
+      // persistedUsers: [
+      //   {
+      //     username: "tom",
+      //     passwordHash:
+      //       "$2b$10$XbICIHnhbBCPaE0g5BaCveWKiuXiw4y0H9q7RG/uYumJCsyyQxNeu",
+      //     sessionTokenInfos: [],
+      //   },
+      //   {
+      //     username: "tom",
+      //     passwordHash: null,
+      //     sessionTokenInfos: [
+      //       {
+      //         token: "abc",
+      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      //       },
+      //       {
+      //         token: "def",
+      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      //       },
+      //     ],
+      //   },
+      //   {
+      //     username: "user-3",
+      //     passwordHash: null,
+      //     sessionTokenInfos: [
+      //       {
+      //         token: "ghi",
+      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      //       },
+      //     ],
+      //   },
+      //   {
+      //     username: "ryan",
+      //     passwordHash: null,
+      //     sessionTokenInfos: [
+      //       {
+      //         token: "jkl",
+      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      //       },
+      //     ],
+      //   },
+      // ],
     };
   }
 
@@ -122,8 +122,8 @@ export class DataManager implements IDataManager {
       numPartylines: 16,
       requestedSoundcardId: 6,
       allowedPlsInfos: [
-        { userId: 0, allowedPls: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
-        { userId: 2, allowedPls: [1, 2, 3, 9] },
+        // { userId: 0, allowedPls: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
+        // { userId: 2, allowedPls: [1, 2, 3, 9] },
       ],
     };
   }
