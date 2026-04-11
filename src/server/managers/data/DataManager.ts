@@ -109,7 +109,7 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       webServerData: {},
-      turnServerData: { port: 4052, ip: "192.168.86.183" },
+      turnServerData: { ip: "192.168.86.183" },
     };
   }
 
@@ -119,7 +119,7 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       requestedNumSoundcardChannels: 4,
-      numPartylines: 12,
+      numPartylines: 16,
       requestedSoundcardId: 6,
       allowedPlsInfos: [
         { userId: 0, allowedPls: [0, 1, 2, 3, 4, 5, 6, 7, 8] },

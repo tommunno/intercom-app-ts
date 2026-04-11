@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent } from "react";
 import setupWss from "../managers/setupWss.js";
-import type { AdminUsersInfo } from "../../../shared/types/AdminUsersInfo.js";
+import type { AdminUsersInfo } from "../../../shared/types/index.js";
 
 export function useUsersInfo(
   onUsersInfo: (usersInfo: AdminUsersInfo) => void,

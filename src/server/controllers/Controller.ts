@@ -108,6 +108,8 @@ export class Controller implements IController {
       onRtcAnswer: (c, a) => this.handleRtcAnswer(c, a),
       onRtcIceCandidate: (c, i) => this.handleRtcIceCandidate(c, i),
       onRtcTrack: (c, t) => this.handleRtcTrack(c, t),
+      //ProcessStatsManager:
+      onProcessStatsUpdate: () => this.handleProcessStatsUpdate(),
     });
 
     this.dataController.setHandlers({
@@ -674,7 +676,20 @@ export class Controller implements IController {
     this.audioController.addRxTrack(userId, track);
   }
 
+  //Handle ProcessStats:
+
+  private handleProcessStatsUpdate(): void {
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      {
+        webServerInfo: this.networkController.getAdminWebServerInfo(),
+      },
+      this.dataController.getLoggedInAdminClientIds(),
+    );
+  }
+
   //Handle Data Controller:
+
   private handleAccountHeartbeat(
     clientIds: string[],
     payload: HeartbeatRequestPayload,

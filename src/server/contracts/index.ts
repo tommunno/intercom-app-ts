@@ -17,6 +17,7 @@ export * from "./network/IWebServerManager.js";
 export * from "./network/IWssManager.js";
 export * from "./network/IWebRtcManager.js";
 export * from "./network/ITurnServerManager.js";
+export * from "./network/IProcessStatsManager.js";
 
 // --- Data ---
 export * from "./data/IDataController.js";

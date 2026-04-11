@@ -3,6 +3,7 @@ import type {
   IWebServerManager,
   WebServerHandlers,
   ILogger,
+  WebServerAdminInfo,
 } from "../../contracts/index.js";
 import type {
   LoginCredentials,
@@ -58,6 +59,8 @@ export class WebServerManager implements IWebServerManager {
   private app: Express = express();
   private httpPort: number = DEFAULT_HTTP_PORT;
   private httpsPort: number | null = DEFAULT_HTTPS_PORT;
+  private certDomainName: string | null = null;
+  private isSslCertValid: boolean = false;
 
   private httpServer: http.Server | null = null;
   private httpsServer: https.Server | null = null;
@@ -168,6 +171,15 @@ export class WebServerManager implements IWebServerManager {
     this.handlers = handlers;
   }
 
+  getAdminInfo(): WebServerAdminInfo {
+    return {
+      httpsPort: this.httpsPort,
+      httpPort: this.httpPort,
+      domainName: this.certDomainName,
+      isSslCertValid: this.isSslCertValid,
+    };
+  }
+
   private async attemptHttpsInit(): Promise<void> {
     try {
       const keyPath = path.join(this.certPath, KEY_FILE);
@@ -179,7 +191,9 @@ export class WebServerManager implements IWebServerManager {
           cert: fs.readFileSync(certPath),
         };
         this.httpsServer = https.createServer(options, this.app);
+        this.certDomainName = this.getCertDisplayName(certPath);
         this.logger.success("User provided SSL files are valid");
+        this.isSslCertValid = true;
         return;
       } else {
         this.logger.warn(
@@ -227,6 +241,7 @@ export class WebServerManager implements IWebServerManager {
           cert: fs.readFileSync(generatedCertPath),
         };
         this.httpsServer = https.createServer(options, this.app);
+        this.certDomainName = this.getCertDisplayName(generatedCertPath);
         this.logger.warn(
           "Valid self-signed certificate loaded. For full browser trust, please install your own trusted certificate",
         );
@@ -285,6 +300,7 @@ export class WebServerManager implements IWebServerManager {
 
       fs.writeFileSync(generatedKeyPath, key);
       fs.writeFileSync(generatedCertPath, cert);
+      this.certDomainName = this.getCertDisplayName(generatedCertPath);
       this.logger.success("Saved generated self-signed certificate");
       this.httpsServer = https.createServer({ key, cert }, this.app);
       this.logger.warn(
@@ -472,9 +488,51 @@ export class WebServerManager implements IWebServerManager {
     }
   }
 
+  private getCertDisplayName(certPath: string): string | null {
+    try {
+      const certPem = fs.readFileSync(certPath, "utf8");
+      const cert = new crypto.X509Certificate(certPem);
+
+      // subjectAltName typically looks like:
+      // "DNS:example.com, DNS:www.example.com, IP Address:127.0.0.1"
+      // Split into parts, trim them, find the first DNS entry, then remove "DNS:"
+      const dnsName = cert.subjectAltName
+        ?.split(",")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("DNS:"))
+        ?.slice(4);
+
+      if (dnsName) return dnsName;
+
+      // subject typically looks like:
+      // "CN=example.com\nO=My Company\nC=GB"
+      // Split into lines, trim them, find the CN line, then remove "CN="
+      const commonName = cert.subject
+        .split("\n")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("CN="))
+        ?.slice(3);
+
+      return commonName ?? null;
+    } catch (err) {
+      this.logger.warn("Failed to extract certificate display name", err);
+      return null;
+    }
+  }
+
   private get activeHandlers(): WebServerHandlers {
     if (!this.handlers)
       throw new Error("WebServerManager handlers not initialized!");
     return this.handlers;
+  }
+
+  private checkAndWarnIfNotRunning(action: string): boolean {
+    if (this.status !== "RUNNING") {
+      this.logger.error(
+        `Unable to ${action} because the status is ${this.status}`,
+      );
+      return true;
+    }
+    return false;
   }
 }

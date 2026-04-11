@@ -6,6 +6,7 @@ import type {
 } from "../../shared/protocols/index.js";
 import type {
   AdminAuthResult,
+  AdminWebServerInfo,
   AuthResult,
   LoginCredentials,
   RtcAnswerWire,
@@ -20,6 +21,7 @@ import type {
   IWssManager,
   IWebRtcManager,
   ITurnServerManager,
+  IProcessStatsManager,
   NetworkHandlers,
   NetworkAdminInfos,
   SendAdminUpdateAndPopupsParams,
@@ -55,6 +57,7 @@ export class NetworkController implements INetworkController {
     private wssManager: IWssManager,
     private webRtcManager: IWebRtcManager,
     private turnServerManager: ITurnServerManager,
+    private processStatsManager: IProcessStatsManager,
     private logger: ILogger,
   ) {
     this.logger = this.logger.child({ context: "NetworkController" });
@@ -66,6 +69,7 @@ export class NetworkController implements INetworkController {
     this.wssManager.init(servers);
     const serverCreds = this.turnServerManager.init();
     this.webRtcManager.init(serverCreds);
+    this.processStatsManager.init();
   }
 
   async populate(data: NetworkData): Promise<void> {
@@ -90,6 +94,7 @@ export class NetworkController implements INetworkController {
       this.logger.warn(`TURN disabled. Will not start the Turn Server`);
     }
     this.webRtcManager.start();
+    this.processStatsManager.start();
   }
 
   setHandlers(handlers: NetworkHandlers): void {
@@ -187,23 +192,47 @@ export class NetworkController implements INetworkController {
   }
 
   getTurnServerInfo(): TurnServerInfo | null {
-    if (this.turnServerManager.status === "RUNNING") {
-      const credentials = this.turnServerManager.createClientCredentials();
-      if (!credentials) return null;
-      return {
-        port: this.turnServerManager.port,
-        credentials,
-      };
+    if (this.turnServerManager.status !== "RUNNING") {
+      return null;
     }
-    return null;
+    const credentials = this.turnServerManager.createClientCredentials();
+    const port = this.turnServerManager.port;
+    if (!credentials || port === null) return null;
+    return {
+      port,
+      credentials,
+    };
   }
 
-  //Still to fill in:
+  getAdminWebServerInfo(): AdminWebServerInfo {
+    return this.createAdminWebServerInfo();
+  }
+
   getAdminInfos(): NetworkAdminInfos {
-    return { webServerInfo: {} };
+    return { webServerInfo: this.createAdminWebServerInfo() };
   }
 
   //Private methods:
+
+  private createAdminWebServerInfo(): AdminWebServerInfo {
+    const { httpsPort, httpPort, domainName, isSslCertValid } =
+      this.webServerManager.getAdminInfo();
+    const { turnServerPort, isTurnServerOnline, ipv4Interfaces } =
+      this.turnServerManager.getAdminInfo();
+    const { cpuUsage, memoryUsage } = this.processStatsManager.stats;
+    return {
+      httpsPort,
+      httpPort,
+      turnServerPort,
+      isTurnServerOnline,
+      ipv4Interfaces,
+      domainName,
+      isSslCertValid,
+      cpuUsage,
+      memoryUsage,
+    };
+  }
+
   private get activeHandlers() {
     if (!this.handlers)
       throw new Error("NetworkController handlers not initialized!");
@@ -233,6 +262,10 @@ export class NetworkController implements INetworkController {
     });
 
     this.turnServerManager.setHandlers({});
+
+    this.processStatsManager.setHandlers({
+      onProcessStatsUpdate: () => this.handleProcessStatsUpdate(),
+    });
   }
 
   private async resolvePorts(data: NetworkData): Promise<NetworkResolvedData> {
@@ -460,5 +493,11 @@ export class NetworkController implements INetworkController {
 
   private handleRtcTrack(clientId: string, track: RtcMediaStreamTrack): void {
     this.activeHandlers.onRtcTrack(clientId, track);
+  }
+
+  //ProcessStatsManager:
+
+  private handleProcessStatsUpdate(): void {
+    this.activeHandlers.onProcessStatsUpdate();
   }
 }

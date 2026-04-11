@@ -14,6 +14,7 @@ import type {
   IWssManager,
   IWebRtcManager,
   ITurnServerManager,
+  IProcessStatsManager,
   // Data
   IDataController,
   IAccountManager,
@@ -40,6 +41,7 @@ import {
   WssManager,
   WebRtcManager,
   TurnServerManager,
+  ProcessStatsManager,
   // Data
   AccountManager,
   AdminAccountManager,
@@ -55,6 +57,9 @@ const webServerManager: IWebServerManager = new WebServerManager(logger);
 const wssManager: IWssManager = new WssManager(logger);
 const webRtcManager: IWebRtcManager = new WebRtcManager(logger);
 const turnServerManager: ITurnServerManager = new TurnServerManager(logger);
+const processStatsManager: IProcessStatsManager = new ProcessStatsManager(
+  logger,
+);
 const accountManager: IAccountManager = new AccountManager(logger);
 const adminAccountManager: IAdminAccountManager = new AdminAccountManager(
   logger,
@@ -74,6 +79,7 @@ const networkController: INetworkController = new NetworkController(
   wssManager,
   webRtcManager,
   turnServerManager,
+  processStatsManager,
   logger,
 );
 

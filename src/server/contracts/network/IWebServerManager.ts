@@ -5,6 +5,13 @@ import type {
 } from "../../../shared/types/index.js";
 import type { Servers, WebServerResolvedData } from "../../types/index.js";
 
+export interface WebServerAdminInfo {
+  httpsPort: number | null;
+  httpPort: number;
+  domainName: string | null;
+  isSslCertValid: boolean;
+}
+
 export interface WebServerHandlers {
   onUserSoftLoginRequest: (
     sessionToken: string | null,
@@ -21,4 +28,6 @@ export interface IWebServerManager {
   populate: (data: WebServerResolvedData) => void;
   start: () => void;
   setHandlers: (handlers: WebServerHandlers) => void;
+
+  getAdminInfo: () => WebServerAdminInfo;
 }

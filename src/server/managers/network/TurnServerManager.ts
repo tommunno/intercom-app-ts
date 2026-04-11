@@ -1,22 +1,21 @@
 import type { ManagerStatus } from "../../../shared/types/ManagerStatus.js";
 import type { TurnServerCredentials } from "../../../shared/types/TurnServerCredentials.js";
-import {
-  DEFAULT_TURN_SERVER_IP,
-  DEFAULT_TURN_SERVER_PORT,
-} from "../../constants/serverConstants.js";
+import { DEFAULT_TURN_SERVER_IP } from "../../constants/serverConstants.js";
 import type {
   ITurnServerManager,
   ILogger,
   TurnServerHandlers,
+  TurnServerAdminInfo,
 } from "../../contracts/index.js";
 import type { TurnServerResolvedData } from "../../types/NetworkData.js";
 
 export class TurnServerManager implements ITurnServerManager {
   private _status: ManagerStatus = "IDLE";
   private handlers: TurnServerHandlers | null = null;
-  private _port: number = DEFAULT_TURN_SERVER_PORT;
+  private _port: number | null = null;
   private _ip: string = DEFAULT_TURN_SERVER_IP;
   private _url: string = "";
+  private _isOnline: boolean = false;
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "TurnServerManager" });
   }
@@ -66,11 +65,20 @@ export class TurnServerManager implements ITurnServerManager {
     return { username: "client-test", credential: "client-test-credential" };
   }
 
+  //Todo: fill in ipv4Interfaces here:
+  getAdminInfo(): TurnServerAdminInfo {
+    return {
+      turnServerPort: this._port,
+      isTurnServerOnline: this._isOnline,
+      ipv4Interfaces: {},
+    };
+  }
+
   get status(): ManagerStatus {
     return this._status;
   }
 
-  get port(): number {
+  get port(): number | null {
     if (this._status === "IDLE" || this._status === "INITIALIZED") {
       this.logger.warn(
         `get port: status is ${this._status}; port may not be initialized yet`,
