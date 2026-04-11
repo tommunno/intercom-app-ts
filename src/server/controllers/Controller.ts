@@ -29,7 +29,11 @@ import type {
   SessionTokens,
   WssCommandMap,
 } from "../types/index.js";
-import { formatList, validateServerConstants } from "../../shared/helpers.js";
+import {
+  capitalizeFirstLetter,
+  formatList,
+  validateServerConstants,
+} from "../../shared/helpers.js";
 
 export class Controller implements IController {
   private readonly wssCommands: WssCommandMap = {
@@ -44,6 +48,11 @@ export class Controller implements IController {
     ADMIN_HEARTBEAT_RESPONSE: this.handleAdminHeartbeatResponse.bind(this),
     ADMIN_LOGOUT: this.handleAdminLogout.bind(this),
     ADMIN_USERS_CHANGE_REQUEST: this.handleAdminUsersChangeRequest.bind(this),
+    ADMIN_PARTYLINES_CHANGE_REQUEST:
+      this.handleAdminPartylinesChangeRequest.bind(this),
+    ADMIN_USER_LOGOUT: this.handleAdminUserLogout.bind(this),
+    ADMIN_SOUNDCARD_CHANGE_REQUEST:
+      this.handleAdminSoundcardChangeRequest.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -81,6 +90,7 @@ export class Controller implements IController {
     this.audioController.setHandlers({
       onAudioInfoUpdate: (u, a) => this.handleAudioInfoUpdate(u, a),
       onAudioRestart: () => this.handleAudioRestart(),
+      onAudioLossDetectedChange: () => this.handleAudioLossDetectedChange(),
     });
 
     this.networkController.setHandlers({
@@ -99,6 +109,8 @@ export class Controller implements IController {
       onRtcAnswer: (c, a) => this.handleRtcAnswer(c, a),
       onRtcIceCandidate: (c, i) => this.handleRtcIceCandidate(c, i),
       onRtcTrack: (c, t) => this.handleRtcTrack(c, t),
+      //ProcessStatsManager:
+      onProcessStatsUpdate: () => this.handleProcessStatsUpdate(),
     });
 
     this.dataController.setHandlers({
@@ -198,6 +210,14 @@ export class Controller implements IController {
     });
   }
 
+  private handleAudioLossDetectedChange(): void {
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      { bannersInfo: this.audioController.getAdminAudioBannersInfo() },
+      this.dataController.getLoggedInAdminClientIds(),
+    );
+  }
+
   //Handle HTTP:
 
   //Client first makes Http request for a 'soft' login
@@ -274,7 +294,7 @@ export class Controller implements IController {
   private handleHeartbeatResponse(
     { timestamp }: WssPayloads[typeof WSS_UPSTREAM.HEARTBEAT_RESPONSE],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     const userId = this.isClientIdLoggedIn(
       clientId,
@@ -345,7 +365,7 @@ export class Controller implements IController {
   private handleUserLogout(
     _payload: WssPayloads[typeof WSS_UPSTREAM.USER_LOGOUT],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     this.logger.info(`User logout request`);
     const userId = this.isClientIdLoggedIn(clientId, "Ignored user logout");
@@ -356,7 +376,7 @@ export class Controller implements IController {
   private handleKeyPress(
     keyPressInfo: WssPayloads[typeof WSS_UPSTREAM.KEY_PRESS],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     this.logger.info(`Key press request:`, keyPressInfo);
 
@@ -369,7 +389,7 @@ export class Controller implements IController {
   private handleWebRtcOffer(
     offer: WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_OFFER],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     const userId = this.isClientIdLoggedIn(clientId, "Offer will be dropped");
     if (userId === null) return;
@@ -379,7 +399,7 @@ export class Controller implements IController {
   private handleWebRtcClientIceCandidate(
     candidate: WssPayloads[typeof WSS_UPSTREAM.WEB_RTC_CLIENT_ICE_CANDIDATE],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     const userId = this.isClientIdLoggedIn(
       clientId,
@@ -407,8 +427,13 @@ export class Controller implements IController {
 
     //Login Success:
     const { webServerInfo } = this.networkController.getAdminInfos();
-    const { inputGainsInfo, partylinesInfo, soundcardInfo, audioConfigInfo } =
-      this.audioController.getAdminInfos();
+    const {
+      inputGainsInfo,
+      partylinesInfo,
+      soundcardsInfo,
+      audioConfigInfo,
+      audioBannersInfo,
+    } = this.audioController.getAdminInfos();
     const usersInfo = this.createAdminUsersInfo();
 
     //Ultimately do this:
@@ -420,9 +445,10 @@ export class Controller implements IController {
       inputGainsInfo,
       usersInfo,
       partylinesInfo,
-      soundcardInfo,
+      soundcardsInfo,
       audioConfigInfo,
       loggingInfo,
+      bannersInfo: audioBannersInfo,
     };
 
     this.networkController.sendWssMessage(
@@ -435,7 +461,7 @@ export class Controller implements IController {
   private handleAdminHeartbeatResponse(
     { timestamp }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_HEARTBEAT_RESPONSE],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     const loggedIn = this.isAdminClientIdLoggedIn(
       clientId,
@@ -448,7 +474,7 @@ export class Controller implements IController {
   private handleAdminLogout(
     _payload: WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGOUT],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): void {
     this.logger.info(`Admin logout request`);
     const loggedIn = this.isAdminClientIdLoggedIn(
@@ -471,46 +497,133 @@ export class Controller implements IController {
   private async handleAdminUsersChangeRequest(
     changeRequest: WssPayloads[typeof WSS_UPSTREAM.ADMIN_USERS_CHANGE_REQUEST],
     clientId: string,
-    sessionTokens: SessionTokens,
+    _: SessionTokens,
   ): Promise<void> {
-    this.logger.info(`Admin users change request`);
     const loggedIn = this.isAdminClientIdLoggedIn(
       clientId,
       "Ignored admin users change request",
     );
     if (!loggedIn) return;
-    const clientIds = this.dataController.getLoggedInAdminClientIds();
-
-    const audioResult =
-      this.audioController.processAdminUsersChangeRequest(changeRequest);
-    const dataResult =
-      await this.dataController.processAdminUsersChangeRequest(changeRequest);
-
-    this.networkController.sendWssMessage(
-      "ADMIN_UPDATE",
-      { usersInfo: this.createAdminUsersInfo() },
-      clientIds,
-    );
-    this.sendUserInfosToUsers(dataResult.userIdsToUpdate);
-    this.hardLogoutUsers(dataResult.userIdsToHardLogout);
-    this.sendAudioInfosToUsers(audioResult.userIdsToUpdate);
-
-    const errs: string[] = [];
-    if (!audioResult.success) {
-      errs.push(audioResult.message);
+    const dataVResult =
+      this.dataController.validateAdminUsersChangeRequest(changeRequest);
+    const audioVResult =
+      this.audioController.validateAdminUsersChangeRequest(changeRequest);
+    let errors = new Set<string>();
+    if (!dataVResult.success) {
+      errors = new Set([...errors, ...dataVResult.errors]);
     }
-    if (!dataResult.success) {
-      errs.push(dataResult.message);
+    if (!audioVResult.success) {
+      errors = new Set([...errors, ...audioVResult.errors]);
     }
-    if (errs.length > 0) {
+    if (!dataVResult.success || !audioVResult.success) {
+      const errMessage = formatList([...errors]);
       this.logger.warn(
-        `handleAdminUsersChangeRequest: Unable to update all users: ${formatList(errs)}`,
+        `Admin users change request validation failed: ${errMessage}`,
       );
+      this.networkController.sendWssMessage(
+        "ADMIN_POPUP",
+        {
+          type: "error",
+          title: "Unable To Update Users",
+          message: capitalizeFirstLetter(errMessage),
+        },
+        [clientId],
+      );
+      return;
     }
-    const { disallowedPlsInfos: infos } = audioResult;
-    if (infos.length > 0) {
-      this.audioController.processDisallowedPlsInfos(infos);
+    const { userIdsToUpdate, userIdsToHardLogout } =
+      await this.dataController.applyAdminUsersChangeRequest(changeRequest);
+    const { userIdsToUpdate: audioIdsToUpdate, disallowedPlsInfos } =
+      this.audioController.applyAdminUsersChangeRequest(
+        audioVResult.allResolvedAPls,
+      );
+
+    this.networkController.sendAdminUpdateAndPopups({
+      updateTarget: "Users section",
+      update: { usersInfo: this.createAdminUsersInfo() },
+      originClientId: clientId,
+      loggedInClientIds: this.dataController.getLoggedInAdminClientIds(),
+    });
+
+    this.sendUserInfosToUsers(userIdsToUpdate);
+    this.hardLogoutUsers(userIdsToHardLogout);
+    this.sendAudioInfosToUsers(audioIdsToUpdate);
+    this.audioController.processDisallowedPlsInfos(disallowedPlsInfos);
+  }
+
+  private async handleAdminPartylinesChangeRequest(
+    changeRequest: WssPayloads[typeof WSS_UPSTREAM.ADMIN_PARTYLINES_CHANGE_REQUEST],
+    clientId: string,
+    _: SessionTokens,
+  ): Promise<void> {
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin partylines change request",
+    );
+    if (!loggedIn) return;
+
+    const result =
+      this.audioController.processAdminPartylinesChangeRequest(changeRequest);
+
+    if (!result.success) {
+      this.logger.warn(
+        `Admin partylines change request validation failed: ${result.message}`,
+      );
+      this.networkController.sendWssMessage(
+        "ADMIN_POPUP",
+        {
+          type: "error",
+          title: "Unable To Update Partylines",
+          message: capitalizeFirstLetter(result.message),
+        },
+        [clientId],
+      );
+      return;
     }
+
+    this.networkController.sendAdminUpdateAndPopups({
+      updateTarget: "Partylines section",
+      update: { partylinesInfo: this.audioController.getAdminPartylinesInfo() },
+      originClientId: clientId,
+      loggedInClientIds: this.dataController.getLoggedInAdminClientIds(),
+    });
+    this.sendAudioInfosToUsers();
+  }
+
+  private async handleAdminUserLogout(
+    { userId }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_USER_LOGOUT],
+    clientId: string,
+    _: SessionTokens,
+  ): Promise<void> {
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin user logout request",
+    );
+    if (!loggedIn) return;
+    this.hardLogoutUsers([userId]);
+  }
+
+  private async handleAdminSoundcardChangeRequest(
+    {
+      soundcardId,
+    }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST],
+    clientId: string,
+    _: SessionTokens,
+  ): Promise<void> {
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin soundcard change request",
+    );
+    if (!loggedIn) return;
+
+    this.audioController.setRequestedSoundcardId(soundcardId);
+
+    this.networkController.sendAdminUpdateAndPopups({
+      updateTarget: "Soundcard Device",
+      update: { soundcardsInfo: this.audioController.getAdminSoundcardsInfo() },
+      originClientId: clientId,
+      loggedInClientIds: this.dataController.getLoggedInAdminClientIds(),
+    });
   }
 
   //Handle WebRtc:
@@ -578,7 +691,20 @@ export class Controller implements IController {
     this.audioController.addRxTrack(userId, track);
   }
 
+  //Handle ProcessStats:
+
+  private handleProcessStatsUpdate(): void {
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      {
+        webServerInfo: this.networkController.getAdminWebServerInfo(),
+      },
+      this.dataController.getLoggedInAdminClientIds(),
+    );
+  }
+
   //Handle Data Controller:
+
   private handleAccountHeartbeat(
     clientIds: string[],
     payload: HeartbeatRequestPayload,
@@ -654,11 +780,10 @@ export class Controller implements IController {
     });
   }
 
-  private sendAudioInfosToUsers(userIds: number[]): void {
-    userIds.forEach((userId) => {
+  //If no userIds passed in, send audioInfos to all logged in users:
+  private sendAudioInfosToUsers(userIds?: number[]): void {
+    const sendAudioInfo = (userId: number, clientId: string) => {
       const audioInfo = this.audioController.getAudioInfo(userId);
-      const clientId = this.dataController.isUserIdLoggedIn(userId);
-      if (!clientId) return;
       if (!audioInfo) {
         this.logger.error(
           `sendAudioInfosToUsers: Unable to send audioInfo update for userId ${userId}: No audioInfo exists`,
@@ -670,6 +795,19 @@ export class Controller implements IController {
         audioInfo,
         [clientId],
       );
+    };
+    if (!userIds) {
+      this.dataController.getLoggedInUserClientIds().forEach((clientId) => {
+        const userId = this.dataController.isClientIdLoggedIn(clientId);
+        if (userId === null) return;
+        sendAudioInfo(userId, clientId);
+      });
+      return;
+    }
+    userIds.forEach((userId) => {
+      const clientId = this.dataController.isUserIdLoggedIn(userId);
+      if (!clientId) return;
+      sendAudioInfo(userId, clientId);
     });
   }
 

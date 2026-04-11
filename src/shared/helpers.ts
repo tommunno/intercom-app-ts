@@ -3,7 +3,7 @@ import {
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   MAX_NUM_PARTYLINES,
   MAX_NUM_SOUNDCARD_CHANNELS,
-} from "../server/constants/serverConstants.js";
+} from "./constants/sharedConstants.js";
 
 export function isStringAndNotEmpty(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
@@ -92,4 +92,9 @@ export function formatList(vals: (number | string)[]): string {
   if (vals.length === 2) return `${vals[0]} and ${vals[1]}`;
 
   return `${vals.slice(0, -1).join(", ")} and ${vals.at(-1)}`;
+}
+
+export function capitalizeFirstLetter(str: string): string {
+  if (str.length === 0) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
 }

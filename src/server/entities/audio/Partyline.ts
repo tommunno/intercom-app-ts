@@ -32,6 +32,10 @@ export class Partyline implements IPartyline {
     return this._state.name;
   }
 
+  set name(name: string) {
+    this._state.name = name;
+  }
+
   get state(): PartylineState {
     return {
       ...this._state,

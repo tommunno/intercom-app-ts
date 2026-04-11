@@ -1,10 +1,16 @@
-import { dataIsObject } from "../helpers.js";
+import { dataIsObject, dataIsType } from "../helpers.js";
 
-export interface AdminAudioConfigInfo {}
+export interface AdminAudioConfigInfo {
+  numUsers: number;
+  numPartylines: number;
+}
 
-//Add in validation here!:
 export function dataIsAdminAudioConfigInfo(
   data: unknown,
 ): data is AdminAudioConfigInfo {
-  return dataIsObject(data);
+  return (
+    dataIsObject(data) &&
+    dataIsType("number", data.numUsers) &&
+    dataIsType("number", data.numPartylines)
+  );
 }

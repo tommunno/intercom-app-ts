@@ -1,4 +1,5 @@
 import type {
+  AdminUpdate,
   AdminWebServerInfo,
   RtcIceCandidateInitWire,
   RtcOfferWire,
@@ -9,6 +10,7 @@ import type {
   TrackAndStream,
   WssSendMessage,
 } from "../../types/index.js";
+import type { ProcessStatsHandlers } from "./IProcessStatsManager.js";
 import type { WebRtcHandlers } from "./IWebRtcManager.js";
 import type { WebServerHandlers } from "./IWebServerManager.js";
 import type { WssHandlers } from "./IWssManager.js";
@@ -17,8 +19,19 @@ export interface NetworkAdminInfos {
   webServerInfo: AdminWebServerInfo;
 }
 
+export interface SendAdminUpdateAndPopupsParams {
+  updateTarget: string;
+  update: AdminUpdate;
+  originClientId: string;
+  loggedInClientIds: string[];
+}
+
 export interface NetworkHandlers
-  extends WebServerHandlers, WssHandlers, WebRtcHandlers {}
+  extends
+    WebServerHandlers,
+    WssHandlers,
+    WebRtcHandlers,
+    ProcessStatsHandlers {}
 
 export interface INetworkController {
   init: () => Promise<void>;
@@ -28,6 +41,7 @@ export interface INetworkController {
 
   //WssManager:
   sendWssMessage: WssSendMessage;
+  sendAdminUpdateAndPopups: (params: SendAdminUpdateAndPopupsParams) => void;
   //WssManager Helpers:
   sendUserLoginFailureMessage: (clientId: string, message?: string) => void;
   sendAdminLoginFailureMessage: (clientId: string, message?: string) => void;
@@ -47,5 +61,6 @@ export interface INetworkController {
 
   getTurnServerInfo: () => TurnServerInfo | null;
 
+  getAdminWebServerInfo: () => AdminWebServerInfo;
   getAdminInfos: () => NetworkAdminInfos;
 }

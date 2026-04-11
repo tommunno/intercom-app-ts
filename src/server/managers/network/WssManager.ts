@@ -157,9 +157,6 @@ export class WssManager implements IWssManager {
       const cookies = this.parseCookies(req.headers.cookie);
       const userSessionToken = cookies["userSessionToken"];
       const adminSessionToken = cookies["adminSessionToken"];
-      this.logger.info(
-        `New wss client userSessionToken: ${userSessionToken}, adminSessionToken: ${adminSessionToken}`,
-      );
       const clientId = this.generateClientId();
 
       this.logger.info(`New connection: ${clientId}`);
@@ -220,7 +217,7 @@ export class WssManager implements IWssManager {
         sessionTokens,
       });
     } catch (e) {
-      this.logger.error("JSON Parse Error");
+      this.logger.error("JSON Parse Error", e);
     }
   }
 

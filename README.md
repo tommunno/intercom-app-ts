@@ -144,6 +144,7 @@ Controller: IController
         WssManager: IWssManager
         WebRtcManager: IWebRtcManager
         TurnServerManager: ITurnServerManager
+        ProcessStatsManager: IProcessStatsManager
 
     DataController: IDataController
         AccountManager: IAccountManager

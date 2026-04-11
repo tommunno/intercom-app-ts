@@ -11,7 +11,7 @@ export interface WssUpstreamRequest {
   payload: unknown;
 }
 
-export function dataIsWssUpstreamRequest<T>(
+export function dataIsWssUpstreamRequest(
   data: unknown,
 ): data is WssUpstreamRequest {
   return (

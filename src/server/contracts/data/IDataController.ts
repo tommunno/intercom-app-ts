@@ -9,7 +9,10 @@ import type {
 } from "../../../shared/types/index.js";
 import type { AudioPopulateData } from "../../types/AudioData.js";
 import type { NetworkData } from "../../types/NetworkData.js";
-import type { AccountAdminUsersChangeRequestResult } from "./IAccountManager.js";
+import type {
+  AccountAdminUsersApplyResult,
+  AccountAdminUsersValidationResult,
+} from "./IAccountManager.js";
 import type { AdminLogoutResult } from "./IAdminAccountManager.js";
 
 export interface DataAdminInfos {
@@ -68,7 +71,10 @@ export interface IDataController {
   getLoggedInAdminClientIds: () => string[];
 
   getAdminUsersLoggedInUpdate: () => AdminUsersLoggedInUpdate;
-  processAdminUsersChangeRequest: (
-    changeRequest: AdminUsersChangeRequest,
-  ) => Promise<AccountAdminUsersChangeRequestResult>;
+  validateAdminUsersChangeRequest: (
+    request: AdminUsersChangeRequest,
+  ) => AccountAdminUsersValidationResult;
+  applyAdminUsersChangeRequest: (
+    request: AdminUsersChangeRequest,
+  ) => Promise<AccountAdminUsersApplyResult>;
 }

@@ -1,6 +1,6 @@
 import type {
   AdminInputGainsInfo,
-  AdminSoundcardInfo,
+  AdminSoundcardsInfo,
   ManagerStatus,
 } from "../../../shared/types/index.js";
 import type { CrosspointChange } from "../../types/index.js";
@@ -35,6 +35,7 @@ export type DeviceValidResponse =
 
 export interface AudioEngineHandlers {
   onAudio: (buffer: Buffer) => void;
+  onAudioLossDetectedChange: (lossDetected: boolean) => void;
 }
 
 export interface IAudioEngineManager {
@@ -47,7 +48,11 @@ export interface IAudioEngineManager {
   pushAudio: (channelNum: number, samples: Int16Array) => void;
   updateCrosspoint: (crosspointChange: CrosspointChange) => boolean;
   getAdminInputGainsInfo: () => AdminInputGainsInfo;
-  getAdminSoundcardInfo: () => AdminSoundcardInfo;
+  getAdminSoundcardsInfo: () => AdminSoundcardsInfo;
   status: ManagerStatus;
   config: AudioEngineConfig;
+  getAdminAudioBannersInfo: () => {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  };
 }

@@ -50,12 +50,12 @@ export class DataManager implements IDataManager {
       // persistedUsers: [
       //   {
       //     username: "tom",
-      //     allowedPls
-      //     passwordHash: null,
+      //     passwordHash:
+      //       "$2b$10$XbICIHnhbBCPaE0g5BaCveWKiuXiw4y0H9q7RG/uYumJCsyyQxNeu",
       //     sessionTokenInfos: [],
       //   },
       //   {
-      //     username: "ben",
+      //     username: "tom",
       //     passwordHash: null,
       //     sessionTokenInfos: [
       //       {
@@ -69,11 +69,21 @@ export class DataManager implements IDataManager {
       //     ],
       //   },
       //   {
-      //     username: "luke",
+      //     username: "user-3",
       //     passwordHash: null,
       //     sessionTokenInfos: [
       //       {
       //         token: "ghi",
+      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      //       },
+      //     ],
+      //   },
+      //   {
+      //     username: "ryan",
+      //     passwordHash: null,
+      //     sessionTokenInfos: [
+      //       {
+      //         token: "jkl",
       //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
       //       },
       //     ],
@@ -86,7 +96,11 @@ export class DataManager implements IDataManager {
     this.checkAndWarnIfNotRunning("get admin account data", true);
 
     //Temporary data:
-    return {};
+    return {
+      sessionTokenInfos: [
+        { token: "abcdef", expiresAtMs: Date.now() + 24 * 60 * 60 * 1000 },
+      ],
+    };
   }
 
   getNetworkData(): NetworkData {
@@ -95,7 +109,7 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       webServerData: {},
-      turnServerData: { port: 4052, ip: "192.168.86.183" },
+      turnServerData: { ip: "192.168.86.183" },
     };
   }
 
@@ -105,11 +119,11 @@ export class DataManager implements IDataManager {
     //Temporary data:
     return {
       requestedNumSoundcardChannels: 4,
-      numPartylines: 12,
-      requestedSoundcardId: 3,
+      numPartylines: 16,
+      requestedSoundcardId: 6,
       allowedPlsInfos: [
-        { userId: 0, allowedPls: [1, 2, 3, 4, 5, 6, 7, 8] },
-        { userId: 2, allowedPls: [1, 2, 3, 9] },
+        // { userId: 0, allowedPls: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
+        // { userId: 2, allowedPls: [1, 2, 3, 9] },
       ],
     };
   }

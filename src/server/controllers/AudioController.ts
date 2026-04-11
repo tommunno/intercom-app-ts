@@ -1,13 +1,19 @@
 //Types:
 import type {
+  AdminPartylinesChangeRequest,
+  AdminPartylinesInfo,
+  AdminSoundcardsInfo,
   AdminUsersChangeRequest,
+  AllResolvedAPls,
   AudioInfo,
   KeyPressInfo,
   MergedPartylineInfo,
 } from "../../shared/types/index.js";
 import type {
   AudioAdminInfos,
-  AudioAdminUsersChangeRequestResult,
+  AudioAdminPartylinesProcessResult,
+  AudioAdminUsersApplyResult,
+  AudioAdminUsersValidationResult,
   AudioEngineConfig,
   AudioEnginePopulateConfig,
   AudioHandlers,
@@ -181,22 +187,51 @@ export class AudioController implements IAudioController {
   getAdminInfos(): AudioAdminInfos {
     const inputGainsInfo = this.audioEngineManager.getAdminInputGainsInfo();
     const partylinesInfo = this.audioMatrixManager.getAdminPartylinesInfo();
-    const soundcardInfo = this.audioEngineManager.getAdminSoundcardInfo();
+    const soundcardsInfo = this.audioEngineManager.getAdminSoundcardsInfo();
     const audioConfigInfo = this.audioMatrixManager.getAdminAudioConfigInfo();
+    const audioBannersInfo = this.audioEngineManager.getAdminAudioBannersInfo();
     return {
       inputGainsInfo,
       partylinesInfo,
-      soundcardInfo,
+      soundcardsInfo,
       audioConfigInfo,
+      audioBannersInfo,
     };
   }
 
-  processAdminUsersChangeRequest(
-    changeRequest: AdminUsersChangeRequest,
-  ): AudioAdminUsersChangeRequestResult {
-    return this.audioMatrixManager.processAdminUsersChangeRequest(
-      changeRequest,
+  getAdminSoundcardsInfo(): AdminSoundcardsInfo {
+    return this.audioEngineManager.getAdminSoundcardsInfo();
+  }
+
+  getAdminPartylinesInfo(): AdminPartylinesInfo {
+    return this.audioMatrixManager.getAdminPartylinesInfo();
+  }
+
+  getAdminAudioBannersInfo(): {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  } {
+    return this.audioEngineManager.getAdminAudioBannersInfo();
+  }
+
+  validateAdminUsersChangeRequest(
+    request: AdminUsersChangeRequest,
+  ): AudioAdminUsersValidationResult {
+    return this.audioMatrixManager.validateAdminUsersChangeRequest(request);
+  }
+
+  applyAdminUsersChangeRequest(
+    allResolvedAPls: AllResolvedAPls,
+  ): AudioAdminUsersApplyResult {
+    return this.audioMatrixManager.applyAdminUsersChangeRequest(
+      allResolvedAPls,
     );
+  }
+
+  processAdminPartylinesChangeRequest(
+    request: AdminPartylinesChangeRequest,
+  ): AudioAdminPartylinesProcessResult {
+    return this.audioMatrixManager.processAdminPartylinesChangeRequest(request);
   }
 
   //Private methods:
@@ -209,6 +244,7 @@ export class AudioController implements IAudioController {
   private bindListeners(): void {
     this.audioEngineManager.setHandlers({
       onAudio: (b) => this.handleEngineAudio(b),
+      onAudioLossDetectedChange: () => this.handleAudioLossDetectedChange(),
     });
     this.audioMatrixManager.setHandlers({
       onCrosspointChange: (c) => this.handleMatrixCrosspointChange(c),
@@ -346,6 +382,10 @@ export class AudioController implements IAudioController {
       return;
     }
     this.webRtcMediaBridge.pushAudio(buffer);
+  }
+
+  private handleAudioLossDetectedChange(): void {
+    this.activeHandlers.onAudioLossDetectedChange();
   }
 
   //AudioMatrixManager:

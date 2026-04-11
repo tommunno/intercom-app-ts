@@ -1,4 +1,3 @@
-import type * as wrtcTypes from "@roamhq/wrtc";
 import type { RtcIceCandidateInitWire } from "../../shared/types/RtcIceCandidateInitWire.js";
 import type { RtcPeerConnection } from "./wrtcShimTypes.js";
 

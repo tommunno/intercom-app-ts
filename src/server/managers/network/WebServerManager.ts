@@ -3,6 +3,7 @@ import type {
   IWebServerManager,
   WebServerHandlers,
   ILogger,
+  WebServerAdminInfo,
 } from "../../contracts/index.js";
 import type {
   LoginCredentials,
@@ -58,6 +59,8 @@ export class WebServerManager implements IWebServerManager {
   private app: Express = express();
   private httpPort: number = DEFAULT_HTTP_PORT;
   private httpsPort: number | null = DEFAULT_HTTPS_PORT;
+  private certDomainName: string | null = null;
+  private isSslCertValid: boolean = false;
 
   private httpServer: http.Server | null = null;
   private httpsServer: https.Server | null = null;
@@ -87,7 +90,7 @@ export class WebServerManager implements IWebServerManager {
     this.app.post(
       "/login",
       async (
-        rq: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+        rq: Request<Record<string, never>, HttpLoginResponse, HttpLoginRequest>,
         rs: Response<HttpLoginResponse>,
       ) => {
         await this.handleLoginRequest(rq, rs);
@@ -97,14 +100,20 @@ export class WebServerManager implements IWebServerManager {
     this.app.post(
       "/admin-login",
       async (
-        rq: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+        rq: Request<Record<string, never>, HttpLoginResponse, HttpLoginRequest>,
         rs: Response<HttpLoginResponse>,
       ) => {
         await this.handleLoginRequest(rq, rs, true);
       },
     );
 
-    this.app.use((e: any, rq: Request, rs: Response, n: NextFunction) =>
+    this.app.use((rq: Request, rs: Response, _n: NextFunction) => {
+      rs.status(404).sendFile(
+        path.join(process.cwd(), WEB_SERVER_DIR, "404.html"),
+      );
+    });
+
+    this.app.use((e: unknown, rq: Request, rs: Response, n: NextFunction) =>
       this.handleErrors(e, rq, rs, n),
     );
 
@@ -162,6 +171,15 @@ export class WebServerManager implements IWebServerManager {
     this.handlers = handlers;
   }
 
+  getAdminInfo(): WebServerAdminInfo {
+    return {
+      httpsPort: this.httpsPort,
+      httpPort: this.httpPort,
+      domainName: this.certDomainName,
+      isSslCertValid: this.isSslCertValid,
+    };
+  }
+
   private async attemptHttpsInit(): Promise<void> {
     try {
       const keyPath = path.join(this.certPath, KEY_FILE);
@@ -173,7 +191,9 @@ export class WebServerManager implements IWebServerManager {
           cert: fs.readFileSync(certPath),
         };
         this.httpsServer = https.createServer(options, this.app);
+        this.certDomainName = this.getCertDisplayName(certPath);
         this.logger.success("User provided SSL files are valid");
+        this.isSslCertValid = true;
         return;
       } else {
         this.logger.warn(
@@ -221,6 +241,7 @@ export class WebServerManager implements IWebServerManager {
           cert: fs.readFileSync(generatedCertPath),
         };
         this.httpsServer = https.createServer(options, this.app);
+        this.certDomainName = this.getCertDisplayName(generatedCertPath);
         this.logger.warn(
           "Valid self-signed certificate loaded. For full browser trust, please install your own trusted certificate",
         );
@@ -244,7 +265,7 @@ export class WebServerManager implements IWebServerManager {
       const expiry = new Date(x509.validTo);
       return expiry < now;
     } catch (err) {
-      this.logger.error("Failed to check certificate expiration");
+      this.logger.error("Failed to check certificate expiration", err);
       return true; // Assume invalid if unreadable or broken
     }
   }
@@ -279,6 +300,7 @@ export class WebServerManager implements IWebServerManager {
 
       fs.writeFileSync(generatedKeyPath, key);
       fs.writeFileSync(generatedCertPath, cert);
+      this.certDomainName = this.getCertDisplayName(generatedCertPath);
       this.logger.success("Saved generated self-signed certificate");
       this.httpsServer = https.createServer({ key, cert }, this.app);
       this.logger.warn(
@@ -357,11 +379,11 @@ export class WebServerManager implements IWebServerManager {
   }
 
   private async handleLoginRequest(
-    req: Request<{}, HttpLoginResponse, HttpLoginRequest>,
+    req: Request<Record<string, never>, HttpLoginResponse, HttpLoginRequest>,
     res: Response<HttpLoginResponse>,
     isAdmin: boolean = false,
   ) {
-    let rawToken: any;
+    let rawToken: unknown;
     if (isAdmin) {
       rawToken = req.cookies.adminSessionToken;
     } else {
@@ -425,10 +447,10 @@ export class WebServerManager implements IWebServerManager {
   }
 
   private handleErrors(
-    err: any,
+    err: unknown,
     req: Request,
     res: Response,
-    next: NextFunction,
+    _next: NextFunction,
   ) {
     if (err instanceof SyntaxError && "body" in err) {
       this.logger.error(`Bad JSON received from ${req.ip}`);
@@ -437,14 +459,24 @@ export class WebServerManager implements IWebServerManager {
         .json({ success: false, message: "Invalid JSON format" });
     }
 
-    if (err.type === "entity.too.large" || err.status === 413) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      (("type" in err && err.type === "entity.too.large") ||
+        ("status" in err && err.status === 413))
+    ) {
       this.logger.warn(`Payload too large attempt from ${req.ip}`);
       return res.status(413).json({
         success: false,
         message: "The request body is too large.",
       });
     }
-    next(err);
+
+    this.logger.error("Unhandled web server error", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
   }
 
   private setPorts(httpPort: number, httpsPort: number | null): void {
@@ -456,9 +488,51 @@ export class WebServerManager implements IWebServerManager {
     }
   }
 
+  private getCertDisplayName(certPath: string): string | null {
+    try {
+      const certPem = fs.readFileSync(certPath, "utf8");
+      const cert = new crypto.X509Certificate(certPem);
+
+      // subjectAltName typically looks like:
+      // "DNS:example.com, DNS:www.example.com, IP Address:127.0.0.1"
+      // Split into parts, trim them, find the first DNS entry, then remove "DNS:"
+      const dnsName = cert.subjectAltName
+        ?.split(",")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("DNS:"))
+        ?.slice(4);
+
+      if (dnsName) return dnsName;
+
+      // subject typically looks like:
+      // "CN=example.com\nO=My Company\nC=GB"
+      // Split into lines, trim them, find the CN line, then remove "CN="
+      const commonName = cert.subject
+        .split("\n")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("CN="))
+        ?.slice(3);
+
+      return commonName ?? null;
+    } catch (err) {
+      this.logger.warn("Failed to extract certificate display name", err);
+      return null;
+    }
+  }
+
   private get activeHandlers(): WebServerHandlers {
     if (!this.handlers)
       throw new Error("WebServerManager handlers not initialized!");
     return this.handlers;
+  }
+
+  private checkAndWarnIfNotRunning(action: string): boolean {
+    if (this.status !== "RUNNING") {
+      this.logger.error(
+        `Unable to ${action} because the status is ${this.status}`,
+      );
+      return true;
+    }
+    return false;
   }
 }

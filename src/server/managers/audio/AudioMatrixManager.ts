@@ -1,13 +1,17 @@
 import type {
   AdminAudioConfigInfo,
+  AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminUsersChangeRequest,
+  AllResolvedAPls,
   KeyPressInfo,
   ManagerStatus,
   PartylineInfo,
 } from "../../../shared/types/index.js";
 import type {
-  AudioAdminUsersChangeRequestResult,
+  AudioAdminPartylinesProcessResult,
+  AudioAdminUsersApplyResult,
+  AudioAdminUsersValidationResult,
   AudioMatrixConfig,
   AudioMatrixHandlers,
   AudioMatrixPopulateConfig,
@@ -27,13 +31,14 @@ import {
   type DisallowedPlsInfo,
 } from "../../types/index.js";
 import { dataIsType, formatList } from "../../../shared/helpers.js";
+import { ENABLE_DEV_MATRIX_VIEW } from "../../constants/serverConstants.js";
 import {
   DEFAULT_NUM_PARTYLINES,
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   DEFAULT_NUM_USERS,
-  ENABLE_DEV_MATRIX_VIEW,
   MAX_NUM_PARTYLINES,
-} from "../../constants/serverConstants.js";
+  MAX_PARTYLINE_NAME_LENGTH,
+} from "../../../shared/constants/sharedConstants.js";
 import { devLogCrosspoints, getRemovedSetItems } from "../../serverHelpers.js";
 
 const BLANK_AUDIO_MATRIX_CONFIG: AudioMatrixConfig = {
@@ -241,6 +246,11 @@ export class AudioMatrixManager implements IAudioMatrixManager {
 
   //Is the specified port only talking to the specified partyline and no other partylines:
   isSoleActiveTalkKeyForPort(portNum: number, plNum: number): boolean {
+    if (
+      this.checkAndWarnIfNotRunning("check if sole active talk key for port")
+    ) {
+      return false;
+    }
     if (!this.isPortNumValid(portNum)) {
       this.logger.error(
         `isSoleActiveTalkKeyForPort: portNum ${portNum} is invalid. Will return false`,
@@ -267,6 +277,11 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   }
 
   isPortTalkingToPartyline(portNum: number, plNum: number): boolean {
+    if (
+      this.checkAndWarnIfNotRunning("check if port is talking to partyline")
+    ) {
+      return false;
+    }
     if (!this.isPortNumValid(portNum)) {
       this.logger.error(
         `isPortTalkingToPartyline: portNum ${portNum} is invalid. Will return false`,
@@ -288,6 +303,13 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     portNum: number,
     plNums: ReadonlySet<number>,
   ): boolean {
+    if (
+      this.checkAndWarnIfNotRunning(
+        "check if any other talk keys are active for port",
+      )
+    ) {
+      return false;
+    }
     let anyOtherTalkKeys = false;
     const filteredPls = this.partylines.filter((pl) => !plNums.has(pl.id));
     for (const pl of filteredPls) {
@@ -300,6 +322,9 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   }
 
   getAdminPartylinesInfo(): AdminPartylinesInfo {
+    if (this.checkAndWarnIfNotRunning("get admin partylines info")) {
+      return [];
+    }
     const plsInfo: AdminPartylinesInfo = [];
     this.partylines.forEach((pl) => {
       plsInfo.push({ id: pl.id, name: pl.name });
@@ -307,82 +332,168 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return plsInfo;
   }
 
-  //Still need to fill in:
   getAdminAudioConfigInfo(): AdminAudioConfigInfo {
-    return {};
+    if (this.checkAndWarnIfNotRunning("get admin audio config info")) {
+      return { numUsers: 0, numPartylines: 0 };
+    }
+    return {
+      numUsers: this._config.numUsers,
+      numPartylines: this._config.numPartylines,
+    };
+  }
+
+  validateAdminUsersChangeRequest(
+    request: AdminUsersChangeRequest,
+  ): AudioAdminUsersValidationResult {
+    const result = this.checkAndWarnIfNotRunning(
+      "validate admin users change request",
+    );
+    if (result) {
+      return {
+        success: false,
+        errors: new Set(["internal server error"]),
+      };
+    }
+
+    //Don't allow duplicate userIds:
+    if (request.length !== new Set(request.map((c) => c.userId)).size) {
+      return {
+        success: false,
+        errors: new Set(["duplicate userIds in request"]),
+      };
+    }
+    const errors: Set<string> = new Set();
+    //<userId, resolvedAPls>:
+    const allResolvedAPls: AllResolvedAPls = new Map();
+
+    for (const { userId, allowedPls: aPls } of request) {
+      const foundAPlsInfo = this._config.allowedPlsInfos[userId];
+      if (!foundAPlsInfo) {
+        errors.add("allowed PLs record not found");
+      }
+      if (aPls !== null) {
+        const resolvedAPls = this.resolveAllowedPls(aPls);
+        if (!resolvedAPls) {
+          errors.add("allowed PLs invalid");
+        } else {
+          allResolvedAPls.set(userId, resolvedAPls);
+        }
+      }
+    }
+    if (errors.size) {
+      return {
+        success: false,
+        errors,
+      };
+    }
+    return { success: true, allResolvedAPls };
   }
 
   //For admins updating info about users
   //If users have been disallowed from interacting with certain PLs, disallowedPlsInfos are returned. The controller would need to act on these in order to turn off those keys if it wants to (eg through the TailManager)
-  processAdminUsersChangeRequest(
-    changeRequest: AdminUsersChangeRequest,
-  ): AudioAdminUsersChangeRequestResult {
+  applyAdminUsersChangeRequest(
+    allResolvedAPls: AllResolvedAPls,
+  ): AudioAdminUsersApplyResult {
     const result = this.checkAndWarnIfNotRunning(
-      "process admin users change request",
+      "apply admin users change request",
     );
-    if (result)
+    if (result) {
       return {
-        success: false,
-        message: "Internal server error",
         userIdsToUpdate: [],
         disallowedPlsInfos: [],
       };
-
-    let anyAplsNotFound = false;
-    let anyDataNotValid = false;
+    }
     const userIdsToUpdate: number[] = [];
     const disallowedPlsInfos: DisallowedPlsInfo[] = [];
 
-    for (const userChange of changeRequest) {
-      const { userId: id, allowedPls: aPls } = userChange;
-      if (!aPls) continue;
-
-      const foundAPlsInfo = this._config.allowedPlsInfos[id];
+    allResolvedAPls.forEach((resolvedAPls, userId) => {
+      const foundAPlsInfo = this._config.allowedPlsInfos[userId];
       if (!foundAPlsInfo) {
-        this.logger.warn(
-          `Unable to update allowed PLs: allowedPlsInfo at ${id} does not exist`,
+        this.logger.error(
+          `applyAdminUsersChangeRequest: Invariant violation: no aPlsInfo found for userId ${userId}. Will not update allowed PLs`,
         );
-        anyAplsNotFound = true;
-        continue;
+        return;
       }
 
-      const resolvedAPls = this.resolveAllowedPls(aPls);
+      const oldAPls = foundAPlsInfo.allowedPls;
+      foundAPlsInfo.allowedPls = resolvedAPls;
+      userIdsToUpdate.push(userId);
+      disallowedPlsInfos.push({
+        userId,
+        disallowedPls: getRemovedSetItems(oldAPls, resolvedAPls),
+      });
+    });
+    return { userIdsToUpdate, disallowedPlsInfos };
+  }
 
-      if (resolvedAPls) {
-        const oldAPls = foundAPlsInfo.allowedPls;
-        foundAPlsInfo.allowedPls = resolvedAPls;
-        userIdsToUpdate.push(id);
-        disallowedPlsInfos.push({
-          userId: id,
-          disallowedPls: getRemovedSetItems(oldAPls, resolvedAPls),
-        });
-      } else {
-        this.logger.warn(
-          `Unable to update allowed PLs for userId ${id}. The data is invalid`,
-        );
-        anyDataNotValid = true;
-      }
-    }
-    let message = "";
-    if (anyAplsNotFound) {
-      message += `Unable to find allowed PL records for one or more users`;
-    }
-    if (anyDataNotValid) {
-      message += `${anyAplsNotFound ? "; i" : "I"}nvalid data`;
-    }
-    if (message) {
+  processAdminPartylinesChangeRequest(
+    request: AdminPartylinesChangeRequest,
+  ): AudioAdminPartylinesProcessResult {
+    const result = this.checkAndWarnIfNotRunning(
+      "process admin partylines change request",
+    );
+    if (result) {
       return {
         success: false,
-        message,
-        userIdsToUpdate,
-        disallowedPlsInfos,
+        message: "internal server error",
       };
     }
-    return {
-      success: true,
-      userIdsToUpdate,
-      disallowedPlsInfos,
-    };
+    const vResult = this.validateAdminPartylinesChangeRequest(request);
+    if (!vResult.success) {
+      return { success: false, message: vResult.message };
+    }
+    this.applyAdminPartylinesChangeRequest(request);
+    return { success: true };
+  }
+
+  private validateAdminPartylinesChangeRequest(
+    request: AdminPartylinesChangeRequest,
+  ): { success: true } | { success: false; message: string } {
+    //Don't allow duplicate plIds:
+    if (request.length !== new Set(request.map((c) => c.plId)).size) {
+      return {
+        success: false,
+        message: "duplicate PL Ids in request",
+      };
+    }
+
+    const errors: Set<string> = new Set();
+
+    for (const { plId, plName } of request) {
+      const foundPl = this.partylines[plId];
+      if (!foundPl) {
+        errors.add("PL not found");
+      }
+      if (plName !== null) {
+        if (!this.validatePlName(plName.trim())) {
+          errors.add("PL name invalid");
+        }
+      }
+    }
+    if (errors.size) {
+      return {
+        success: false,
+        message: formatList([...errors]),
+      };
+    }
+    return { success: true };
+  }
+
+  private applyAdminPartylinesChangeRequest(
+    request: AdminPartylinesChangeRequest,
+  ): void {
+    request.forEach(({ plId, plName }) => {
+      const foundPl = this.partylines[plId];
+      if (!foundPl) {
+        this.logger.error(
+          `applyAdminPartylinesChangeRequest: Invariant violation: no PL found for plId ${plId}. Will not update plName`,
+        );
+        return;
+      }
+      if (plName !== null) {
+        foundPl.name = plName.trim();
+      }
+    });
   }
 
   get status(): ManagerStatus {
@@ -685,6 +796,10 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       portNum >= this._config.numUsers &&
       portNum < this.numPorts
     );
+  }
+
+  private validatePlName(name: string): boolean {
+    return name.length > 0 && name.length <= MAX_PARTYLINE_NAME_LENGTH;
   }
 
   private getSnapshot(): AudioMatrixSnapshot {

@@ -1,10 +1,8 @@
 import type {
   AdminUsersChangeRequest,
-  AdminUsersInfo,
   AdminUsersLoggedInUpdate,
   HeartbeatRequestPayload,
   SessionTokenInfo,
-  SuccessOptionalMessage,
   UserAndId,
 } from "../../../shared/types/index.js";
 import type {
@@ -37,18 +35,14 @@ export interface AccountHandlers {
   onStaleHeartbeat(clientId: string): void;
 }
 
-export type AccountAdminUsersChangeRequestResult =
-  | {
-      success: true;
-      userIdsToUpdate: number[];
-      userIdsToHardLogout: number[];
-    }
-  | {
-      success: false;
-      message: string;
-      userIdsToUpdate: number[];
-      userIdsToHardLogout: number[];
-    };
+export type AccountAdminUsersValidationResult =
+  | { success: true }
+  | { success: false; errors: Set<string> };
+
+export type AccountAdminUsersApplyResult = {
+  userIdsToUpdate: number[];
+  userIdsToHardLogout: number[];
+};
 
 export interface IAccountManager {
   init: () => void;
@@ -77,9 +71,12 @@ export interface IAccountManager {
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
   getLoggedInUserClientIds: () => string[];
   getAdminUsersLoggedInUpdate: () => AdminUsersLoggedInUpdate;
-  processAdminUsersChangeRequest: (
-    changeRequest: AdminUsersChangeRequest,
-  ) => Promise<AccountAdminUsersChangeRequestResult>;
+  validateAdminUsersChangeRequest: (
+    request: AdminUsersChangeRequest,
+  ) => AccountAdminUsersValidationResult;
+  applyAdminUsersChangeRequest: (
+    request: AdminUsersChangeRequest,
+  ) => Promise<AccountAdminUsersApplyResult>;
 
   numUsers: number;
 }

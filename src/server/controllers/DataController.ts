@@ -10,7 +10,8 @@ import type {
   UserInfo,
 } from "../../shared/types/index.js";
 import type {
-  AccountAdminUsersChangeRequestResult,
+  AccountAdminUsersApplyResult,
+  AccountAdminUsersValidationResult,
   AdminLogoutResult,
   DataHandlers,
   IAccountManager,
@@ -159,10 +160,16 @@ export class DataController implements IDataController {
     return this.accountManager.getAdminUsersLoggedInUpdate();
   }
 
-  processAdminUsersChangeRequest(
-    changeRequest: AdminUsersChangeRequest,
-  ): Promise<AccountAdminUsersChangeRequestResult> {
-    return this.accountManager.processAdminUsersChangeRequest(changeRequest);
+  validateAdminUsersChangeRequest(
+    request: AdminUsersChangeRequest,
+  ): AccountAdminUsersValidationResult {
+    return this.accountManager.validateAdminUsersChangeRequest(request);
+  }
+
+  applyAdminUsersChangeRequest(
+    request: AdminUsersChangeRequest,
+  ): Promise<AccountAdminUsersApplyResult> {
+    return this.accountManager.applyAdminUsersChangeRequest(request);
   }
 
   private bindListeners(): void {

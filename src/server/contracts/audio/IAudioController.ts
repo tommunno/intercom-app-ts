@@ -1,9 +1,11 @@
 import type {
   AdminAudioConfigInfo,
   AdminInputGainsInfo,
+  AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
-  AdminSoundcardInfo,
+  AdminSoundcardsInfo,
   AdminUsersChangeRequest,
+  AllResolvedAPls,
   AudioInfo,
   KeyPressInfo,
 } from "../../../shared/types/index.js";
@@ -14,18 +16,27 @@ import type {
   RtcMediaStreamTrack,
   TrackAndStream,
 } from "../../types/index.js";
-import type { AudioAdminUsersChangeRequestResult } from "./IAudioMatrixManager.js";
+import type {
+  AudioAdminPartylinesProcessResult,
+  AudioAdminUsersApplyResult,
+  AudioAdminUsersValidationResult,
+} from "./IAudioMatrixManager.js";
 
 export interface AudioAdminInfos {
   inputGainsInfo: AdminInputGainsInfo;
   partylinesInfo: AdminPartylinesInfo;
-  soundcardInfo: AdminSoundcardInfo;
+  soundcardsInfo: AdminSoundcardsInfo;
   audioConfigInfo: AdminAudioConfigInfo;
+  audioBannersInfo: {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  };
 }
 
 export interface AudioHandlers {
   onAudioInfoUpdate: (userId: number, audioInfo: AudioInfo) => void;
   onAudioRestart: () => void;
+  onAudioLossDetectedChange: () => void;
 }
 
 export interface IAudioController {
@@ -44,7 +55,19 @@ export interface IAudioController {
   processDisallowedPlsInfos: (infos: DisallowedPlsInfo[]) => void;
 
   getAdminInfos: () => AudioAdminInfos;
-  processAdminUsersChangeRequest: (
-    changeRequest: AdminUsersChangeRequest,
-  ) => AudioAdminUsersChangeRequestResult;
+  getAdminSoundcardsInfo: () => AdminSoundcardsInfo;
+  getAdminPartylinesInfo: () => AdminPartylinesInfo;
+  getAdminAudioBannersInfo: () => {
+    audioLossDetected: boolean;
+    soundcardDevicesErr: boolean;
+  };
+  validateAdminUsersChangeRequest: (
+    request: AdminUsersChangeRequest,
+  ) => AudioAdminUsersValidationResult;
+  applyAdminUsersChangeRequest: (
+    allResolvedAPls: AllResolvedAPls,
+  ) => AudioAdminUsersApplyResult;
+  processAdminPartylinesChangeRequest: (
+    request: AdminPartylinesChangeRequest,
+  ) => AudioAdminPartylinesProcessResult;
 }
