@@ -5,6 +5,7 @@ import type {
   AdminUsersChangeRequest,
   AllResolvedAPls,
   KeyPressInfo,
+  KeyType,
   ManagerStatus,
   PartylineInfo,
 } from "../../../shared/types/index.js";
@@ -226,12 +227,14 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       return;
     }
 
-    if (!this.isPlAllowedForPortNum(portNum, partylineId)) {
-      this.logger.error(
-        `processKeyPress: portNum ${portNum} is not allowed access to partyline ID ${partyline.id}`,
-      );
-      return;
-    }
+    // Permission checks are now handled by TailManager before requests reach the matrix.
+    // AudioMatrixManager assumes callers are trusted/internal.
+    // if (!this.isPlAllowedForPortNum(portNum, partylineId)) {
+    //   this.logger.error(
+    //     `processKeyPress: portNum ${portNum} is not allowed access to partyline ID ${partyline.id}`,
+    //   );
+    //   return;
+    // }
 
     //TALK:
     if (type === "TALK") {
@@ -276,26 +279,31 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return !anyOtherTalkKeys;
   }
 
-  isPortTalkingToPartyline(portNum: number, plNum: number): boolean {
+  isPortInPartyline(portNum: number, plNum: number, type: KeyType): boolean {
     if (
-      this.checkAndWarnIfNotRunning("check if port is talking to partyline")
+      this.checkAndWarnIfNotRunning(
+        `check if port is ${type === "TALK" ? "talking" : "listening"} to partyline`,
+      )
     ) {
       return false;
     }
     if (!this.isPortNumValid(portNum)) {
       this.logger.error(
-        `isPortTalkingToPartyline: portNum ${portNum} is invalid. Will return false`,
+        `isPortInPartyline: portNum ${portNum} is invalid. Will return false`,
       );
       return false;
     }
     const pl = this.partylines[plNum];
     if (!pl) {
       this.logger.error(
-        `isPortTalkingToPartyline:  No partyline found for plNum ${plNum}. Will return false`,
+        `isPortInPartyline:  No partyline found for plNum ${plNum}. Will return false`,
       );
       return false;
     }
-    return pl.isPortTalking(portNum);
+    if (type === "TALK") {
+      return pl.isPortTalking(portNum);
+    }
+    return pl.isPortListening(portNum);
   }
 
   //Is the specified port talking to any partylines OTHER than the ones passed in:

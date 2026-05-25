@@ -21,6 +21,9 @@ import type {
   LongTailInfo,
   ShortTailInfo,
   TailInfo,
+  TailProcessListenParams,
+  TailProcessTalkOffParams,
+  TailProcessTalkOnParams,
 } from "../../types/index.js";
 //Other Imports:
 import { performance } from "node:perf_hooks";
@@ -125,16 +128,19 @@ export class TailManager implements ITailManager {
   }
 
   //This provides the virtualized layer in front of the audio matrix, where we can control tails etc
-  //If forceTailOff=true, if the key is being turned off, the tail will be forced off
-  //Todo: Implement noTail logic
+  //If force=true:
+  // 1: Port partyline access rights are ignored
+  // 2: If turning off a talk key, any tails relating to that key are forced off
+  // 3: "Already on" and "already off" warnings are silenced
   processKeyPress(
     portNum: number,
     keyPressInfo: KeyPressInfo,
-    forceTailOff: boolean = false,
+    force: boolean = false,
   ): void {
     if (this.checkAndWarnIfNotRunning("process key press")) {
       return;
     }
+
     const { type, id, setState } = keyPressInfo;
     const errMessage = `Unable to set partyline ${id} ${type} key to ${setState} for portNum ${portNum}`;
 
@@ -142,7 +148,7 @@ export class TailManager implements ITailManager {
       return;
     }
 
-    if (!this.activeHandlers.onIsPlAllowedForPortNum(portNum, id)) {
+    if (!force && !this.activeHandlers.onIsPlAllowedForPortNum(portNum, id)) {
       this.logger.warn(
         `processKeyPress: portNum ${portNum} is not allowed access to partyline ID ${id}`,
       );
@@ -168,62 +174,111 @@ export class TailManager implements ITailManager {
     }
 
     if (type === "LISTEN") {
-      this.activeHandlers.onKeyPress(portNum, keyPressInfo);
-      this.activeHandlers.onUpdateAudioInfo(portNum);
+      this.processListenKey({ portNum, keyPressInfo, errMessage, force });
       return;
     }
     //type === TALK:
     //TURNING TALK KEY ON:
     if (setState === "ON") {
-      this.processTalkKeyOn(portNum, keyPressInfo, tail, portTails, errMessage);
+      this.processTalkKeyOn({
+        portNum,
+        keyPressInfo,
+        tail,
+        portTails,
+        errMessage,
+        force,
+      });
       return;
     }
     //TURNING TALK KEY OFF:
-    this.processTalkKeyOff(
+    this.processTalkKeyOff({
       portNum,
       keyPressInfo,
       tail,
       portTails,
       errMessage,
-      forceTailOff,
-    );
+      force,
+    });
   }
 
-  processDisallowedPlsInfos(_infos: DisallowedPlsInfo[]): void {
-    //Todo: This is disabled until noTail is implemented in processKeyPress
-    // infos.forEach((info) => {
-    //   info.disallowedPls.forEach((plNum) => {
-    //     this.processKeyPress(info.userId, {
-    //       type: "TALK",
-    //       id: plNum,
-    //       setState: "OFF",
-    //     });
-    //     this.processKeyPress(info.userId, {
-    //       type: "LISTEN",
-    //       id: plNum,
-    //       setState: "OFF",
-    //     });
-    //   });
-    // });
+  processDisallowedPlsInfos(infos: DisallowedPlsInfo[]): void {
+    infos.forEach((info) => {
+      info.disallowedPls.forEach((plNum) => {
+        this.processKeyPress(
+          info.userId,
+          {
+            type: "TALK",
+            id: plNum,
+            setState: "OFF",
+          },
+          true,
+        );
+        this.processKeyPress(
+          info.userId,
+          {
+            type: "LISTEN",
+            id: plNum,
+            setState: "OFF",
+          },
+          true,
+        );
+      });
+    });
   }
 
-  private processTalkKeyOn(
-    portNum: number,
-    keyPressInfo: KeyPressInfo,
-    tail: TailInfo,
-    portTails: TailInfo[],
-    errMessage: string,
-  ): void {
-    const { id } = keyPressInfo;
-
-    const portCurrentlyTalking = this.activeHandlers.onIsPortTalkingToPartyline(
+  private processListenKey({
+    portNum,
+    keyPressInfo,
+    errMessage,
+    force,
+  }: TailProcessListenParams): void {
+    const { id, setState } = keyPressInfo;
+    const isPortCurrentlyListening = this.activeHandlers.onIsPortInPartyline(
       portNum,
       id,
+      "LISTEN",
     );
-    if (portCurrentlyTalking) {
+    if (setState === "ON" && isPortCurrentlyListening) {
+      if (!force) {
+        this.logger.warn(
+          errMessage + ": port is already listening to partyline",
+        );
+      }
+      return;
+    }
+    if (setState === "OFF" && !isPortCurrentlyListening) {
+      if (!force) {
+        this.logger.warn(errMessage + ": port is not listening to partyline");
+      }
+      return;
+    }
+    this.activeHandlers.onKeyPress(portNum, keyPressInfo);
+    this.activeHandlers.onUpdateAudioInfo(portNum);
+  }
+
+  private processTalkKeyOn({
+    portNum,
+    keyPressInfo,
+    tail,
+    portTails,
+    errMessage,
+    force,
+  }: TailProcessTalkOnParams): void {
+    const { id } = keyPressInfo;
+
+    const isPortCurrentlyTalking = this.activeHandlers.onIsPortInPartyline(
+      portNum,
+      id,
+      "TALK",
+    );
+    if (isPortCurrentlyTalking) {
       //If the port is already talking, and there is no tail, do nothing:
       if (tail.type === "NONE") {
-        this.logger.warn(errMessage + ": port is already talking to partyline");
+        if (!force) {
+          this.logger.warn(
+            errMessage + ": port is already talking to partyline",
+          );
+        }
         return;
       }
       if (tail.type === "LONG") {
@@ -254,23 +309,45 @@ export class TailManager implements ITailManager {
     return;
   }
 
-  //If forceTailOff=true, if the key is being turned off, the tail will be forced off
-  //Todo: Implement noTail logic
-  private processTalkKeyOff(
-    portNum: number,
-    keyPressInfo: KeyPressInfo,
-    tail: TailInfo,
-    portTails: TailInfo[],
-    errMessage: string,
-    _forceTailOff: boolean = false,
-  ): void {
+  private processTalkKeyOff({
+    portNum,
+    keyPressInfo,
+    tail,
+    portTails,
+    errMessage,
+    force,
+  }: TailProcessTalkOffParams): void {
     const { id } = keyPressInfo;
 
-    const portCurrentlyTalking = this.activeHandlers.onIsPortTalkingToPartyline(
+    const isPortCurrentlyTalking = this.activeHandlers.onIsPortInPartyline(
       portNum,
       id,
+      "TALK",
     );
-    if (!portCurrentlyTalking) {
+
+    if (force) {
+      if (!isPortCurrentlyTalking) {
+        return;
+      }
+      if (tail.type === "LONG") {
+        //Remove the long tail, turn off the key, and don't decay to shortTail:
+        this.removeLongTail(tail, portTails, true, false);
+      } else if (tail.type === "SHORT") {
+        //Remove the short tail and turn off the key:
+        this.removeShortTail(tail, portTails);
+      } else {
+        //Otherwise, just turn off the key:
+        this.activeHandlers.onKeyPress(portNum, {
+          type: "TALK",
+          id,
+          setState: "OFF",
+        });
+      }
+      this.activeHandlers.onUpdateAudioInfo(portNum);
+      return;
+    }
+
+    if (!isPortCurrentlyTalking) {
       this.logger.warn(errMessage + ": port is not talking to partyline");
       return;
     } else if (tail.type === "LONG") {
@@ -280,12 +357,12 @@ export class TailManager implements ITailManager {
       return;
     }
 
-    const onlyKey = this.activeHandlers.onIsSoleActiveTalkKeyForPort(
+    const isSoleActiveKey = this.activeHandlers.onIsSoleActiveTalkKeyForPort(
       portNum,
       id,
     );
     //If this is the only talk key that's currently active for this port, we add a long tail:
-    if (onlyKey) {
+    if (isSoleActiveKey) {
       this.addLongTail(portNum, id, portTails);
       this.activeHandlers.onUpdateAudioInfo(portNum);
       return;
@@ -315,22 +392,25 @@ export class TailManager implements ITailManager {
     longTail: LongTailInfo,
     portTails: TailInfo[],
     turnOffKey: boolean = true,
+    decayToShortTail: boolean = true,
   ) {
     const { portNum, plNum, startTimestamp } = longTail;
     if (turnOffKey) {
-      //If less time has elapsed than the duration of a short tail, then add a short tail for the remaining duration
-      //This ensures that a long tail never ends up being shorter than a regular short tail in practice:
-      const timeElapsed = performance.now() - startTimestamp;
+      if (decayToShortTail) {
+        //If less time has elapsed than the duration of a short tail, then add a short tail for the remaining duration
+        //This ensures that a long tail never ends up being shorter than a regular short tail in practice:
+        const timeElapsed = performance.now() - startTimestamp;
 
-      if (timeElapsed < SHORT_TAIL_TIME_MS) {
-        portTails[longTail.plNum] = { type: "NONE" };
-        this.addShortTail(
-          portNum,
-          plNum,
-          portTails,
-          Math.max(0, SHORT_TAIL_TIME_MS - timeElapsed),
-        );
-        return;
+        if (timeElapsed < SHORT_TAIL_TIME_MS) {
+          portTails[longTail.plNum] = { type: "NONE" };
+          this.addShortTail(
+            portNum,
+            plNum,
+            portTails,
+            Math.max(0, SHORT_TAIL_TIME_MS - timeElapsed),
+          );
+          return;
+        }
       }
       //Otherwise, turn off the talk key
       this.activeHandlers.onKeyPress(portNum, {

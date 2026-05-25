@@ -7,6 +7,7 @@ import type {
   AllResolvedAPls,
   AudioInfo,
   KeyPressInfo,
+  KeyType,
   MergedPartylineInfo,
 } from "../../shared/types/index.js";
 import type {
@@ -254,8 +255,7 @@ export class AudioController implements IAudioController {
       onUpdateAudioInfo: (p) => this.handleTailManagerUpdateAudioInfo(p),
       onIsSoleActiveTalkKeyForPort: (p, pl) =>
         this.handleIsSoleActiveTalkKeyForPort(p, pl),
-      onIsPortTalkingToPartyline: (p, pl) =>
-        this.handleIsPortTalkingToPartyline(p, pl),
+      onIsPortInPartyline: (p, pl, t) => this.handleIsPortInPartyline(p, pl, t),
       onAreAnyOtherTalkKeysActiveForPort: (p, pls) =>
         this.handleAreAnyOtherTalkKeysActiveForPort(p, pls),
       onIsPlAllowedForPortNum: (p, pl) =>
@@ -434,11 +434,12 @@ export class AudioController implements IAudioController {
     return this.audioMatrixManager.isSoleActiveTalkKeyForPort(portNum, plNum);
   }
 
-  private handleIsPortTalkingToPartyline(
+  private handleIsPortInPartyline(
     portNum: number,
     plNum: number,
+    type: KeyType,
   ): boolean {
-    return this.audioMatrixManager.isPortTalkingToPartyline(portNum, plNum);
+    return this.audioMatrixManager.isPortInPartyline(portNum, plNum, type);
   }
 
   private handleAreAnyOtherTalkKeysActiveForPort(

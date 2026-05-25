@@ -1,5 +1,5 @@
 //Set to true and run tail -f dev_matrix_view.txt in terminal to see a live updating view of crosspoints
-export const ENABLE_DEV_MATRIX_VIEW = true;
+export const ENABLE_DEV_MATRIX_VIEW = false;
 
 //Global:
 export const APP_NAME = "WebCom";

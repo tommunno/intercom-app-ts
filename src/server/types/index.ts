@@ -23,4 +23,5 @@ export * from "./SessionTokens.js";
 export * from "./AdminLoggedInClientInfo.js";
 export * from "./AllowedPlsInfo.js";
 export * from "./DisallowedPlsInfo.js";
+export * from "./TailProcessKeyParams.js";
 export * from "./wrtcShimTypes.js";

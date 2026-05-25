@@ -112,7 +112,6 @@ To allow remote clients to connect, you can set up port forwarding for the HTTPS
 - Troubleshooting options such as restarting the Audio Engine and TURN server from the GUI
 - Live logging in the GUI
 - Admin credential configuration
-- Automatically disabling talk and listen keys when a user no longer has access to a partyline
 - The client-side Mute Mic button
 - Listen keys flashing to indicate active speech on the partyline
 - A `config.json` file for admin HTTP, HTTPS, and TURN port configuration
