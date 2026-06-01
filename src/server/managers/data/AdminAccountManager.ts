@@ -205,6 +205,28 @@ export class AdminAccountManager implements IAdminAccountManager {
     return Array.from(this.loggedInClients.keys());
   }
 
+  getSaveSnapshot(): AdminAccountData | null {
+    const notRunning = this.checkAndWarnIfNotRunning("get save snapshot");
+    if (notRunning) return null;
+
+    const sessionTokenInfos: SessionTokenInfo[] = [];
+    this.sessionTokenInfos.forEach((info) => {
+      sessionTokenInfos.push({ ...info });
+    });
+
+    if (this.passwordHash === null) {
+      return {
+        username: this.username,
+        sessionTokenInfos,
+      };
+    }
+    return {
+      username: this.username,
+      passwordHash: this.passwordHash,
+      sessionTokenInfos,
+    };
+  }
+
   private hardLogin(clientId: string, sessionToken: string): AdminAuthResult {
     this.loggedInClients.set(clientId, {
       clientId,
@@ -432,10 +454,14 @@ export class AdminAccountManager implements IAdminAccountManager {
 
   private cleanupSessions(): void {
     this.logger.info("Cleaning up sessions");
+    const beforeSize = this.sessionTokenInfos.size;
 
     this.sessionTokenInfos = this.getValidSessionTokenInfos(
       this.sessionTokenInfos,
     );
+    if (beforeSize !== this.sessionTokenInfos.size) {
+      this.activeHandlers.onSessionTokensCleanedUp();
+    }
   }
 
   private validateUsername(name: string): boolean {

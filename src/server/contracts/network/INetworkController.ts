@@ -7,6 +7,7 @@ import type {
 } from "../../../shared/types/index.js";
 import type {
   NetworkData,
+  NetworkPopulateData,
   TrackAndStream,
   WssSendMessage,
 } from "../../types/index.js";
@@ -35,9 +36,11 @@ export interface NetworkHandlers
 
 export interface INetworkController {
   init: () => Promise<void>;
-  populate: (data: NetworkData) => Promise<void>;
+  populate: (data: NetworkPopulateData) => Promise<void>;
   start: () => void;
   setHandlers: (handlers: NetworkHandlers) => void;
+
+  getSaveSnapshot: () => NetworkData | null;
 
   //WssManager:
   sendWssMessage: WssSendMessage;

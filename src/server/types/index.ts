@@ -25,3 +25,4 @@ export * from "./AllowedPlsInfo.js";
 export * from "./DisallowedPlsInfo.js";
 export * from "./TailProcessKeyParams.js";
 export * from "./wrtcShimTypes.js";
+export * from "./databaseTypes.js";

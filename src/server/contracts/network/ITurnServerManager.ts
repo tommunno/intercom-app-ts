@@ -11,6 +11,10 @@ export interface TurnServerAdminInfo {
   ipv4Interfaces: Ipv4Interfaces;
 }
 
+export interface TurnServerSaveSnapshot {
+  ip?: string;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty interface here for future handlers
 export interface TurnServerHandlers {}
 
@@ -21,6 +25,7 @@ export interface ITurnServerManager {
   populate: (data: TurnServerResolvedData) => string;
   createClientCredentials: () => TurnServerCredentials | null;
   getAdminInfo: () => TurnServerAdminInfo;
+  getSaveSnapshot: () => TurnServerSaveSnapshot | null;
   status: ManagerStatus;
   port: number | null;
 }

@@ -8,6 +8,7 @@ import type {
   KeyType,
   ManagerStatus,
   PartylineInfo,
+  PlNameInfo,
 } from "../../../shared/types/index.js";
 import type {
   AudioAdminPartylinesProcessResult,
@@ -16,6 +17,7 @@ import type {
   AudioMatrixConfig,
   AudioMatrixHandlers,
   AudioMatrixPopulateConfig,
+  AudioMatrixSaveSnapshot,
   AudioMatrixSnapshot,
   AudioMatrixStopResult,
   IAudioMatrixManager,
@@ -94,10 +96,10 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     this.setConfig(config);
 
     if (snapshot) {
-      this.createPartylines(snapshot.partylineSnapshots);
+      this.createPartylines(config.plNames, snapshot.partylineSnapshots);
       this.createOutputPorts();
     } else {
-      this.createPartylines();
+      this.createPartylines(config.plNames);
       this.createOutputPorts();
     }
 
@@ -454,6 +456,27 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return { success: true };
   }
 
+  getSaveSnapshot(): AudioMatrixSaveSnapshot | null {
+    const result = this.checkAndWarnIfNotRunning("get save snapshot");
+    if (result) {
+      return null;
+    }
+    const allowedPlsInfos: AllowedPlsInfo[] = [];
+    this._config.allowedPlsInfos.forEach((info) => {
+      allowedPlsInfos.push({ ...info, allowedPls: [...info.allowedPls] });
+    });
+    const plNames: PlNameInfo[] = this.partylines.map((pl) => ({
+      id: pl.id,
+      name: pl.name,
+    }));
+
+    return {
+      numPartylines: this._config.numPartylines,
+      allowedPlsInfos,
+      plNames,
+    };
+  }
+
   private validateAdminPartylinesChangeRequest(
     request: AdminPartylinesChangeRequest,
   ): { success: true } | { success: false; message: string } {
@@ -527,7 +550,11 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     this._config.numUsers = nU;
     this._config.numSoundcardChannels = nSC;
 
-    if (
+    if (nP === undefined) {
+      this.logger.warn(
+        `No partyline count was provided. Will fall back to the default value of ${DEFAULT_NUM_PARTYLINES}`,
+      );
+    } else if (
       !dataIsType("safeIntegerNum", nP) ||
       nP < 1 ||
       nP > MAX_NUM_PARTYLINES
@@ -617,8 +644,13 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return success;
   }
 
-  private createPartylines(snapshots?: PartylineSnapshot[]): void {
+  private createPartylines(
+    plNames?: PlNameInfo[],
+    snapshots?: PartylineSnapshot[],
+  ): void {
     this.partylines = [];
+
+    const autoNamedPlNums = new Set<number>();
 
     for (let i = 0; i < this._config.numPartylines; i++) {
       //In the case of a snapshot being used, we only restore the listens and the SOUNDCARD talks. This is a design choice.
@@ -649,11 +681,15 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       const clampedSoundcardPortNum =
         soundcardPortNum >= this.numPorts ? null : soundcardPortNum;
 
+      const plName = plNames?.find((info) => info.id === i)?.name;
+
       this.partylines.push(
         new Partyline(
           {
             id: i,
-            name: snap?.name ?? `${i + 1}`,
+            //Use the snapshot name if there is one. Otherwise use the plName from the DB if there is one. Otherwise auto-generate a name:
+            name:
+              snap?.name ?? plName ?? this.generatePlName(i, autoNamedPlNums),
             numPorts: this.numPorts,
             portsTalking:
               //Use the soundcard filtered portsTalking snapshot if it exists:
@@ -678,6 +714,27 @@ export class AudioMatrixManager implements IAudioMatrixManager {
         ),
       );
     }
+    if (autoNamedPlNums.size === this._config.numPartylines) {
+      this.logger.warn(
+        "No partyline names were provided. Falling back to default names.",
+      );
+      return;
+    }
+    if (autoNamedPlNums.size > 0) {
+      const partylineNumbers = [...autoNamedPlNums]
+        .sort((a, b) => a - b)
+        .join(", ");
+
+      this.logger.warn(
+        `Unable to find names for partylines ${partylineNumbers}. Falling back to default names.`,
+      );
+    }
+  }
+
+  //The plNum is added into autoNamedPlNums to keep track of which PLs have been auto-named
+  private generatePlName(plNum: number, autoNamedPlNums: Set<number>): string {
+    autoNamedPlNums.add(plNum);
+    return `${plNum + 1}`;
   }
 
   private createOutputPorts(): void {

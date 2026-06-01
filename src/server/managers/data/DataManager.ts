@@ -4,14 +4,28 @@ import type {
   IDataManager,
   ILogger,
 } from "../../contracts/index.js";
-import type { AccountData } from "../../types/AccountData.js";
-import type { AdminAccountData } from "../../types/AdminAccountData.js";
-import type { AudioData } from "../../types/AudioData.js";
-import type { NetworkData } from "../../types/NetworkData.js";
+import {
+  type DataKey,
+  type DataPayloadMap,
+  type UpsertDataStatement,
+  type GetDataStatement,
+  type NetworkPopulateData,
+  type WebServerData,
+  type TurnServerData,
+  DATA_PAYLOAD_VALIDATORS,
+} from "../../types/index.js";
+//External:
+import path from "node:path";
+import fs from "node:fs";
+import "dotenv/config";
+import Database from "better-sqlite3";
 
 export class DataManager implements IDataManager {
   private status: ManagerStatus = "IDLE";
   private handlers: DataManagerHandlers | null = null;
+  private db: Database.Database | null = null;
+  private upsertData: UpsertDataStatement | null = null;
+  private getData: GetDataStatement | null = null;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "DataManager" });
@@ -23,6 +37,7 @@ export class DataManager implements IDataManager {
         `Cannot initialize the DataManager whilst its status is ${this.status}`,
       );
     }
+    this.ensureDatabase();
     this.status = "INITIALIZED";
   }
 
@@ -41,90 +56,75 @@ export class DataManager implements IDataManager {
     this.handlers = handlers;
   }
 
-  getAccountData(): AccountData {
-    this.checkAndWarnIfNotRunning("get account data", true);
-
-    //Temporary data:
-    return {
-      numUsers: 16,
-      // persistedUsers: [
-      //   {
-      //     username: "tom",
-      //     passwordHash:
-      //       "$2b$10$XbICIHnhbBCPaE0g5BaCveWKiuXiw4y0H9q7RG/uYumJCsyyQxNeu",
-      //     sessionTokenInfos: [],
-      //   },
-      //   {
-      //     username: "tom",
-      //     passwordHash: null,
-      //     sessionTokenInfos: [
-      //       {
-      //         token: "abc",
-      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      //       },
-      //       {
-      //         token: "def",
-      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      //       },
-      //     ],
-      //   },
-      //   {
-      //     username: "user-3",
-      //     passwordHash: null,
-      //     sessionTokenInfos: [
-      //       {
-      //         token: "ghi",
-      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      //       },
-      //     ],
-      //   },
-      //   {
-      //     username: "ryan",
-      //     passwordHash: null,
-      //     sessionTokenInfos: [
-      //       {
-      //         token: "jkl",
-      //         expiresAtMs: Date.now() + 7 * 24 * 60 * 60 * 1000,
-      //       },
-      //     ],
-      //   },
-      // ],
-    };
+  saveData<K extends DataKey>(key: K, data: DataPayloadMap[K]): void {
+    const action = `save data with key ${key}`;
+    if (this.checkAndWarnIfNotRunning(action)) {
+      return;
+    }
+    if (this.upsertData === null) {
+      this.logger.error(`Unable to ${action}: upsertData is null`);
+      return;
+    }
+    let json: string;
+    try {
+      json = JSON.stringify(data);
+    } catch (err) {
+      this.logger.error(`Unable to ${action}: ${err}`);
+      return;
+    }
+    this.upsertData.run(key, json, Date.now());
   }
 
-  getAdminAccountData(): AdminAccountData {
-    this.checkAndWarnIfNotRunning("get admin account data", true);
-
-    //Temporary data:
-    return {
-      sessionTokenInfos: [
-        { token: "abcdef", expiresAtMs: Date.now() + 24 * 60 * 60 * 1000 },
-      ],
-    };
+  loadData<K extends DataKey>(
+    key: K,
+    fallback: DataPayloadMap[K],
+  ): DataPayloadMap[K] {
+    const action = `load data with key ${key}`;
+    if (this.checkAndWarnIfNotRunning(action)) {
+      return fallback;
+    }
+    if (this.getData === null) {
+      this.logger.error(`Unable to ${action}: getData is null`);
+      return fallback;
+    }
+    const result = this.getData.get(key);
+    if (!result) {
+      this.logger.warn(`Unable to ${action}: no data found`);
+      return fallback;
+    }
+    try {
+      const data: unknown = JSON.parse(result.json);
+      const validator = DATA_PAYLOAD_VALIDATORS[key];
+      if (!validator(data)) {
+        throw new Error(
+          `the data does not match expected shape for key ${key}`,
+        );
+      }
+      return data;
+    } catch (err) {
+      this.logger.error(`Unable to ${action}: data is invalid: ${err}`);
+      return fallback;
+    }
   }
 
-  getNetworkData(): NetworkData {
-    this.checkAndWarnIfNotRunning("get network data", true);
+  getNetworkData(): NetworkPopulateData {
+    const networkData = this.loadData("NETWORK", {});
+    //Port validation takes place in NetworkController
+    const httpEnv = process.env.INTERCOM_HTTP_PORT;
+    const httpsEnv = process.env.INTERCOM_HTTPS_PORT;
+    const turnEnv = process.env.INTERCOM_TURN_PORT;
 
-    //Temporary data:
+    const webServerData: WebServerData = {};
+    const turnServerData: TurnServerData = {};
+
+    if (httpEnv !== undefined) webServerData.httpPort = Number(httpEnv);
+    if (httpsEnv !== undefined) webServerData.httpsPort = Number(httpsEnv);
+    if (turnEnv !== undefined) turnServerData.port = Number(turnEnv);
+    if (networkData.turnServerIp !== undefined)
+      turnServerData.ip = networkData.turnServerIp;
     return {
-      webServerData: {},
-      turnServerData: { ip: "192.168.86.183" },
-    };
-  }
-
-  getAudioData(): AudioData {
-    this.checkAndWarnIfNotRunning("get audio data", true);
-
-    //Temporary data:
-    return {
-      requestedNumSoundcardChannels: 4,
-      numPartylines: 16,
-      requestedSoundcardId: 6,
-      allowedPlsInfos: [
-        // { userId: 0, allowedPls: [0, 1, 2, 3, 4, 5, 6, 7, 8] },
-        // { userId: 2, allowedPls: [1, 2, 3, 9] },
-      ],
+      turnServerData,
+      webServerData,
     };
   }
 
@@ -132,6 +132,36 @@ export class DataManager implements IDataManager {
     if (!this.handlers)
       throw new Error("DataManager handlers not initialized!");
     return this.handlers;
+  }
+
+  private ensureDatabase(): void {
+    const dataDir = path.join(process.cwd(), "data");
+    fs.mkdirSync(dataDir, { recursive: true });
+    const dbPath = path.join(dataDir, "app.db");
+
+    this.db = new Database(dbPath);
+
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS app_state (
+        key TEXT PRIMARY KEY,
+        json TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )      
+    `);
+
+    this.upsertData = this.db.prepare(`
+      INSERT INTO app_state (key, json, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        json = excluded.json,
+        updated_at = excluded.updated_at;
+    `);
+
+    this.getData = this.db.prepare(`
+      SELECT json
+      FROM app_state
+      WHERE key = ?
+    `);
   }
 
   private checkAndWarnIfNotRunning(

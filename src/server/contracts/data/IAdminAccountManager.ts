@@ -13,6 +13,7 @@ export interface AdminLogoutResult {
 export interface AdminAccountHandlers {
   onHeartbeat(clientIds: string[], payload: HeartbeatRequestPayload): void;
   onStaleHeartbeat(clientId: string): void;
+  onSessionTokensCleanedUp(): void;
 }
 
 export interface IAdminAccountManager {
@@ -30,4 +31,5 @@ export interface IAdminAccountManager {
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
   isClientIdLoggedIn: (clientId: string) => boolean;
   getLoggedInClientIds: () => string[];
+  getSaveSnapshot: () => AdminAccountData | null;
 }

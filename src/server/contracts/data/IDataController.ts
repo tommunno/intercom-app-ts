@@ -7,8 +7,11 @@ import type {
   LoginCredentials,
   UserInfo,
 } from "../../../shared/types/index.js";
-import type { AudioPopulateData } from "../../types/AudioData.js";
-import type { NetworkData } from "../../types/NetworkData.js";
+import type { AudioData, AudioPopulateData } from "../../types/AudioData.js";
+import type {
+  NetworkData,
+  NetworkPopulateData,
+} from "../../types/NetworkData.js";
 import type {
   AccountAdminUsersApplyResult,
   AccountAdminUsersValidationResult,
@@ -26,6 +29,8 @@ export interface DataHandlers {
     isAdmin?: boolean,
   ): void;
   onStaleHeartbeat(clientId: string, isAdmin?: boolean): void;
+  onSessionTokensCleanedUp(): void;
+  onAdminSessionTokensCleanedUp(): void;
 }
 
 export interface IDataController {
@@ -33,8 +38,13 @@ export interface IDataController {
   start: () => Promise<void>;
   setHandlers: (handlers: DataHandlers) => void;
 
-  getNetworkData: () => NetworkData;
+  getNetworkData: () => NetworkPopulateData;
   getAudioData: () => AudioPopulateData;
+
+  saveAccountData: () => void;
+  saveAdminAccountData: () => void;
+  saveAudioData: (data: AudioData | null) => void;
+  saveNetworkData: (data: NetworkData | null) => void;
 
   softLoginUser: (
     sessionToken: string | null,

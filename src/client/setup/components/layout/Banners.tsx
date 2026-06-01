@@ -53,8 +53,8 @@ export function Banners() {
             {`The ${httpsErr ? "HTTPS server" : ""} ${httpsErr && turnErr ? "and TURN server were" : turnErr ? "TURN server was" : "was"} unable to start.`}
           </strong>
           <span className="banner-message">
-            {`${httpsErr && turnErr ? "Their ports are" : "The port is"} already in use. Please update the port${httpsErr && turnErr ? "s" : ""} in `}
-            <code className="code">config.json</code> and restart the app.{" "}
+            {`${httpsErr && turnErr ? "Their ports are" : "The port is"} already in use. Please update the relevant port variable${httpsErr && turnErr ? "s" : ""} in `}
+            <code className="code">.env</code> and restart the app.{" "}
             <a className="link" href="/docs">
               Need help? See docs.
             </a>
@@ -63,14 +63,16 @@ export function Banners() {
       </div>
       <div className={`banner warning${sslWarning ? " visible" : ""}`}>
         <span className="warning-icon">⚠️</span>
+
         <span className="banner-text">
           <strong className="banner-title">
             A valid SSL certificate is recommended for trusted browser access.
           </strong>
+
           <span className="banner-message">
-            Place <code className="code">certificate.pem</code> and{" "}
-            <code className="code">private-key.pem</code> in the WebCom{" "}
-            <code className="code">ssl</code> folder.{" "}
+            Place <code className="code">server.cert</code> and{" "}
+            <code className="code">server.key</code> in the project root{" "}
+            <code className="code">certs</code> folder.{" "}
             <a className="link" href="/docs">
               Need help? See docs.
             </a>

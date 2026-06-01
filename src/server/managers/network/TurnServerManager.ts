@@ -6,6 +6,7 @@ import type {
   ILogger,
   TurnServerHandlers,
   TurnServerAdminInfo,
+  TurnServerSaveSnapshot,
 } from "../../contracts/index.js";
 import type { TurnServerResolvedData } from "../../types/NetworkData.js";
 
@@ -72,6 +73,12 @@ export class TurnServerManager implements ITurnServerManager {
       isTurnServerOnline: this._isOnline,
       ipv4Interfaces: {},
     };
+  }
+
+  getSaveSnapshot(): TurnServerSaveSnapshot | null {
+    const notRunning = this.checkAndWarnIfNotRunning("get save snapshot");
+    if (notRunning) return null;
+    return { ip: this._ip };
   }
 
   get status(): ManagerStatus {

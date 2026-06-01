@@ -1,4 +1,10 @@
+import { dataIsObject, dataIsTypeAOrB } from "../../shared/helpers.js";
+
 export interface NetworkData {
+  turnServerIp?: string;
+}
+
+export interface NetworkPopulateData {
   webServerData: WebServerData;
   turnServerData: TurnServerData;
 }
@@ -26,4 +32,11 @@ export interface WebServerResolvedData {
 export interface TurnServerResolvedData {
   port: number;
   ip?: string;
+}
+
+export function dataIsNetworkData(data: unknown): data is NetworkData {
+  return (
+    dataIsObject(data) &&
+    dataIsTypeAOrB("string", "undefined", data.turnServerIp)
+  );
 }

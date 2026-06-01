@@ -8,6 +8,7 @@ import type {
   KeyType,
   ManagerStatus,
   PartylineInfo,
+  PlNameInfo,
 } from "../../../shared/types/index.js";
 import type {
   AllowedPlsInfo,
@@ -29,6 +30,7 @@ export interface AudioMatrixPopulateConfig {
   numSoundcardChannels: number;
   numPartylines?: number;
   allowedPlsInfos?: AllowedPlsInfo[];
+  plNames?: PlNameInfo[];
 }
 
 export interface AudioMatrixSnapshot {
@@ -38,6 +40,12 @@ export interface AudioMatrixSnapshot {
 export interface AudioMatrixStopResult {
   config: AudioMatrixConfig;
   snapshot: AudioMatrixSnapshot | null;
+}
+
+export interface AudioMatrixSaveSnapshot {
+  numPartylines?: number;
+  allowedPlsInfos?: AllowedPlsInfo[];
+  plNames?: PlNameInfo[];
 }
 
 export interface AudioMatrixHandlers {
@@ -91,6 +99,8 @@ export interface IAudioMatrixManager {
   processAdminPartylinesChangeRequest: (
     changeRequest: AdminPartylinesChangeRequest,
   ) => AudioAdminPartylinesProcessResult;
+  getSaveSnapshot: () => AudioMatrixSaveSnapshot | null;
+
   status: ManagerStatus;
   config: AudioMatrixConfig;
 }

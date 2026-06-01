@@ -32,6 +32,7 @@ import type {
 } from "../contracts/index.js";
 import type {
   AllowedPlsInfo,
+  AudioData,
   AudioPopulateData,
   CrosspointChange,
   DisallowedPlsInfo,
@@ -64,6 +65,14 @@ export class AudioController implements IAudioController {
     this.populateManagers(data, null);
   }
 
+  getSaveSnapshot(): AudioData | null {
+    const audioMatrixSnap = this.audioMatrixManager.getSaveSnapshot();
+    if (!audioMatrixSnap) return null;
+    const audioEngineSnap = this.audioEngineManager.getSaveSnapshot();
+    if (!audioEngineSnap) return null;
+    return { ...audioMatrixSnap, ...audioEngineSnap };
+  }
+
   private buildAudioEnginePopulateConfig(
     data: AudioPopulateData,
   ): AudioEnginePopulateConfig {
@@ -82,7 +91,7 @@ export class AudioController implements IAudioController {
     data: AudioPopulateData,
     engineConfig: AudioEngineConfig,
   ): AudioMatrixPopulateConfig {
-    const { numPartylines: numPl, allowedPlsInfos: aPlsInfos } = data;
+    const { numPartylines: numPl, allowedPlsInfos: aPlsInfos, plNames } = data;
     const { requestedNumSoundcardChannels: rNumSC, numUsers } = engineConfig;
     const conf: AudioMatrixPopulateConfig = {
       numUsers,
@@ -91,6 +100,7 @@ export class AudioController implements IAudioController {
     };
     if (numPl !== undefined) conf.numPartylines = numPl;
     if (aPlsInfos !== undefined) conf.allowedPlsInfos = aPlsInfos;
+    if (plNames !== undefined) conf.plNames = plNames;
     return conf;
   }
 
@@ -416,9 +426,6 @@ export class AudioController implements IAudioController {
       return;
     }
     this.audioMatrixManager.processKeyPress(portNum, keyPressInfo);
-    // const audioInfo = this.getAudioInfo(portNum);
-    // if (!audioInfo) return;
-    // this.activeHandlers.onAudioInfoUpdate(portNum, audioInfo);
   }
 
   private handleTailManagerUpdateAudioInfo(portNum: number): void {

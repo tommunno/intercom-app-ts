@@ -4,6 +4,6 @@ import SetupApp from "./SetupApp.jsx";
 
 ReactDom.createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <SetupApp />
+    <SetupApp />,
   </StrictMode>,
 );

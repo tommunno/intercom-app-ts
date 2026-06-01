@@ -28,6 +28,7 @@ import type {
 } from "../contracts/index.js";
 import type {
   NetworkData,
+  NetworkPopulateData,
   NetworkResolvedData,
   TurnServerResolvedData,
   WebServerResolvedData,
@@ -72,7 +73,7 @@ export class NetworkController implements INetworkController {
     this.processStatsManager.init();
   }
 
-  async populate(data: NetworkData): Promise<void> {
+  async populate(data: NetworkPopulateData): Promise<void> {
     const resolvedData = await this.resolvePorts(data);
     this.webServerManager.populate(resolvedData.webServerResolvedData);
     let url: string | null = null;
@@ -99,6 +100,15 @@ export class NetworkController implements INetworkController {
 
   setHandlers(handlers: NetworkHandlers): void {
     this.handlers = handlers;
+  }
+
+  getSaveSnapshot(): NetworkData | null {
+    const turnServerSnap = this.turnServerManager.getSaveSnapshot();
+    if (turnServerSnap === null) return null;
+    if (turnServerSnap.ip === undefined) {
+      return {};
+    }
+    return { turnServerIp: turnServerSnap.ip };
   }
 
   //WssManager:
@@ -268,7 +278,9 @@ export class NetworkController implements INetworkController {
     });
   }
 
-  private async resolvePorts(data: NetworkData): Promise<NetworkResolvedData> {
+  private async resolvePorts(
+    data: NetworkPopulateData,
+  ): Promise<NetworkResolvedData> {
     const { httpPort, httpsPort } = data.webServerData;
     const { port: turnPort } = data.turnServerData;
     const portInfos: PortInfos = {
@@ -394,7 +406,7 @@ export class NetworkController implements INetworkController {
   }
 
   private createResolvedData(
-    data: NetworkData,
+    data: NetworkPopulateData,
     portInfos: PortInfos,
   ): NetworkResolvedData {
     const httpPort = portInfos.HTTP.outputValue;

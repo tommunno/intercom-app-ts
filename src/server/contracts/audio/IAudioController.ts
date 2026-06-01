@@ -11,6 +11,7 @@ import type {
 } from "../../../shared/types/index.js";
 import type {
   AllowedPlsInfo,
+  AudioData,
   AudioPopulateData,
   DisallowedPlsInfo,
   RtcMediaStreamTrack,
@@ -44,6 +45,8 @@ export interface IAudioController {
   populate: (data: AudioPopulateData) => void;
   start: () => void;
   setHandlers: (handlers: AudioHandlers) => void;
+
+  getSaveSnapshot: () => AudioData | null;
 
   getAudioInfo: (userId: number) => AudioInfo | null;
   getAllowedPlsInfos: () => AllowedPlsInfo[];

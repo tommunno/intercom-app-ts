@@ -46,7 +46,7 @@ import {
 import crypto from "node:crypto";
 import bcrypt from "bcrypt";
 import { dataIsType } from "../../../shared/helpers.js";
-import type { AccountData, PersistedUsers } from "../../types/AccountData.js";
+import type { AccountData, PersistedUsers } from "../../types/index.js";
 
 export class AccountManager implements IAccountManager {
   private status: ManagerStatus = "IDLE";
@@ -122,7 +122,11 @@ export class AccountManager implements IAccountManager {
   }
 
   private setNumUsers(numUsers?: number): void {
-    if (
+    if (numUsers === undefined) {
+      this.logger.warn(
+        `No user count provided. Will fall back to the default value of ${DEFAULT_NUM_USERS}`,
+      );
+    } else if (
       !dataIsType("safeIntegerNum", numUsers) ||
       numUsers < 1 ||
       numUsers > MAX_NUM_USERS
@@ -811,6 +815,22 @@ export class AccountManager implements IAccountManager {
     return { userIdsToUpdate, userIdsToHardLogout };
   }
 
+  getSaveSnapshot(): AccountData | null {
+    const notRunning = this.checkAndWarnIfNotRunning("get save snapshot");
+    if (notRunning) {
+      return null;
+    }
+    const persistedUsers: PersistedUsers = {};
+    this.users.forEach((user, userId) => {
+      persistedUsers[userId] = {
+        username: user.username,
+        passwordHash: user.passwordHash,
+        sessionTokenInfos: user.sessionTokenInfos.map((info) => ({ ...info })),
+      };
+    });
+    return { numUsers: this._numUsers, persistedUsers };
+  }
+
   get numUsers(): number {
     if (this.status === "IDLE" || this.status === "INITIALIZED") {
       this.logger.error(
@@ -881,11 +901,19 @@ export class AccountManager implements IAccountManager {
 
   private cleanupSessions(): void {
     this.logger.info("Cleaning up sessions");
+    let beforeCount = 0;
+    let afterCount = 0;
 
     this.users.forEach((user) => {
+      beforeCount += user.sessionTokenInfos.length;
       user.sessionTokenInfos = this.getValidSessionTokenInfos(
         user.sessionTokenInfos,
       );
+      afterCount += user.sessionTokenInfos.length;
     });
+
+    if (beforeCount !== afterCount) {
+      this.activeHandlers.onSessionTokensCleanedUp();
+    }
   }
 }

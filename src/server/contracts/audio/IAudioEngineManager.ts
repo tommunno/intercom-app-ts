@@ -38,6 +38,11 @@ export interface AudioEngineHandlers {
   onAudioLossDetectedChange: (lossDetected: boolean) => void;
 }
 
+export interface AudioEngineSaveSnapshot {
+  requestedNumSoundcardChannels?: number;
+  requestedSoundcardId?: number;
+}
+
 export interface IAudioEngineManager {
   init: () => void;
   populate: (config: AudioEnginePopulateConfig) => AudioEngineConfig;
@@ -55,4 +60,5 @@ export interface IAudioEngineManager {
     audioLossDetected: boolean;
     soundcardDevicesErr: boolean;
   };
+  getSaveSnapshot: () => AudioEngineSaveSnapshot | null;
 }

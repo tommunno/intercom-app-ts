@@ -1,4 +1,8 @@
-import { type SessionTokenInfo } from "./SessionTokenInfo.js";
+import { dataIsObject, dataIsType, dataIsTypeAOrB } from "../helpers.js";
+import {
+  dataIsArrayOfSessionTokenInfos,
+  type SessionTokenInfo,
+} from "./SessionTokenInfo.js";
 
 export interface PersistedUser {
   username: string;
@@ -14,3 +18,12 @@ export interface User extends PersistedUser {
 }
 
 export type UserAndId = [user: User, userId: number];
+
+export function dataIsPersistedUser(data: unknown): data is PersistedUser {
+  return (
+    dataIsObject(data) &&
+    dataIsType("string", data.username) &&
+    dataIsTypeAOrB("string", "null", data.passwordHash) &&
+    dataIsArrayOfSessionTokenInfos(data.sessionTokenInfos)
+  );
+}

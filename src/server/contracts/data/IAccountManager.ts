@@ -33,6 +33,7 @@ export type HardLoginUserParams =
 export interface AccountHandlers {
   onHeartbeat(clientIds: string[], payload: HeartbeatRequestPayload): void;
   onStaleHeartbeat(clientId: string): void;
+  onSessionTokensCleanedUp(): void;
 }
 
 export type AccountAdminUsersValidationResult =
@@ -77,6 +78,7 @@ export interface IAccountManager {
   applyAdminUsersChangeRequest: (
     request: AdminUsersChangeRequest,
   ) => Promise<AccountAdminUsersApplyResult>;
+  getSaveSnapshot(): AccountData | null;
 
   numUsers: number;
 }

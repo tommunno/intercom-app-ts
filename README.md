@@ -66,7 +66,7 @@ npm run build
 npm start
 ```
 
-The setup page will open automatically at `http://127.0.0.1:4321/setup` by default.
+The setup page will open automatically at `http://localhost:4321/setup` by default.
 
 Default admin login credentials are:
 
@@ -75,11 +75,21 @@ Default admin login credentials are:
 
 Once logged in to the setup page, you can configure user credentials in the **Users** section. Clients can then log in by navigating to `https://<YOUR_SERVER_IP>:4322` by default.
 
-Clients are required to connect via HTTPS. By default, a self-signed certificate is created. For production use, please add `server.cert` and `server.key` files into `/certs`.
+Clients are required to connect via HTTPS. By default, a self-signed certificate is created. For production use, please add `server.cert` and `server.key` files into the `certs` directory in the project root.
 
 At present, the app requires a soundcard with at least one input and one output. You may need to create an aggregate device in macOS’s Audio MIDI Setup to achieve this. The app currently maps your Mac’s soundcard channels one-to-one with the partyline channels.
 
 To allow remote clients to connect, you can set up port forwarding for the HTTPS port, the HTTP port (optional, for HTTPS redirection), and eventually the TURN server port once TURN support has been implemented.
+
+The default ports can be overridden by creating a `.env` file in the project root and setting the following environment variables:
+
+```env
+INTERCOM_HTTP_PORT=4321
+INTERCOM_HTTPS_PORT=4322
+INTERCOM_TURN_PORT=3478
+```
+
+If any of these values are missing or invalid, the app will fall back to its default port values where possible.
 
 ## What currently works
 
@@ -114,9 +124,7 @@ To allow remote clients to connect, you can set up port forwarding for the HTTPS
 - Admin credential configuration
 - The client-side Mute Mic button
 - Listen keys flashing to indicate active speech on the partyline
-- A `config.json` file for admin HTTP, HTTPS, and TURN port configuration
 - Handling soundcard hot-plugging properly when devices are connected or disconnected while the app is running
-- Data persistence
 - Integrating the native Android app with this version of the project
 
 ## Project architecture

@@ -4,6 +4,7 @@ build/
 dist/
 certs/
 public/assets/js
+data/
 .env
 .env.local
 .vscode/

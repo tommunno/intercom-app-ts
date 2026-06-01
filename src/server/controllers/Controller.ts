@@ -116,6 +116,9 @@ export class Controller implements IController {
     this.dataController.setHandlers({
       onAccountHeartbeat: (c, p, a) => this.handleAccountHeartbeat(c, p, a),
       onStaleHeartbeat: (c, a) => this.handleStaleHeartbeat(c, a),
+      onSessionTokensCleanedUp: () => this.handleSessionTokensCleanedUp(),
+      onAdminSessionTokensCleanedUp: () =>
+        this.handleAdminSessionTokensCleanedUp(),
     });
   }
 
@@ -241,6 +244,7 @@ export class Controller implements IController {
         notifyClient: true,
       });
     }
+    this.dataController.saveAccountData();
     return result;
   }
 
@@ -255,6 +259,7 @@ export class Controller implements IController {
       sessionToken,
       loginCredentials,
     );
+    this.dataController.saveAdminAccountData();
     return result;
   }
 
@@ -371,6 +376,7 @@ export class Controller implements IController {
     const userId = this.isClientIdLoggedIn(clientId, "Ignored user logout");
     if (userId === null) return;
     this.logoutClientIfLoggedIn({ clientId, hardLogout: true });
+    this.dataController.saveAccountData();
   }
 
   private handleKeyPress(
@@ -492,6 +498,7 @@ export class Controller implements IController {
       null,
       otherLoggedOutClientIds,
     );
+    this.dataController.saveAdminAccountData();
   }
 
   private async handleAdminUsersChangeRequest(
@@ -549,6 +556,8 @@ export class Controller implements IController {
     this.hardLogoutUsers(userIdsToHardLogout);
     this.sendAudioInfosToUsers(audioIdsToUpdate);
     this.audioController.processDisallowedPlsInfos(disallowedPlsInfos);
+    this.dataController.saveAccountData();
+    this.dataController.saveAudioData(this.audioController.getSaveSnapshot());
   }
 
   private async handleAdminPartylinesChangeRequest(
@@ -588,6 +597,7 @@ export class Controller implements IController {
       loggedInClientIds: this.dataController.getLoggedInAdminClientIds(),
     });
     this.sendAudioInfosToUsers();
+    this.dataController.saveAudioData(this.audioController.getSaveSnapshot());
   }
 
   private async handleAdminUserLogout(
@@ -601,6 +611,7 @@ export class Controller implements IController {
     );
     if (!loggedIn) return;
     this.hardLogoutUsers([userId]);
+    this.dataController.saveAccountData();
   }
 
   private async handleAdminSoundcardChangeRequest(
@@ -624,6 +635,7 @@ export class Controller implements IController {
       originClientId: clientId,
       loggedInClientIds: this.dataController.getLoggedInAdminClientIds(),
     });
+    this.dataController.saveAudioData(this.audioController.getSaveSnapshot());
   }
 
   //Handle WebRtc:
@@ -728,6 +740,14 @@ export class Controller implements IController {
       return;
     }
     this.logoutClientIfLoggedIn({ clientId, notifyClient: true });
+  }
+
+  private handleSessionTokensCleanedUp(): void {
+    this.dataController.saveAccountData();
+  }
+
+  private handleAdminSessionTokensCleanedUp(): void {
+    this.dataController.saveAdminAccountData();
   }
 
   //Helpers:

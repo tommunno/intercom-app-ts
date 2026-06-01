@@ -16,7 +16,11 @@ import {
   type AudioEnginePopulateConfig,
   type IAudioEngineManager,
 } from "../../contracts/audio/IAudioEngineManager.js";
-import type { DeviceValidResponse, ILogger } from "../../contracts/index.js";
+import type {
+  AudioEngineSaveSnapshot,
+  DeviceValidResponse,
+  ILogger,
+} from "../../contracts/index.js";
 
 //Native binding:
 import engine, { type AudioEngine, type PortAudioDevice } from "audio-engine";
@@ -256,6 +260,21 @@ export class AudioEngineManager implements IAudioEngineManager {
     };
   }
 
+  getSaveSnapshot(): AudioEngineSaveSnapshot | null {
+    const notRunning = this.checkAndWarnIfNotRunning("get save snapshot");
+    if (notRunning) return null;
+    if (this._config.requestedSoundcardId === null) {
+      return {
+        requestedNumSoundcardChannels:
+          this._config.requestedNumSoundcardChannels,
+      };
+    }
+    return {
+      requestedNumSoundcardChannels: this._config.requestedNumSoundcardChannels,
+      requestedSoundcardId: this._config.requestedSoundcardId,
+    };
+  }
+
   get status(): ManagerStatus {
     return this._status;
   }
@@ -295,7 +314,11 @@ export class AudioEngineManager implements IAudioEngineManager {
   }
 
   private setRequestedNumSoundcardChannels(num: number | undefined): void {
-    if (
+    if (num === undefined) {
+      this.logger.warn(
+        `No soundcard channel count provided. Will fall back to the default value of ${DEFAULT_NUM_SOUNDCARD_CHANNELS}`,
+      );
+    } else if (
       !dataIsType("safeIntegerNum", num) ||
       num < 1 ||
       num > MAX_NUM_SOUNDCARD_CHANNELS
