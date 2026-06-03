@@ -1,22 +1,28 @@
-// import type { AccountData } from "../../types/AccountData.js";
-// import type { AdminAccountData } from "../../types/AdminAccountData.js";
-// import type { AudioData } from "../../types/AudioData.js";
-// import type { NetworkData } from "../../types/NetworkData.js";
-import type { DataKey, DataPayloadMap } from "../../types/databaseTypes.js";
-import type { NetworkPopulateData } from "../../types/NetworkData.js";
+import type {
+  LogLevel,
+  LogPageDirection,
+  LogRow,
+  LogRowsInfo,
+} from "../../../shared/types/index.js";
+import type {
+  DataKey,
+  DataPayloadMap,
+  NetworkPopulateData,
+} from "../../types/index.js";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty interface here for future handlers
-export interface DataManagerHandlers {}
+export interface DataManagerHandlers {
+  onAdminLogUpdate: (latestLogs: LogRow[]) => void;
+}
+
+export interface GetLogsParams {
+  direction: LogPageDirection;
+  id: number;
+}
 
 export interface IDataManager {
   init: () => void;
   start: () => void;
   setHandlers: (handlers: DataManagerHandlers) => void;
-
-  // getAccountData: () => AccountData;
-  // getAdminAccountData: () => AdminAccountData;
-  // getNetworkData: () => NetworkData;
-  // getAudioData: () => AudioData;
 
   saveData<K extends DataKey>(key: K, data: DataPayloadMap[K]): void;
 
@@ -26,4 +32,12 @@ export interface IDataManager {
   ): DataPayloadMap[K];
 
   getNetworkData: () => NetworkPopulateData;
+  insertLog: (
+    level: LogLevel,
+    message: string,
+    toAdminPanel: boolean,
+    context: string,
+  ) => void;
+  getLogs: (params: GetLogsParams) => LogRowsInfo;
+  getLatestLogs: () => LogRow[];
 }

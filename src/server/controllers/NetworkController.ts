@@ -9,6 +9,7 @@ import type {
   AdminWebServerInfo,
   AuthResult,
   LoginCredentials,
+  ManagerStatus,
   RtcAnswerWire,
   RtcIceCandidateInitWire,
   RtcOfferWire,
@@ -92,7 +93,7 @@ export class NetworkController implements INetworkController {
     if (this.turnServerManager.status === "POPULATED") {
       this.turnServerManager.start();
     } else {
-      this.logger.warn(`TURN disabled. Will not start the Turn Server`);
+      this.logger.warn(`TURN disabled. Will not start the Turn Server`, true);
     }
     this.webRtcManager.start();
     this.processStatsManager.start();
@@ -222,6 +223,10 @@ export class NetworkController implements INetworkController {
     return { webServerInfo: this.createAdminWebServerInfo() };
   }
 
+  getWssManagerStatus(): ManagerStatus {
+    return this.wssManager.status;
+  }
+
   //Private methods:
 
   private createAdminWebServerInfo(): AdminWebServerInfo {
@@ -311,10 +316,12 @@ export class NetworkController implements INetworkController {
       if (inputValue === undefined) {
         this.logger.info(
           `${type} port not provided, will attempt to use default port ${portInfo.outputValue}...`,
+          true,
         );
       } else if (!validatePort(inputValue)) {
         this.logger.error(
           `${type} port ${inputValue} invalid, will attempt to use default port ${portInfo.outputValue}...`,
+          true,
         );
       } else {
         portInfo.outputValue = inputValue;
@@ -328,6 +335,7 @@ export class NetworkController implements INetworkController {
         if (result.clash) {
           this.logger.error(
             `${type} port ${portInfo.outputValue} clashes with ${result.clashesWith} port. Unable to run the ${type} server`,
+            true,
           );
           portInfo.outputValue = null;
         }
@@ -379,7 +387,7 @@ export class NetworkController implements INetworkController {
         const result = await isPortAvailable(p.outputValue, isUdp);
         if (!result.isAvailable) {
           p.outputValue = null;
-          this.logger.error(`${p.type} port is not free`, result.err);
+          this.logger.error(`${p.type} port is not free`, true, result.err);
         }
       }
     }
@@ -402,7 +410,7 @@ export class NetworkController implements INetworkController {
       message += `${portInfo.default ? "default " : ""}${portInfo.type} port ${portInfo.outputValue}${end}`;
     });
 
-    this.logger.info(message);
+    this.logger.info(message, true);
   }
 
   private createResolvedData(

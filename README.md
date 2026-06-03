@@ -112,6 +112,7 @@ If any of these values are missing or invalid, the app will fall back to its def
   - no valid soundcard device is available
   - no valid SSL certificate files are present
   - audio loss is detected
+- Application logging with database storage, automatic cleanup, and live viewing in the admin GUI
 
 ## What is still to be implemented
 
@@ -120,7 +121,6 @@ If any of these values are missing or invalid, the app will fall back to its def
 - User input gain control
 - Global intercom settings, including the number of users, partylines, and soundcard channels
 - Troubleshooting options such as restarting the Audio Engine and TURN server from the GUI
-- Live logging in the GUI
 - Admin credential configuration
 - The client-side Mute Mic button
 - Listen keys flashing to indicate active speech on the partyline

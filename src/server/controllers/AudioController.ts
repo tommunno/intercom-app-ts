@@ -118,6 +118,7 @@ export class AudioController implements IAudioController {
     if (this.audioMatrixManager.status !== "RUNNING") {
       this.logger.error(
         `Unable to get AudioInfo: audioMatrixManager is not running`,
+        true,
       );
       return null;
     }
@@ -141,6 +142,7 @@ export class AudioController implements IAudioController {
     if (this.tailManager.status !== "RUNNING") {
       this.logger.warn(
         `Unable to process key press for userId ${userId}: tailManager is not running`,
+        true,
       );
       return;
     }
@@ -151,6 +153,7 @@ export class AudioController implements IAudioController {
     if (this.webRtcMediaBridge.status !== "RUNNING") {
       this.logger.warn(
         `Will not add RX track for userId ${userId}: the WebRtcMediaBridge is not running.`,
+        true,
       );
       return false;
     }
@@ -161,6 +164,7 @@ export class AudioController implements IAudioController {
     if (this.webRtcMediaBridge.status !== "RUNNING") {
       this.logger.warn(
         `Will not remove RX track for userId ${userId}: the WebRtcMediaBridge is not running.`,
+        true,
       );
       return false;
     }
@@ -171,6 +175,7 @@ export class AudioController implements IAudioController {
     if (this.webRtcMediaBridge.status !== "RUNNING") {
       this.logger.error(
         `Can not get TX track and stream for userId ${userId}: the WebRtcMediaBridge is not running.`,
+        true,
       );
       return null;
     }
@@ -372,6 +377,7 @@ export class AudioController implements IAudioController {
           if (!tail) {
             this.logger.error(
               `createAudioMatrixSnapshot: No tail found for portNum ${portNum} and plNum ${plNum}. Will not add the port to the partyline's talks`,
+              true,
             );
             return;
           }
@@ -422,6 +428,7 @@ export class AudioController implements IAudioController {
     if (this.audioMatrixManager.status !== "RUNNING") {
       this.logger.warn(
         `Unable to handle TailManager key press: audioMatrixManager is not running`,
+        true,
       );
       return;
     }
@@ -481,6 +488,7 @@ export class AudioController implements IAudioController {
     if (this.audioEngineManager.status !== "RUNNING") {
       this.logger.warn(
         `Unable to handle bridge channel routed change: audioEngineManager is not running`,
+        true,
       );
       return false;
     }

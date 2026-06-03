@@ -137,7 +137,7 @@ ${DIM}Last Updated: ${new Date().toLocaleTimeString()} ${RESET}
     const filePath = join(process.cwd(), "dev_matrix_view.txt");
     writeFileSync(filePath, log, "utf8");
   } catch (err) {
-    logger.error("Failed to write dev crosspoint log", err);
+    logger.error("Failed to write dev crosspoint log", true, err);
   }
 };
 

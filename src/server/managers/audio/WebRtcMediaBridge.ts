@@ -81,13 +81,14 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
       try {
         channel.tx.track.stop?.();
       } catch (err) {
-        this.logger.warn(`Unable to stop TX track for channel ${i}`, err);
+        this.logger.warn(`Unable to stop TX track for channel ${i}`, true, err);
       }
       try {
         channel.tx.stream.removeTrack?.(channel.tx.track);
       } catch (err) {
         this.logger.warn(
           `Unable to remove TX track from stream for channel ${i}`,
+          true,
           err,
         );
       }
@@ -109,6 +110,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     if (!channel) {
       this.logger.error(
         `Unable to add RX track: invalid channelNum ${channelNum}`,
+        true,
       );
       return false;
     }
@@ -116,13 +118,17 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     if (rx.rtcAudioSink || rx.track) {
       this.logger.error(
         `Cannot add RX track for channelNum ${channelNum}: the channel is currently active`,
+        true,
       );
       return false;
     }
     const success = this.activeHandlers.onChannelRoutedChange(channelNum, true);
 
     if (!success) {
-      this.logger.error(`Cannot add RX track for channelNum ${channelNum}`);
+      this.logger.error(
+        `Cannot add RX track for channelNum ${channelNum}`,
+        true,
+      );
       return false;
     }
 
@@ -145,6 +151,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     if (!channel) {
       this.logger.warn(
         `Unable to remove RX track for channelNum ${channelNum}: the channel does not exist`,
+        true,
       );
       return false;
     }
@@ -170,6 +177,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     if (!channel) {
       this.logger.error(
         `Unable to get TX track for channelNum ${channelNum}: channel does not exist`,
+        true,
       );
       return null;
     }
@@ -181,6 +189,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
       if (this.pushAudioRunningErr) return;
       this.logger.error(
         `Unable to push audio because the status is ${this._status}`,
+        true,
       );
       this.pushAudioRunningErr = true;
       return;
@@ -199,6 +208,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
       if (this.pushAudioLengthErr) return;
       this.logger.error(
         `Unable to push audio: expected ${expectedSamples} samples, got ${int16.length}`,
+        true,
       );
       this.pushAudioLengthErr = true;
       return;
@@ -215,6 +225,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
         if (this.pushAudioSourceErr) return;
         this.logger.error(
           `Unable to push audio: rtcAudioSource not found at index ${i}`,
+          true,
         );
         this.pushAudioSourceErr = true;
         return;
@@ -271,6 +282,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     } catch (err) {
       this.logger.warn(
         `Unable to set rtcAudioSink.ondata to null for channelNum ${channelNum}`,
+        true,
         err,
       );
     }
@@ -279,6 +291,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     } catch (err) {
       this.logger.warn(
         `Unable to stop rtcAudioSink for channelNum ${channelNum}`,
+        true,
         err,
       );
     }
@@ -303,6 +316,7 @@ export class WebRtcMediaBridge implements IWebRtcMediaBridge {
     if (this._status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this._status}`,
+        true,
       );
       return true;
     }

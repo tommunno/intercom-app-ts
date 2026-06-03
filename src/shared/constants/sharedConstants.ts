@@ -24,3 +24,6 @@ export const DEFAULT_NUM_SOUNDCARD_CHANNELS = 16;
 export const MAX_NUM_PARTYLINES = 64;
 export const DEFAULT_NUM_PARTYLINES = 16;
 export const MAX_PARTYLINE_NAME_LENGTH = 12;
+
+//Logs:
+export const LOG_PAGE_SIZE = 25;

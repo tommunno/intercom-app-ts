@@ -1178,6 +1178,7 @@ form select.error {
   border: 2px solid transparent;
   align-self: center;
   font-size: 10px;
+  margin-right: 4px;
 }
 
 .logging-nav-btn {
@@ -1239,6 +1240,16 @@ form select.error {
   text-align: center;
 }
 
+.log .log-context {
+  padding: 4px;
+  border-radius: 4px;
+  font-size: 9px;
+  color: #333333;
+  display: inline-block;
+  margin-right: 6px;
+  text-align: center;
+}
+
 .log.warning .log-type {
   background-color: #ffe066;
   border: 1px solid #fcc419;
@@ -1257,6 +1268,26 @@ form select.error {
 .log.info .log-type {
   background-color: #74c0fc;
   border: 1px solid #339af0;
+}
+
+.log.warning .log-context {
+  background-color: #e6dbac;
+  border: 1px solid #e6dbac;
+}
+
+.log.error .log-context {
+  background-color: #e67a7a;
+  border: 1px solid #e67a7a;
+}
+
+.log.success .log-context {
+  background-color: #c2dd92;
+  border: 1px solid #c2dd92;
+}
+
+.log.info .log-context {
+  background-color: #bbd4e6;
+  border: 1px solid #bbd4e6;
 }
 
 .log .log-date {

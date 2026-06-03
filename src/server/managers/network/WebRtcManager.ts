@@ -80,12 +80,14 @@ export class WebRtcManager implements IWebRtcManager {
     if (!this.rtcConfig) {
       this.logger.error(
         `Unable to create new peerConnection because rtcConfig is null`,
+        true,
       );
       return;
     }
     if (this.clients.has(clientId)) {
       this.logger.error(
         `Unable to create new peerConnection because clientId ${clientId} already exists`,
+        true,
       );
       return;
     }
@@ -140,7 +142,11 @@ export class WebRtcManager implements IWebRtcManager {
       const description = new wrtc.RTCSessionDescription(offer);
       await pc.setRemoteDescription(description);
     } catch (err) {
-      this.logger.error(`setRemoteDescription failed for ${clientId}`, err);
+      this.logger.error(
+        `setRemoteDescription failed for ${clientId}`,
+        true,
+        err,
+      );
       return;
     }
     const success = await this.drainRemoteIceCandidates(clientId, pcInfo);
@@ -188,6 +194,7 @@ export class WebRtcManager implements IWebRtcManager {
     } catch (err) {
       this.logger.error(
         `Unable to add remote ICE candidate for clientId ${clientId}`,
+        true,
         err,
       );
     }
@@ -215,6 +222,7 @@ export class WebRtcManager implements IWebRtcManager {
     } catch (err) {
       this.logger.error(
         `Failed to create/set local answer for clientId ${clientId}`,
+        true,
         err,
       );
       return null;
@@ -253,18 +261,21 @@ export class WebRtcManager implements IWebRtcManager {
     if (!pcInfo) {
       this.logger.warn(
         `Unable to add TX track for clientId ${clientId}: pcInfo cannot be found`,
+        true,
       );
       return;
     }
     if (pcInfo.closed) {
       this.logger.warn(
         `Unable to add TX track for clientId ${clientId}: pcInfo is reporting as closed`,
+        true,
       );
       return;
     }
     if (pcInfo.txTrackAdded) {
       this.logger.warn(
         `Dropping TX track for clientId ${clientId}: a track has already been added`,
+        true,
       );
       return;
     }
@@ -274,7 +285,7 @@ export class WebRtcManager implements IWebRtcManager {
       pcInfo.txTrackAdded = true;
       this.logger.success(`TX track added for clientId ${clientId}`);
     } catch (err) {
-      this.logger.error(`addTrack failed`, err);
+      this.logger.error(`addTrack failed`, true, err);
     }
   }
 
@@ -373,6 +384,7 @@ export class WebRtcManager implements IWebRtcManager {
     if (pcInfo.rxTrackReceived) {
       this.logger.warn(
         `Dropping RX track for clientId ${clientId}: a track has already been received`,
+        true,
       );
       return;
     }
@@ -381,6 +393,7 @@ export class WebRtcManager implements IWebRtcManager {
     if (!track) {
       this.logger.warn(
         `ontrack fired for ${clientId} but event.track was missing`,
+        true,
       );
       return;
     }
@@ -388,6 +401,7 @@ export class WebRtcManager implements IWebRtcManager {
     if (track.kind && track.kind !== "audio") {
       this.logger.info(
         `Ignoring non-audio track (${track.kind}) from ${clientId}`,
+        true,
       );
       return;
     }
@@ -499,6 +513,7 @@ export class WebRtcManager implements IWebRtcManager {
     if (this.status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this.status}`,
+        true,
       );
       return true;
     }

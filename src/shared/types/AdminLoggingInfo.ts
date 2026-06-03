@@ -1,11 +1,19 @@
-import { dataIsObject } from "../helpers.js";
+import { dataIsObject, dataIsType } from "../helpers.js";
+import { dataIsArrayOfLogRows, type LogRow } from "./LogRow.js";
+import { dataIsLogRowsInfo, type LogRowsInfo } from "./LogRowsInfo.js";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty interface here for future additions
-export interface AdminLoggingInfo {}
+export interface AdminLoggingInfo {
+  latestLogs: LogRow[];
+  requestedLogs?: LogRowsInfo;
+}
 
-//Add in validation here!:
 export function dataIsAdminLoggingInfo(
   data: unknown,
 ): data is AdminLoggingInfo {
-  return dataIsObject(data);
+  return (
+    dataIsObject(data) &&
+    dataIsArrayOfLogRows(data.latestLogs) &&
+    (dataIsLogRowsInfo(data.requestedLogs) ||
+      dataIsType("undefined", data.requestedLogs))
+  );
 }

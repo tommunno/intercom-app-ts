@@ -24,7 +24,7 @@ import {
 import { dataIsWssUpstreamRequest } from "../../types/index.js";
 
 export class WssManager implements IWssManager {
-  private status: ManagerStatus = "IDLE";
+  private _status: ManagerStatus = "IDLE";
   private handlers: WssHandlers | null = null;
 
   private ws: WebSocketServer | null = null;
@@ -36,9 +36,9 @@ export class WssManager implements IWssManager {
   }
 
   init(servers: Servers): void {
-    if (this.status !== "IDLE") {
+    if (this._status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the WssManager whilst its status is ${this.status}`,
+        `Cannot initialize the WssManager whilst its status is ${this._status}`,
       );
     }
     if (!servers.http && !servers.https) {
@@ -63,13 +63,13 @@ export class WssManager implements IWssManager {
       this.wss = new WebSocketServer({ server: servers.https });
       this.wss.on("error", (err) => this.handleListenError("WSS", err));
     }
-    this.status = "INITIALIZED";
+    this._status = "INITIALIZED";
   }
 
   start(): void {
-    if (this.status !== "INITIALIZED") {
+    if (this._status !== "INITIALIZED") {
       throw new Error(
-        `Cannot start the WssManager whilst its status is ${this.status}`,
+        `Cannot start the WssManager whilst its status is ${this._status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
@@ -78,7 +78,7 @@ export class WssManager implements IWssManager {
     if (this.ws) this.attachWebSocketHandlers(this.ws);
     if (this.wss) this.attachWebSocketHandlers(this.wss);
 
-    this.status = "RUNNING";
+    this._status = "RUNNING";
   }
 
   setHandlers(handlers: WssHandlers): void {
@@ -90,20 +90,21 @@ export class WssManager implements IWssManager {
     payload: WssPayloads[K],
     clientIds: string[],
   ): void {
-    const notRunning = this.checkAndWarnIfNotRunning("send message");
+    const notRunning = this.checkAndWarnIfNotRunning("send message", true);
     if (notRunning) return;
 
     let data: string;
     try {
       data = JSON.stringify({ type, payload });
     } catch (err) {
-      this.logger.error(`Serialization failed for ${type}:`, err);
+      //console.error instead of this.logger.error so as not to cause a loop:
+      console.error(`Serialization failed for ${type}:`, err);
       return;
     }
     clientIds.forEach((id) => {
       const ws = this.clients.get(id);
       if (!ws) {
-        this.logger.error(
+        console.error(
           `Message delivery failed for message type ${type}: No active session found for clientId ${id}`,
         );
         return;
@@ -111,15 +112,19 @@ export class WssManager implements IWssManager {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(data, (err) => {
           if (err) {
-            this.logger.warn(`Send failed to client ${id} for ${type}:`, err);
+            console.log(`Send failed to client ${id} for ${type}:`, err);
           }
         });
       } else {
-        this.logger.warn(
+        console.log(
           `Delivery skipped: Client ${id} connection state is ${ws.readyState}`,
         );
       }
     });
+  }
+
+  get status(): ManagerStatus {
+    return this._status;
   }
 
   private get activeHandlers(): WssHandlers {
@@ -134,10 +139,11 @@ export class WssManager implements IWssManager {
     if (err.code === "EADDRINUSE") {
       this.logger.error(
         `${label} server failed to listen: port is already in use.`,
+        true,
       );
       return;
     }
-    this.logger.error(`${label} server listen error`, err);
+    this.logger.error(`${label} server listen error`, true, err);
   }
 
   private attachWebSocketHandlers(wsServer: WebSocketServer) {
@@ -203,12 +209,12 @@ export class WssManager implements IWssManager {
       //Now we can safely destructure these
       const { type, payload } = data;
 
-      if (
-        type !== "HEARTBEAT_RESPONSE" &&
-        type !== "ADMIN_HEARTBEAT_RESPONSE"
-      ) {
-        this.logger.info(`Message type: ${type}`);
-      }
+      // if (
+      //   type !== "HEARTBEAT_RESPONSE" &&
+      //   type !== "ADMIN_HEARTBEAT_RESPONSE"
+      // ) {
+      //   this.logger.info(`Message type: ${type}`);
+      // }
 
       this.handleMessage({
         type,
@@ -217,7 +223,7 @@ export class WssManager implements IWssManager {
         sessionTokens,
       });
     } catch (e) {
-      this.logger.error("JSON Parse Error", e);
+      this.logger.error("JSON Parse Error", false, e);
     }
   }
 
@@ -236,9 +242,9 @@ export class WssManager implements IWssManager {
       this.logger.warn(`Payload not valid for message of type ${type}`);
       return;
     }
-    if (type !== "HEARTBEAT_RESPONSE" && type !== "ADMIN_HEARTBEAT_RESPONSE") {
-      this.logger.success(`Message payload valid for type: ${type}`);
-    }
+    // if (type !== "HEARTBEAT_RESPONSE" && type !== "ADMIN_HEARTBEAT_RESPONSE") {
+    //   this.logger.success(`Message payload valid for type: ${type}`);
+    // }
     this.activeHandlers.onMessage({
       type,
       payload,
@@ -254,7 +260,7 @@ export class WssManager implements IWssManager {
   }
 
   private handleClientError(clientId: string, err: Error) {
-    this.logger.error(`Client ${clientId} error`, err);
+    this.logger.error(`Client ${clientId} error`, false, err);
     this.removeClient(clientId);
     this.activeHandlers.onClientError(clientId);
   }
@@ -264,6 +270,7 @@ export class WssManager implements IWssManager {
     if (!success)
       this.logger.warn(
         `Failed to remove client: ID ${clientId} not found in active clients map`,
+        true,
       );
   }
 
@@ -287,7 +294,7 @@ export class WssManager implements IWssManager {
     try {
       return cookie.parse(cookieHeader);
     } catch (error) {
-      this.logger.error("Failed to parse cookies:", error);
+      this.logger.error("Failed to parse cookies", false, error);
       return {};
     }
   }
@@ -296,11 +303,18 @@ export class WssManager implements IWssManager {
     return crypto.randomUUID();
   }
 
-  private checkAndWarnIfNotRunning(action: string): boolean {
-    if (this.status !== "RUNNING") {
-      this.logger.error(
-        `Unable to ${action} because the status is ${this.status}`,
-      );
+  //If consoleLog is true, console.error will be used instead of this.logger.error (to avoid the possibility of logging loops):
+  private checkAndWarnIfNotRunning(
+    action: string,
+    consoleError = false,
+  ): boolean {
+    if (this._status !== "RUNNING") {
+      const message = `Unable to ${action} because the status is ${this._status}`;
+      if (consoleError) {
+        console.error(message);
+      } else {
+        this.logger.error(message, true);
+      }
       return true;
     }
     return false;

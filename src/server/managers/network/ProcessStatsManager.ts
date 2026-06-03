@@ -55,6 +55,7 @@ export class ProcessStatsManager implements IProcessStatsManager {
     if (this.statsTimerId !== null) {
       this.logger.error(
         "startStatsTimer: Stats timer is already running. Will do nothing",
+        true,
       );
       return;
     }
@@ -86,6 +87,7 @@ export class ProcessStatsManager implements IProcessStatsManager {
     if (this._status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this._status}`,
+        true,
       );
       return true;
     }

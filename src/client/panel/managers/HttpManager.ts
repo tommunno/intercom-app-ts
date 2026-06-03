@@ -68,6 +68,7 @@ export class HttpManager implements IHttpManager {
     if (this.status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this.status}`,
+        true,
       );
       return true;
     }

@@ -38,3 +38,9 @@ export const WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;
 //TurnServer:
 export const DEFAULT_TURN_SERVER_PORT = 3478;
 export const DEFAULT_TURN_SERVER_IP = "127.0.0.1";
+
+//Logs:
+export const MAX_LOG_ROWS = 10_000;
+export const LOGS_BETWEEN_PRUNES = 500;
+export const ADMIN_LOG_UPDATE_INTERVAL_MS = 500;
+export const CONSOLE_LOGGING_ENABLED = false;

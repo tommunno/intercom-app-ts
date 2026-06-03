@@ -7,6 +7,9 @@ import type {
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
+  LogLevel,
+  LogRow,
+  LogRowsInfo,
   UserInfo,
 } from "../../shared/types/index.js";
 import type {
@@ -14,6 +17,7 @@ import type {
   AccountAdminUsersValidationResult,
   AdminLogoutResult,
   DataHandlers,
+  GetLogsParams,
   IAccountManager,
   IAdminAccountManager,
   IDataController,
@@ -106,6 +110,23 @@ export class DataController implements IDataController {
     this.dataManager.saveData("NETWORK", data);
   }
 
+  insertLog(
+    level: LogLevel,
+    message: string,
+    toAdminPanel: boolean,
+    context: string,
+  ): void {
+    this.dataManager.insertLog(level, message, toAdminPanel, context);
+  }
+
+  getLogs(params: GetLogsParams): LogRowsInfo {
+    return this.dataManager.getLogs(params);
+  }
+
+  getLatestLogs(): LogRow[] {
+    return this.dataManager.getLatestLogs();
+  }
+
   softLoginUser(
     sessionToken: string | null,
     loginCredentials: LoginCredentials,
@@ -195,7 +216,9 @@ export class DataController implements IDataController {
   }
 
   private bindListeners(): void {
-    this.dataManager.setHandlers({});
+    this.dataManager.setHandlers({
+      onAdminLogUpdate: (l) => this.handleAdminLogUpdate(l),
+    });
 
     this.accountManager.setHandlers({
       onHeartbeat: (c, p) => this.handleAccountHeartbeat(c, p),
@@ -208,6 +231,12 @@ export class DataController implements IDataController {
       onStaleHeartbeat: (c) => this.handleAdminStaleHeartbeat(c),
       onSessionTokensCleanedUp: () => this.handleAdminSessionTokensCleanedUp(),
     });
+  }
+
+  //Handle Data:
+
+  private handleAdminLogUpdate(latestLogs: LogRow[]): void {
+    this.activeHandlers.onAdminLogUpdate(latestLogs);
   }
 
   //Handle Account:

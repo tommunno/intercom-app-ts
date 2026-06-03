@@ -40,3 +40,8 @@ export * from "./AdminPopup.js";
 export * from "./Ipv4Interfaces.js";
 export * from "./AdminBannersInfo.js";
 export * from "./PlNameInfo.js";
+export * from "./LogRow.js";
+export * from "./LogLevel.js";
+export * from "./LogPageDirection.js";
+export * from "./LogRowsInfo.js";
+export * from "./LogsPosition.js";

@@ -138,7 +138,10 @@ export class Partyline implements IPartyline {
       portNum >= 0 &&
       portNum < this._state.numPorts;
     if (!result && errContext) {
-      this.logger.error(`portNum ${portNum} is not valid in ${errContext}`);
+      this.logger.error(
+        `portNum ${portNum} is not valid in ${errContext}`,
+        true,
+      );
     }
     return result;
   }

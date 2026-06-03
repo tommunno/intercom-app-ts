@@ -151,6 +151,7 @@ export class WebServerManager implements IWebServerManager {
       this.httpServer.listen(this.httpPort, () => {
         this.logger.success(
           `HTTP Server running at http://localhost:${this.httpPort}`,
+          true,
         );
         this.openSetupWebpage();
       });
@@ -162,6 +163,7 @@ export class WebServerManager implements IWebServerManager {
       this.httpsServer.listen(this.httpsPort, () => {
         this.logger.success(
           `HTTPS Server running at https://localhost:${this.httpsPort}`,
+          true,
         );
       });
     }
@@ -192,17 +194,19 @@ export class WebServerManager implements IWebServerManager {
         };
         this.httpsServer = https.createServer(options, this.app);
         this.certDomainName = this.getCertDisplayName(certPath);
-        this.logger.success("User provided SSL files are valid");
+        this.logger.success("User provided SSL files are valid", true);
         this.isSslCertValid = true;
         return;
       } else {
         this.logger.warn(
           `User provided SSL files not found in ${CERT_DIR} folder: ${this.certPath}. Falling back to self-signed...`,
+          true,
         );
       }
     } catch (error) {
       this.logger.error(
         "Provided SSL certificate failed to load/parse. Falling back to self-signed...",
+        true,
         error,
       );
     }
@@ -216,13 +220,14 @@ export class WebServerManager implements IWebServerManager {
     if (existingGenCertSuccess) return;
     this.logger.warn(
       "No valid SSL certificates found. Generating new self-signed certificate...",
+      true,
     );
     const newGenCertSuccess = await this.generateNewCert(
       genKeyPath,
       genCertPath,
     );
     if (newGenCertSuccess) return;
-    this.logger.error("Unable to start HTTPS server");
+    this.logger.error("Unable to start HTTPS server", true);
   }
 
   //Returns success
@@ -244,6 +249,7 @@ export class WebServerManager implements IWebServerManager {
         this.certDomainName = this.getCertDisplayName(generatedCertPath);
         this.logger.warn(
           "Valid self-signed certificate loaded. For full browser trust, please install your own trusted certificate",
+          true,
         );
         return true;
       }
@@ -251,6 +257,7 @@ export class WebServerManager implements IWebServerManager {
     } catch (error) {
       this.logger.error(
         "Generated self-signed certificate could not be used",
+        true,
         error,
       );
       return false;
@@ -265,7 +272,7 @@ export class WebServerManager implements IWebServerManager {
       const expiry = new Date(x509.validTo);
       return expiry < now;
     } catch (err) {
-      this.logger.error("Failed to check certificate expiration", err);
+      this.logger.error("Failed to check certificate expiration", true, err);
       return true; // Assume invalid if unreadable or broken
     }
   }
@@ -301,14 +308,15 @@ export class WebServerManager implements IWebServerManager {
       fs.writeFileSync(generatedKeyPath, key);
       fs.writeFileSync(generatedCertPath, cert);
       this.certDomainName = this.getCertDisplayName(generatedCertPath);
-      this.logger.success("Saved generated self-signed certificate");
+      this.logger.success("Saved generated self-signed certificate", true);
       this.httpsServer = https.createServer({ key, cert }, this.app);
       this.logger.warn(
         "Valid self-signed certificate being used. For full browser trust, please install your own trusted certificate",
+        true,
       );
       return true;
     } catch (error) {
-      this.logger.error("Unable to generate a new certificate", error);
+      this.logger.error("Unable to generate a new certificate", true, error);
       return false;
     }
   }
@@ -344,16 +352,18 @@ export class WebServerManager implements IWebServerManager {
         `${label} server failed to listen: port ${
           label === "HTTP" ? this.httpPort : (this.httpsPort ?? "unknown")
         } is already in use.`,
+        true,
       );
       return;
     }
-    this.logger.error(`${label} server listen error`, err);
+    this.logger.error(`${label} server listen error`, true, err);
   }
 
   private openSetupWebpage(): void {
     if (this.status !== "RUNNING") {
       this.logger.error(
         `Unable to open setup webpage: ManagerStatus is ${this.status}`,
+        true,
       );
       return;
     }
@@ -472,7 +482,7 @@ export class WebServerManager implements IWebServerManager {
       });
     }
 
-    this.logger.error("Unhandled web server error", err);
+    this.logger.error("Unhandled web server error", false, err);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -484,7 +494,7 @@ export class WebServerManager implements IWebServerManager {
     this.httpPort = httpPort;
     this.httpsPort = httpsPort;
     if (httpsPort === null) {
-      this.logger.warn(`HTTPS disabled. No HTTPS server will be created`);
+      this.logger.warn(`HTTPS disabled. No HTTPS server will be created`, true);
     }
   }
 
@@ -515,7 +525,7 @@ export class WebServerManager implements IWebServerManager {
 
       return commonName ?? null;
     } catch (err) {
-      this.logger.warn("Failed to extract certificate display name", err);
+      this.logger.warn("Failed to extract certificate display name", true, err);
       return null;
     }
   }
@@ -530,6 +540,7 @@ export class WebServerManager implements IWebServerManager {
     if (this.status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this.status}`,
+        true,
       );
       return true;
     }

@@ -66,7 +66,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
     this.addLoggingCallback();
     this.devices = this.engine.getPortAudioDevices();
-    this.logger.info("PortAudio Devices:", this.devices);
+    this.logger.info(`PortAudio Devices`, false, this.devices);
     this._status = "INITIALIZED";
   }
 
@@ -121,7 +121,7 @@ export class AudioEngineManager implements IAudioEngineManager {
         //PortAudio will be terminated if terminatePortAudio is true
         this.engine.stopEngine(true);
       } catch (error) {
-        this.logger.error("Error stopping AudioEngine", error);
+        this.logger.error("Error stopping AudioEngine", true, error);
       }
     }
 
@@ -154,6 +154,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       if (!isRouted) {
         this.logger.warn(
           `Unable to set channelNum ${channelNum} to unrouted: the channel is already unrouted`,
+          true,
         );
         return false;
       }
@@ -163,6 +164,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     } catch (err) {
       this.logger.error(
         `Unable to set channelNum ${channelNum} to ${routed ? "" : "un"}routed`,
+        true,
         err,
       );
       return false;
@@ -174,6 +176,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       if (this.pushAudioRunningErr) return;
       this.logger.error(
         `Unable to push audio because the status is ${this._status}`,
+        true,
       );
       this.pushAudioRunningErr = true;
       return;
@@ -191,6 +194,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       }
       this.logger.error(
         `Unable to push audio for channelNum ${channelNum}`,
+        true,
         err,
       );
       this.pushAudioChannelErrs[channelNum] = true;
@@ -213,6 +217,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     } catch (err) {
       this.logger.error(
         `Unable to ${state ? "close" : "open"} crosspoint for destChannelnum ${destChannelNum} and srcChannelNum ${srcChannelNum}`,
+        true,
         err,
       );
       return false;
@@ -317,6 +322,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     if (num === undefined) {
       this.logger.warn(
         `No soundcard channel count provided. Will fall back to the default value of ${DEFAULT_NUM_SOUNDCARD_CHANNELS}`,
+        true,
       );
     } else if (
       !dataIsType("safeIntegerNum", num) ||
@@ -325,6 +331,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     ) {
       this.logger.error(
         `requestedNumSoundcardChannels is invalid. Will fall back to the default value of ${DEFAULT_NUM_SOUNDCARD_CHANNELS}`,
+        true,
       );
     } else {
       this._config.requestedNumSoundcardChannels = num;
@@ -336,6 +343,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     if (!dataIsType("safeIntegerNum", id)) {
       this.logger.error(
         "requestedSoundcardId is not a valid integer. No requestedSoundcardId will be used",
+        true,
       );
       return;
     }
@@ -348,7 +356,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       "The app requires at least one device with at least one input and one output. If necessary, you can create an aggregate device in Audio MIDI Setup";
 
     if (this.devices.length === 0) {
-      this.logger.error("There are no soundcard devices. " + errMessage);
+      this.logger.error("There are no soundcard devices. " + errMessage, true);
       return null;
     }
     const { requestedSoundcardId } = this._config;
@@ -361,12 +369,14 @@ export class AudioEngineManager implements IAudioEngineManager {
       if (!device) {
         this.logger.warn(
           `No soundcard device found for ID ${requestedSoundcardId}. Will attempt to use another valid device...`,
+          true,
         );
       } else {
         const result = this.isDeviceValid(device);
         if (!result.valid) {
           this.logger.warn(
             `Device ${device.name} (ID ${device.id}) is not valid: ${result.errMessage}. Will attempt to use another valid device...`,
+            true,
           );
           device = undefined;
         }
@@ -379,6 +389,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       if (!device) {
         this.logger.error(
           "There are no valid soundcard devices. " + errMessage,
+          true,
         );
         return null;
       }
@@ -389,6 +400,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     this.device = device;
     this.logger.success(
       `Successfully set soundcard to ${this.device.name} (device ID: ${this._config.soundcardId})`,
+      true,
     );
     return device;
   }
@@ -421,12 +433,13 @@ export class AudioEngineManager implements IAudioEngineManager {
     } = this._config;
     this.logger.info(
       `Creating engine with numUsers: ${numU}, numSoundcardChannels: ${numSC}, soundcardId: ${sCId}`,
+      true,
     );
     try {
       this.engine.createEngine(numU, numSC, numSC, sCId);
       this.engineCreated = true;
     } catch (err) {
-      this.logger.error("Error setting up Audio Engine", err);
+      this.logger.error("Error setting up Audio Engine", true, err);
       return false;
     }
     return true;
@@ -436,7 +449,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     try {
       this.engine.registerAudioCallback(this.activeHandlers.onAudio);
     } catch (err) {
-      this.logger.error("Unable to add audio callback", err);
+      this.logger.error("Unable to add audio callback", true, err);
     }
   }
 
@@ -453,22 +466,21 @@ export class AudioEngineManager implements IAudioEngineManager {
           );
           return;
         }
-        //Use toAdminPanel in the future too
         switch (type) {
           case "INFO": {
-            this.logger.info(message);
+            this.logger.info(message, toAdminPanel);
             break;
           }
           case "SUCCESS": {
-            this.logger.success(message);
+            this.logger.success(message, toAdminPanel);
             break;
           }
           case "WARNING": {
-            this.logger.warn(message);
+            this.logger.warn(message, toAdminPanel);
             break;
           }
           case "ERROR": {
-            this.logger.error(message);
+            this.logger.error(message, toAdminPanel);
             break;
           }
           default: {
@@ -477,7 +489,11 @@ export class AudioEngineManager implements IAudioEngineManager {
         }
       });
     } catch (error) {
-      this.logger.error("Error adding logging callback to AudioEngine", error);
+      this.logger.error(
+        "Error adding logging callback to AudioEngine",
+        true,
+        error,
+      );
     }
   }
 
@@ -505,17 +521,17 @@ export class AudioEngineManager implements IAudioEngineManager {
       if (this.detectAudioLossErr) {
         return;
       }
-      this.logger.error("detectAudioLoss error:", err);
+      this.logger.error("detectAudioLoss error:", true, err);
       this.detectAudioLossErr = true;
       return;
     }
     if (prevLossDetected !== this.audioLossDetected) {
       this.activeHandlers.onAudioLossDetectedChange(this.audioLossDetected);
       if (this.audioLossDetected) {
-        this.logger.error("Soundcard audio loss detected");
+        this.logger.error("Soundcard audio loss detected", true);
         return;
       }
-      this.logger.success("Soundcard audio recovered");
+      this.logger.success("Soundcard audio recovered", true);
     }
   }
 
@@ -541,6 +557,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     if (this._status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this._status}`,
+        true,
       );
       return true;
     }

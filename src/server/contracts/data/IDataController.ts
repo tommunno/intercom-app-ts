@@ -5,18 +5,24 @@ import type {
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
+  LogLevel,
+  LogRow,
+  LogRowsInfo,
   UserInfo,
 } from "../../../shared/types/index.js";
-import type { AudioData, AudioPopulateData } from "../../types/AudioData.js";
 import type {
+  AudioData,
+  AudioPopulateData,
   NetworkData,
   NetworkPopulateData,
-} from "../../types/NetworkData.js";
+} from "../../types/index.js";
+import type {} from "../../types/NetworkData.js";
 import type {
   AccountAdminUsersApplyResult,
   AccountAdminUsersValidationResult,
 } from "./IAccountManager.js";
 import type { AdminLogoutResult } from "./IAdminAccountManager.js";
+import type { GetLogsParams } from "./IDataManager.js";
 
 export interface DataAdminInfos {
   usersInfo: UserInfo[];
@@ -31,6 +37,7 @@ export interface DataHandlers {
   onStaleHeartbeat(clientId: string, isAdmin?: boolean): void;
   onSessionTokensCleanedUp(): void;
   onAdminSessionTokensCleanedUp(): void;
+  onAdminLogUpdate(latestLogs: LogRow[]): void;
 }
 
 export interface IDataController {
@@ -45,6 +52,14 @@ export interface IDataController {
   saveAdminAccountData: () => void;
   saveAudioData: (data: AudioData | null) => void;
   saveNetworkData: (data: NetworkData | null) => void;
+  insertLog: (
+    level: LogLevel,
+    message: string,
+    toAdminPanel: boolean,
+    context: string,
+  ) => void;
+  getLogs: (params: GetLogsParams) => LogRowsInfo;
+  getLatestLogs: () => LogRow[];
 
   softLoginUser: (
     sessionToken: string | null,

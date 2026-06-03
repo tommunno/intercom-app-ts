@@ -1,3 +1,4 @@
+import type { LogLevel, LogRow } from "../../shared/types/index.js";
 import { dataIsAccountData, type AccountData } from "./AccountData.js";
 import {
   dataIsAdminAccountData,
@@ -28,8 +29,17 @@ export type EnsureAllDataKeysHavePayloads = {
 };
 
 export type UpsertDataStatement = Database.Statement<[DataKey, string, number]>;
-
 export type GetDataStatement = Database.Statement<[DataKey], { json: string }>;
+export type InsertLogStatement = Database.Statement<
+  [LogLevel, string, 0 | 1, string, number]
+>;
+export type GetLatestLogsStatement = Database.Statement<[number], LogRow>;
+export type GetLogsBeforeIdStatement = Database.Statement<
+  [number, number],
+  LogRow
+>;
+export type GetLogsAfterIdStatement = Database.Statement<[number], LogRow>;
+export type DeleteOldLogsStatement = Database.Statement<[number]>;
 
 // PAYLOAD VALIDATION:
 export const DATA_PAYLOAD_VALIDATORS = {

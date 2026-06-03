@@ -98,3 +98,17 @@ export function capitalizeFirstLetter(str: string): string {
   if (str.length === 0) return str;
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+export function getPrettyTimestamp(date: Date): string {
+  const pad = (num: number, size = 2) => String(num).padStart(size, "0");
+
+  const day = pad(date.getDate());
+  const month = pad(date.getMonth() + 1); // Month is 0-indexed
+  const year = pad(date.getFullYear() % 100); // Last two digits
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  const millis = pad(date.getMilliseconds(), 3); // Milliseconds are 0–999
+
+  return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}.${millis}`;
+}

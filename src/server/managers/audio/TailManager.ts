@@ -121,7 +121,7 @@ export class TailManager implements ITailManager {
 
     const tail = this.tails[userId]?.[plNum];
     if (tail === undefined) {
-      this.logger.error(errMessage + ": Cannot find tail");
+      this.logger.error(errMessage + ": Cannot find tail", true);
       return "NONE";
     }
     return tail.type;
@@ -151,6 +151,7 @@ export class TailManager implements ITailManager {
     if (!force && !this.activeHandlers.onIsPlAllowedForPortNum(portNum, id)) {
       this.logger.warn(
         `processKeyPress: portNum ${portNum} is not allowed access to partyline ID ${id}`,
+        true,
       );
       return;
     }
@@ -160,6 +161,7 @@ export class TailManager implements ITailManager {
       this.logger.error(
         errMessage +
           `: Invariant violation: unable to find portTails. Will do nothing`,
+        true,
       );
       return;
     }
@@ -169,6 +171,7 @@ export class TailManager implements ITailManager {
       this.logger.error(
         errMessage +
           `: Invariant violation: unable to find tail. Will do nothing`,
+        true,
       );
       return;
     }
@@ -242,13 +245,17 @@ export class TailManager implements ITailManager {
       if (!force) {
         this.logger.warn(
           errMessage + ": port is already listening to partyline",
+          true,
         );
       }
       return;
     }
     if (setState === "OFF" && !isPortCurrentlyListening) {
       if (!force) {
-        this.logger.warn(errMessage + ": port is not listening to partyline");
+        this.logger.warn(
+          errMessage + ": port is not listening to partyline",
+          true,
+        );
       }
       return;
     }
@@ -277,6 +284,7 @@ export class TailManager implements ITailManager {
         if (!force) {
           this.logger.warn(
             errMessage + ": port is already talking to partyline",
+            true,
           );
         }
         return;
@@ -348,11 +356,12 @@ export class TailManager implements ITailManager {
     }
 
     if (!isPortCurrentlyTalking) {
-      this.logger.warn(errMessage + ": port is not talking to partyline");
+      this.logger.warn(errMessage + ": port is not talking to partyline", true);
       return;
     } else if (tail.type === "LONG") {
       this.logger.warn(
         errMessage + ": a longTail is active for this port and partyline",
+        true,
       );
       return;
     }
@@ -458,6 +467,7 @@ export class TailManager implements ITailManager {
     if (!tail) {
       this.logger.error(
         `addLongTail: Invariant violation: tail does not exist. Will do nothing`,
+        true,
       );
       return;
     }
@@ -465,6 +475,7 @@ export class TailManager implements ITailManager {
     if (tail.type !== "NONE") {
       this.logger.error(
         `addLongTail: Tail already exists (type ${tail.type}). Will do nothing`,
+        true,
       );
       return;
     }
@@ -494,6 +505,7 @@ export class TailManager implements ITailManager {
       this.logger.error(
         errMessage +
           `: addShortTail: Invariant violation: unable to find tail slot`,
+        true,
       );
       return;
     }
@@ -501,6 +513,7 @@ export class TailManager implements ITailManager {
       this.logger.error(
         errMessage +
           `: addShortTail: There already is a tail for the port and PL. Will do nothing`,
+        true,
       );
       return;
     }
@@ -528,12 +541,14 @@ export class TailManager implements ITailManager {
     if (!tail) {
       this.logger.error(
         `handleShortTailEnd: Invariant violation: No tail exists for portNum ${portNum} and plNum ${plNum}. Will do nothing`,
+        true,
       );
       return;
     }
     if (tail.type !== "SHORT") {
       this.logger.error(
         `handleShortTailEnd: Invariant violation: Tail type is ${tail.type} for portNum ${portNum} and plNum ${plNum}. Will do nothing`,
+        true,
       );
       return;
     }
@@ -584,11 +599,11 @@ export class TailManager implements ITailManager {
     errMessage: string,
   ): boolean {
     if (!this.isPortNumValid(portNum)) {
-      this.logger.warn(errMessage + ": portNum is invalid");
+      this.logger.warn(errMessage + ": portNum is invalid", true);
       return false;
     }
     if (!this.isPlNumValid(plNum)) {
-      this.logger.warn(errMessage + ": plNum is invalid");
+      this.logger.warn(errMessage + ": plNum is invalid", true);
       return false;
     }
     return true;
@@ -647,6 +662,7 @@ export class TailManager implements ITailManager {
     if (this._status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this._status}`,
+        true,
       );
       return true;
     }

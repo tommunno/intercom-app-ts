@@ -14,6 +14,8 @@ import type {
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
+  LogLevel,
+  LogRow,
   RtcAnswerWire,
   RtcIceCandidateInitWire,
 } from "../../shared/types/index.js";
@@ -53,6 +55,7 @@ export class Controller implements IController {
     ADMIN_USER_LOGOUT: this.handleAdminUserLogout.bind(this),
     ADMIN_SOUNDCARD_CHANGE_REQUEST:
       this.handleAdminSoundcardChangeRequest.bind(this),
+    ADMIN_LOGS_PAGE_REQUEST: this.handleAdminLogsPageRequest.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -61,6 +64,7 @@ export class Controller implements IController {
     private logger: ILogger,
   ) {
     this.logger = this.logger.child({ context: "Controller" });
+    this.logger.onLog((l, m, t, c) => this.handleLog(l, m, t, c));
   }
 
   async init(): Promise<void> {
@@ -80,10 +84,6 @@ export class Controller implements IController {
     this.networkController.start();
     this.audioController.populate(audioData);
     this.audioController.start();
-    //Test:
-    // setTimeout(() => this.audioController.setRequestedSoundcardId(4), 20000);
-    // setTimeout(() => this.audioController.setRequestedSoundcardId(3), 30000);
-    //End Test
   }
 
   private bindListeners(): void {
@@ -119,6 +119,7 @@ export class Controller implements IController {
       onSessionTokensCleanedUp: () => this.handleSessionTokensCleanedUp(),
       onAdminSessionTokensCleanedUp: () =>
         this.handleAdminSessionTokensCleanedUp(),
+      onAdminLogUpdate: (l) => this.handleAdminLogUpdate(l),
     });
   }
 
@@ -146,6 +147,7 @@ export class Controller implements IController {
     if (userId === null) {
       this.logger.error(
         `An error has occured whilst logging out user with clientId ${clientId}. ${closeRtc ? "The WebRtc connection will be closed, but otherwise w" : "W"}ill not continue with logout`,
+        true,
       );
       if (closeRtc) {
         this.networkController.closeRtcClient(clientId);
@@ -191,6 +193,16 @@ export class Controller implements IController {
       );
     }
     this.sendAdminUsersLoggedInUpdate();
+  }
+
+  //Handle Logger:
+  handleLog(
+    level: LogLevel,
+    message: string,
+    toAdminPanel: boolean,
+    context: string,
+  ): void {
+    this.dataController.insertLog(level, message, toAdminPanel, context);
   }
 
   //Handle AudioController:
@@ -384,7 +396,7 @@ export class Controller implements IController {
     clientId: string,
     _: SessionTokens,
   ): void {
-    this.logger.info(`Key press request:`, keyPressInfo);
+    this.logger.info(`Key press request:`, false, keyPressInfo);
 
     const userId = this.isClientIdLoggedIn(clientId, "Ignored key press");
     if (userId === null) return;
@@ -432,6 +444,7 @@ export class Controller implements IController {
     }
 
     //Login Success:
+
     const { webServerInfo } = this.networkController.getAdminInfos();
     const {
       inputGainsInfo,
@@ -441,11 +454,9 @@ export class Controller implements IController {
       audioBannersInfo,
     } = this.audioController.getAdminInfos();
     const usersInfo = this.createAdminUsersInfo();
-
-    //Ultimately do this:
-    // const { loggingInfo } = this.loggingManager.getAdminInfos();
-    //But need a loggingManager first. Temporarily we we will do this:
-    const loggingInfo: AdminLoggingInfo = {};
+    const loggingInfo: AdminLoggingInfo = {
+      latestLogs: this.dataController.getLatestLogs(),
+    };
     const adminSnapshot: AdminSnapshot = {
       webServerInfo,
       inputGainsInfo,
@@ -526,6 +537,7 @@ export class Controller implements IController {
       const errMessage = formatList([...errors]);
       this.logger.warn(
         `Admin users change request validation failed: ${errMessage}`,
+        true,
       );
       this.networkController.sendWssMessage(
         "ADMIN_POPUP",
@@ -577,6 +589,7 @@ export class Controller implements IController {
     if (!result.success) {
       this.logger.warn(
         `Admin partylines change request validation failed: ${result.message}`,
+        true,
       );
       this.networkController.sendWssMessage(
         "ADMIN_POPUP",
@@ -638,6 +651,28 @@ export class Controller implements IController {
     this.dataController.saveAudioData(this.audioController.getSaveSnapshot());
   }
 
+  private async handleAdminLogsPageRequest(
+    { direction, id }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGS_PAGE_REQUEST],
+    clientId: string,
+    _: SessionTokens,
+  ): Promise<void> {
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin logs page request",
+    );
+    if (!loggedIn) return;
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      {
+        loggingInfo: {
+          latestLogs: this.dataController.getLatestLogs(),
+          requestedLogs: this.dataController.getLogs({ direction, id }),
+        },
+      },
+      [clientId],
+    );
+  }
+
   //Handle WebRtc:
 
   private handleRtcConnected(clientId: string): void {
@@ -697,6 +732,7 @@ export class Controller implements IController {
     if (userId === null) {
       this.logger.warn(
         `Unable to add track for clientId ${clientId}: the client is not logged in`,
+        true,
       );
       return;
     }
@@ -733,7 +769,7 @@ export class Controller implements IController {
     clientId: string,
     isAdmin: boolean = false,
   ): void {
-    this.logger.info(`Stale heartbeat detected for clientId ${clientId}`);
+    this.logger.info(`Stale heartbeat detected for clientId ${clientId}`, true);
     if (isAdmin) {
       //Logout admin client here
       this.dataController.logoutAdmin(clientId);
@@ -748,6 +784,21 @@ export class Controller implements IController {
 
   private handleAdminSessionTokensCleanedUp(): void {
     this.dataController.saveAdminAccountData();
+  }
+
+  private handleAdminLogUpdate(latestLogs: LogRow[]): void {
+    if (this.networkController.getWssManagerStatus() !== "RUNNING") {
+      return;
+    }
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      {
+        loggingInfo: {
+          latestLogs,
+        },
+      },
+      this.dataController.getLoggedInAdminClientIds(),
+    );
   }
 
   //Helpers:
@@ -848,6 +899,7 @@ export class Controller implements IController {
       if (!aPlsInfo) {
         this.logger.error(
           `createAdminUsersInfo: Invariant violation: unable to find allowedPlsInfo for userId ${userId}. Will create a blank array`,
+          true,
         );
       }
       adminUsersInfo.push({

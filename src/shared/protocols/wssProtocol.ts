@@ -7,6 +7,7 @@ import type {
   AdminUpdate,
   AdminUsersChangeRequest,
   AdminUsersLoggedInUpdate,
+  LogPageDirection,
 } from "../types/index.js";
 //Types:
 import {
@@ -32,6 +33,7 @@ import {
   dataIsAdminUsersLoggedInUpdate,
   dataIsAdminPartylinesChangeRequest,
   dataIsAdminPopup,
+  dataIsLogPageDirection,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -51,6 +53,7 @@ export const WSS_UPSTREAM = {
   ADMIN_PARTYLINES_CHANGE_REQUEST: "ADMIN_PARTYLINES_CHANGE_REQUEST",
   ADMIN_USER_LOGOUT: "ADMIN_USER_LOGOUT",
   ADMIN_SOUNDCARD_CHANGE_REQUEST: "ADMIN_SOUNDCARD_CHANGE_REQUEST",
+  ADMIN_LOGS_PAGE_REQUEST: "ADMIN_LOGS_PAGE_REQUEST",
 } as const;
 
 //For messages being received by the client talkback panel:
@@ -101,6 +104,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.ADMIN_USER_LOGOUT]: dataIsWssAdminUserLogout,
   [WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST]:
     dataIsWssAdminSoundcardChangeRequest,
+  [WSS_UPSTREAM.ADMIN_LOGS_PAGE_REQUEST]: dataIsWssAdminLogsPageRequest,
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
   [WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
@@ -137,6 +141,10 @@ type PayloadMap = {
   [WSS_UPSTREAM.ADMIN_PARTYLINES_CHANGE_REQUEST]: AdminPartylinesChangeRequest;
   [WSS_UPSTREAM.ADMIN_USER_LOGOUT]: { userId: number };
   [WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST]: { soundcardId: number };
+  [WSS_UPSTREAM.ADMIN_LOGS_PAGE_REQUEST]: {
+    direction: LogPageDirection;
+    id: number;
+  };
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: {
     success: boolean;
@@ -251,6 +259,16 @@ export function dataIsWssAdminSoundcardChangeRequest(
   data: unknown,
 ): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST] {
   return dataIsObject(data) && dataIsType("number", data.soundcardId);
+}
+
+export function dataIsWssAdminLogsPageRequest(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGS_PAGE_REQUEST] {
+  return (
+    dataIsObject(data) &&
+    dataIsLogPageDirection(data.direction) &&
+    dataIsType("safeIntegerNum", data.id)
+  );
 }
 
 //DOWNSTREAM PANEL:

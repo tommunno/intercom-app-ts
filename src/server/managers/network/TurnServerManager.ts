@@ -89,6 +89,7 @@ export class TurnServerManager implements ITurnServerManager {
     if (this._status === "IDLE" || this._status === "INITIALIZED") {
       this.logger.warn(
         `get port: status is ${this._status}; port may not be initialized yet`,
+        true,
       );
     }
     return this._port;
@@ -111,6 +112,7 @@ export class TurnServerManager implements ITurnServerManager {
     } else {
       this.logger.warn(
         `No TURN IP provided. Will use default IP ${DEFAULT_TURN_SERVER_IP}`,
+        true,
       );
     }
     this.createUrl();
@@ -130,6 +132,7 @@ export class TurnServerManager implements ITurnServerManager {
     if (this._status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this._status}`,
+        true,
       );
       return true;
     }

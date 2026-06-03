@@ -1,4 +1,5 @@
 import type { WssUpstream } from "../../../shared/protocols/index.js";
+import type { ManagerStatus } from "../../../shared/types/ManagerStatus.js";
 import type { Servers, WssMessageInfo } from "../../types/index.js";
 import type { WssSendMessage } from "../../types/index.js";
 
@@ -17,4 +18,5 @@ export interface IWssManager {
   start: () => void;
   setHandlers: (handlers: WssHandlers) => void;
   sendMessage: WssSendMessage;
+  status: ManagerStatus;
 }

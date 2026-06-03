@@ -1,6 +1,7 @@
 import type {
   AdminUpdate,
   AdminWebServerInfo,
+  ManagerStatus,
   RtcIceCandidateInitWire,
   RtcOfferWire,
   TurnServerInfo,
@@ -66,4 +67,5 @@ export interface INetworkController {
 
   getAdminWebServerInfo: () => AdminWebServerInfo;
   getAdminInfos: () => NetworkAdminInfos;
+  getWssManagerStatus: () => ManagerStatus;
 }

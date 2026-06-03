@@ -83,6 +83,7 @@ export class OutputPort implements IOutputPort {
     if (!listeningPlTalkers) {
       this.logger.error(
         `updateForPlListenAdd: Unable to get partyline talkers for partyline ${plNum}`,
+        true,
       );
       return [];
     }
@@ -130,6 +131,7 @@ export class OutputPort implements IOutputPort {
       if (!plTalkers) {
         this.logger.error(
           `getAllPlTalkers: Unable to get partyline talkers for partyline ${plListen}`,
+          true,
         );
         return null;
       }

@@ -147,13 +147,17 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       userId >= this._config.numUsers ||
       userId < 0
     ) {
-      this.logger.error(`userId ${userId} invalid. Cannot get partyline infos`);
+      this.logger.error(
+        `userId ${userId} invalid. Cannot get partyline infos`,
+        true,
+      );
       return null;
     }
     const aPlsInfo = this._config.allowedPlsInfos[userId];
     if (!aPlsInfo) {
       this.logger.error(
         `Invariant violation: unable to get allowed PLs info for userId ${userId}. Cannot get partyline infos`,
+        true,
       );
       return null;
     }
@@ -189,6 +193,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!isValid) {
       this.logger.error(
         `isPlAllowedForPortNum: Invalid portNum. Will return false`,
+        true,
       );
       return false;
     }
@@ -200,6 +205,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!aPlsInfo) {
       this.logger.error(
         `isPlAllowedForUserId: Invariant violation: aPlsInfo not found`,
+        true,
       );
       return false;
     }
@@ -213,6 +219,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!this.isPortNumValid(portNum)) {
       this.logger.warn(
         `portNum ${portNum} is invalid. Will not process key press`,
+        true,
       );
       return;
     }
@@ -225,6 +232,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!partyline) {
       this.logger.warn(
         `No partyline exists with ID ${partylineId}, so cannot process ${type.toLowerCase()} key request`,
+        true,
       );
       return;
     }
@@ -259,6 +267,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!this.isPortNumValid(portNum)) {
       this.logger.error(
         `isSoleActiveTalkKeyForPort: portNum ${portNum} is invalid. Will return false`,
+        true,
       );
       return false;
     }
@@ -266,12 +275,14 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!specifiedPl) {
       this.logger.error(
         `isSoleActiveTalkKeyForPort: No partyline found for plNum ${plNum}. Will return false`,
+        true,
       );
       return false;
     }
     if (!specifiedPl.isPortTalking(portNum)) {
       this.logger.error(
         `isSoleActiveTalkKeyForPort: The specified PL (plNum ${plNum}) does not have port ${portNum} talking to it. Will return false`,
+        true,
       );
       return false;
     }
@@ -292,6 +303,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!this.isPortNumValid(portNum)) {
       this.logger.error(
         `isPortInPartyline: portNum ${portNum} is invalid. Will return false`,
+        true,
       );
       return false;
     }
@@ -299,6 +311,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!pl) {
       this.logger.error(
         `isPortInPartyline:  No partyline found for plNum ${plNum}. Will return false`,
+        true,
       );
       return false;
     }
@@ -421,6 +434,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       if (!foundAPlsInfo) {
         this.logger.error(
           `applyAdminUsersChangeRequest: Invariant violation: no aPlsInfo found for userId ${userId}. Will not update allowed PLs`,
+          true,
         );
         return;
       }
@@ -518,6 +532,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       if (!foundPl) {
         this.logger.error(
           `applyAdminPartylinesChangeRequest: Invariant violation: no PL found for plId ${plId}. Will not update plName`,
+          true,
         );
         return;
       }
@@ -553,6 +568,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (nP === undefined) {
       this.logger.warn(
         `No partyline count was provided. Will fall back to the default value of ${DEFAULT_NUM_PARTYLINES}`,
+        true,
       );
     } else if (
       !dataIsType("safeIntegerNum", nP) ||
@@ -561,6 +577,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     ) {
       this.logger.error(
         `numPartylines is invalid. Will fall back to the default value of ${DEFAULT_NUM_PARTYLINES}`,
+        true,
       );
     } else {
       this._config.numPartylines = nP;
@@ -584,6 +601,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!success) {
       this.logger.warn(
         `Unable to set port ${portNum} talk state on partyline ${partyline.id}, because ${message}`,
+        true,
       );
       return success;
     }
@@ -594,6 +612,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       if (!port) {
         this.logger.error(
           `Invariant violation: No port found for listeningPortNum ${listeningPortNum} in handleTalkKeyRequest`,
+          true,
         );
         return;
       }
@@ -622,6 +641,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!success) {
       this.logger.warn(
         `Unable to set port ${portNum} listen state on partyline ${partyline.id}, because ${message}`,
+        true,
       );
       return success;
     }
@@ -629,6 +649,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (!port) {
       this.logger.error(
         `Invariant violation: No port found for portNum ${portNum} in handleListenKeyRequest`,
+        true,
       );
       return success;
     }
@@ -717,6 +738,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (autoNamedPlNums.size === this._config.numPartylines) {
       this.logger.warn(
         "No partyline names were provided. Falling back to default names.",
+        true,
       );
       return;
     }
@@ -727,6 +749,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
 
       this.logger.warn(
         `Unable to find names for partylines ${partylineNumbers}. Falling back to default names.`,
+        true,
       );
     }
   }
@@ -766,7 +789,10 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   private getPlTalks(plNum: number): ReadonlySet<number> | null {
     const pl = this.partylines[plNum];
     if (!pl) {
-      this.logger.error(`getPlTalks: unable to find pl for plNum ${plNum}`);
+      this.logger.error(
+        `getPlTalks: unable to find pl for plNum ${plNum}`,
+        true,
+      );
       return null;
     }
     return pl.portsTalking;
@@ -808,12 +834,14 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       const plural = invalidUserIds.length > 1;
       this.logger.warn(
         `Invalid allowed PLs: unable to find user${plural ? "s" : ""} with ID${plural ? "s" : ""} ${formatList(invalidUserIds)}`,
+        true,
       );
     }
     if (invalidAPlsForUserIds.length !== 0) {
       const plural = invalidAPlsForUserIds.length > 1;
       this.logger.warn(
         `Invalid allowed PLs: invalid PL number for user${plural ? "s" : ""} with ID${plural ? "s" : ""} ${formatList(invalidAPlsForUserIds)}`,
+        true,
       );
     }
     return infosToModify;
@@ -902,6 +930,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (this._status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this._status}`,
+        true,
       );
       return true;
     }
