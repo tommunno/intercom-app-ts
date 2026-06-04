@@ -3,7 +3,12 @@ import type {
   AuthResult,
   LoginCredentials,
 } from "../../../shared/types/index.js";
-import type { Servers, WebServerResolvedData } from "../../types/index.js";
+import type {
+  DownloadLogsOptions,
+  DownloadLogsResult,
+  Servers,
+  WebServerResolvedData,
+} from "../../types/index.js";
 
 export interface WebServerAdminInfo {
   httpsPort: number | null;
@@ -21,6 +26,10 @@ export interface WebServerHandlers {
     sessionToken: string | null,
     loginCredentials: LoginCredentials,
   ) => Promise<AdminAuthResult>;
+  onDownloadLogsRequest: (
+    sessionToken: string,
+    options: DownloadLogsOptions,
+  ) => DownloadLogsResult;
 }
 
 export interface IWebServerManager {

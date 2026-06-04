@@ -26,6 +26,8 @@ import {
 } from "../../shared/protocols/index.js";
 import type {
   DisconnectUserParams,
+  DownloadLogsOptions,
+  DownloadLogsResult,
   LogoutClientParams,
   RtcMediaStreamTrack,
   SessionTokens,
@@ -97,6 +99,7 @@ export class Controller implements IController {
       //WebServer:
       onUserSoftLoginRequest: (s, l) => this.handleUserSoftLoginRequest(s, l),
       onAdminSoftLoginRequest: (s, l) => this.handleAdminSoftLoginRequest(s, l),
+      onDownloadLogsRequest: (s, o) => this.handleDownloadLogsRequest(s, o),
       //Wss:
       onMessage: this.handleWssMessage.bind(this),
       onClientDisconnect: (c) => this.handleClientDisconnect(c),
@@ -273,6 +276,22 @@ export class Controller implements IController {
     );
     this.dataController.saveAdminAccountData();
     return result;
+  }
+
+  private handleDownloadLogsRequest(
+    sessionToken: string,
+    options: DownloadLogsOptions,
+  ): DownloadLogsResult {
+    const success = this.dataController.validateAdminSessionToken(sessionToken);
+    if (!success) {
+      this.logger.warn("Unable to download logs: invalid session token");
+      return {
+        success: false,
+        statusCode: 403,
+        message: "Invalid session token",
+      };
+    }
+    return this.dataController.downloadLogs(options);
   }
 
   //Handle Wss messages:

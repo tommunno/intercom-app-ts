@@ -45,3 +45,4 @@ export * from "./LogLevel.js";
 export * from "./LogPageDirection.js";
 export * from "./LogRowsInfo.js";
 export * from "./LogsPosition.js";
+export * from "./DownloadLogsQuery.js";

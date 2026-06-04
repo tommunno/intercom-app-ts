@@ -28,19 +28,17 @@ export type EnsureAllDataKeysHavePayloads = {
   [K in DataKey]: DataPayloadMap[K];
 };
 
-export type UpsertDataStatement = Database.Statement<[DataKey, string, number]>;
-export type GetDataStatement = Database.Statement<[DataKey], { json: string }>;
-export type InsertLogStatement = Database.Statement<
-  [LogLevel, string, 0 | 1, string, number]
->;
-export type GetLatestLogsStatement = Database.Statement<[number], LogRow>;
-export type GetLogsBeforeIdStatement = Database.Statement<
-  [number, number],
-  LogRow
->;
-export type GetLogsAfterIdStatement = Database.Statement<[number], LogRow>;
-export type DeleteOldLogsStatement = Database.Statement<[number]>;
-
+export interface DbStatements {
+  upsertData: Database.Statement<[DataKey, string, number]>;
+  getData: Database.Statement<[DataKey], { json: string }>;
+  insertLog: Database.Statement<[LogLevel, string, 0 | 1, string, number]>;
+  getLatestLogs: Database.Statement<[number], LogRow>;
+  getLogsBeforeId: Database.Statement<[number, number], LogRow>;
+  getLogsAfterId: Database.Statement<[number], LogRow>;
+  deleteOldLogs: Database.Statement<[number]>;
+  getAllLogsBetweenTimes: Database.Statement<[number, number], LogRow>;
+  getAllLogsAfterTime: Database.Statement<[number], LogRow>;
+}
 // PAYLOAD VALIDATION:
 export const DATA_PAYLOAD_VALIDATORS = {
   [DATA_KEYS.ACCOUNT]: dataIsDbAccountData,

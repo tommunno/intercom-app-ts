@@ -50,6 +50,8 @@ import {
   validatePort,
 } from "../serverHelpers.js";
 import type { RtcMediaStreamTrack } from "../types/wrtcShimTypes.js";
+import type { DownloadLogsOptions } from "../types/DownloadLogsOptions.js";
+import type { DownloadLogsResult } from "../types/DownloadLogsResult.js";
 
 export class NetworkController implements INetworkController {
   private handlers: NetworkHandlers | null = null;
@@ -258,6 +260,7 @@ export class NetworkController implements INetworkController {
     this.webServerManager.setHandlers({
       onUserSoftLoginRequest: (s, l) => this.handleUserSoftLoginRequest(s, l),
       onAdminSoftLoginRequest: (s, l) => this.handleAdminSoftLoginRequest(s, l),
+      onDownloadLogsRequest: (s, o) => this.handleDownloadLogsRequest(s, o),
     });
 
     this.wssManager.setHandlers({
@@ -464,6 +467,13 @@ export class NetworkController implements INetworkController {
       loginCredentials,
     );
     return authResult;
+  }
+
+  private handleDownloadLogsRequest(
+    sessionToken: string,
+    options: DownloadLogsOptions,
+  ): DownloadLogsResult {
+    return this.activeHandlers.onDownloadLogsRequest(sessionToken, options);
   }
 
   //WssManager:

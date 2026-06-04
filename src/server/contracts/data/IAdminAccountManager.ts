@@ -31,5 +31,6 @@ export interface IAdminAccountManager {
   processHeartbeatResponse: (timestamp: number, clientId: string) => void;
   isClientIdLoggedIn: (clientId: string) => boolean;
   getLoggedInClientIds: () => string[];
+  validateSessionToken: (sessionToken: string) => boolean;
   getSaveSnapshot: () => AdminAccountData | null;
 }

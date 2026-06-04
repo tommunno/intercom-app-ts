@@ -112,7 +112,7 @@ If any of these values are missing or invalid, the app will fall back to its def
   - no valid soundcard device is available
   - no valid SSL certificate files are present
   - audio loss is detected
-- Application logging with database storage, automatic cleanup, and live viewing in the admin GUI
+- Application logging with database storage, automatic cleanup, live admin viewing, and downloadable log exports
 
 ## What is still to be implemented
 

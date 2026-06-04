@@ -205,6 +205,11 @@ export class AdminAccountManager implements IAdminAccountManager {
     return Array.from(this.loggedInClients.keys());
   }
 
+  validateSessionToken(sessionToken: string): boolean {
+    const sessionTokenInfo = this.sessionTokenInfos.get(sessionToken);
+    return !!sessionTokenInfo && !hasSessionTokenInfoExpired(sessionTokenInfo);
+  }
+
   getSaveSnapshot(): AdminAccountData | null {
     const notRunning = this.checkAndWarnIfNotRunning("get save snapshot");
     if (notRunning) return null;

@@ -12,6 +12,7 @@ import type {
   ManagerStatus,
   AuthResult,
   AdminAuthResult,
+  DownloadLogsQuery,
 } from "../../../shared/types/index.js";
 
 //Helpers:
@@ -32,8 +33,8 @@ import {
   DEFAULT_HTTP_PORT,
   GENERATED_KEY_FILE,
   GENERATED_CERT_FILE,
-  APP_NAME,
 } from "../../constants/serverConstants.js";
+import { APP_NAME } from "../../../shared/constants/sharedConstants.js";
 
 //External Libraries:
 import express, {
@@ -105,6 +106,11 @@ export class WebServerManager implements IWebServerManager {
       ) => {
         await this.handleLoginRequest(rq, rs, true);
       },
+    );
+
+    this.app.get(
+      "/setup/logs/download",
+      this.handleDownloadLogsRequest.bind(this),
     );
 
     this.app.use((rq: Request, rs: Response, _n: NextFunction) => {
@@ -454,6 +460,52 @@ export class WebServerManager implements IWebServerManager {
     }
 
     res.status(statusCode).json({ success, message });
+  }
+
+  private handleDownloadLogsRequest(
+    req: Request<
+      Record<string, never>, // No route params
+      string, // Response body (plain text)
+      never, // Request body
+      DownloadLogsQuery
+    >,
+    res: Response<string>,
+  ): void {
+    const rawToken: unknown = req.cookies.adminSessionToken;
+    let sessionToken: string | null = null;
+
+    if (isStringAndNotEmpty(rawToken)) sessionToken = rawToken;
+    if (sessionToken === null) {
+      res.status(401).send("Missing admin session token");
+      return;
+    }
+    const { from, to } = req.query;
+    const fromMs = from !== undefined ? Number(from) : null;
+    const toMs = to !== undefined ? Number(to) : null;
+
+    if (
+      (fromMs !== null && !Number.isFinite(fromMs)) ||
+      (toMs !== null && !Number.isFinite(toMs))
+    ) {
+      res.status(400).send("Invalid log date range");
+      return;
+    }
+
+    const result = this.activeHandlers.onDownloadLogsRequest(sessionToken, {
+      from: fromMs,
+      to: toMs,
+    });
+    if (!result.success) {
+      res.status(result.statusCode).send(result.message);
+      return;
+    }
+    //Success:
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${result.filename}"`,
+    );
+    res.status(200).send(result.logText);
   }
 
   private handleErrors(

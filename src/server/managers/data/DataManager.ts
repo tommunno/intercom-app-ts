@@ -13,42 +13,37 @@ import type {
 import {
   type DataKey,
   type DataPayloadMap,
-  type UpsertDataStatement,
-  type GetDataStatement,
   type NetworkPopulateData,
   type WebServerData,
   type TurnServerData,
   DATA_PAYLOAD_VALIDATORS,
-  type InsertLogStatement,
-  type GetLatestLogsStatement,
-  type GetLogsBeforeIdStatement,
-  type DeleteOldLogsStatement,
-  type GetLogsAfterIdStatement,
+  type DownloadLogsOptions,
+  type DownloadLogsResult,
+  type DbStatements,
 } from "../../types/index.js";
 //Constants:
 import {
   ADMIN_LOG_UPDATE_INTERVAL_MS,
   LOGS_BETWEEN_PRUNES,
+  MAX_LOG_EXPORT_ROWS,
   MAX_LOG_ROWS,
 } from "../../constants/serverConstants.js";
-import { LOG_PAGE_SIZE } from "../../../shared/constants/sharedConstants.js";
+import {
+  APP_NAME,
+  LOG_PAGE_SIZE,
+} from "../../../shared/constants/sharedConstants.js";
 //External:
 import path from "node:path";
 import fs from "node:fs";
 import "dotenv/config";
 import Database from "better-sqlite3";
+import { getPrettyTimestamp } from "../../../shared/helpers.js";
 
 export class DataManager implements IDataManager {
   private status: ManagerStatus = "IDLE";
   private handlers: DataManagerHandlers | null = null;
   private db: Database.Database | null = null;
-  private _upsertData: UpsertDataStatement | null = null;
-  private _getData: GetDataStatement | null = null;
-  private _insertLog: InsertLogStatement | null = null;
-  private _getLatestLogs: GetLatestLogsStatement | null = null;
-  private _getLogsBeforeId: GetLogsBeforeIdStatement | null = null;
-  private _getLogsAfterId: GetLogsAfterIdStatement | null = null;
-  private _deleteOldLogs: DeleteOldLogsStatement | null = null;
+  private dbStatements: DbStatements | null = null;
   private logsInsertedSincePrune: number = 0;
   private logQueue: {
     level: LogLevel;
@@ -97,14 +92,14 @@ export class DataManager implements IDataManager {
     if (this.checkAndWarnIfNotRunning(action)) {
       return;
     }
-    if (this._upsertData === null) {
-      this.logger.error(`Unable to ${action}: upsertData is null`, true);
+    if (this.dbStatements === null) {
+      this.logger.error(`Unable to ${action}: dbStatements is null`, true);
       return;
     }
     let json: string;
     try {
       json = JSON.stringify(data);
-      this._upsertData.run(key, json, Date.now());
+      this.dbStatements.upsertData.run(key, json, Date.now());
     } catch (err) {
       this.logger.error(`Unable to ${action}: ${err}`, true);
       return;
@@ -119,13 +114,13 @@ export class DataManager implements IDataManager {
     if (this.checkAndWarnIfNotRunning(action)) {
       return fallback;
     }
-    if (this._getData === null) {
-      this.logger.error(`Unable to ${action}: _getData is null`, true);
+    if (this.dbStatements === null) {
+      this.logger.error(`Unable to ${action}: dbStatements is null`, true);
       return fallback;
     }
     let result: { json: string } | undefined;
     try {
-      result = this._getData.get(key);
+      result = this.dbStatements.getData.get(key);
     } catch (err) {
       this.logger.error(`Unable to ${action}: ${err}`, true);
       return fallback;
@@ -183,7 +178,7 @@ export class DataManager implements IDataManager {
     const createdAt = Date.now();
     const toAdminPanelNum = toAdminPanel ? 1 : 0;
 
-    if (this.status !== "RUNNING" || this._insertLog === null) {
+    if (this.status !== "RUNNING" || this.dbStatements === null) {
       this.logQueue.push({
         level,
         message,
@@ -195,7 +190,13 @@ export class DataManager implements IDataManager {
     }
 
     try {
-      this._insertLog.run(level, message, toAdminPanelNum, context, createdAt);
+      this.dbStatements.insertLog.run(
+        level,
+        message,
+        toAdminPanelNum,
+        context,
+        createdAt,
+      );
       this.logsInsertedSincePrune++;
       if (this.logsInsertedSincePrune >= LOGS_BETWEEN_PRUNES) {
         this.pruneOldLogs();
@@ -214,17 +215,17 @@ export class DataManager implements IDataManager {
     if (this.checkAndWarnIfNotRunning("get logs")) {
       return noLogsFound;
     }
+    if (this.dbStatements === null) {
+      this.logger.error(`Unable to get logs: dbStatements is null`, true);
+      return noLogsFound;
+    }
 
     if (params.direction === "BEFORE") {
-      if (this._getLogsBeforeId === null) {
-        this.logger.error(
-          `Unable to get logs before ID: _getLogsBeforeId is null`,
-          true,
-        );
-        return noLogsFound;
-      }
       try {
-        const logs = this._getLogsBeforeId.all(params.id, this.startupLogId);
+        const logs = this.dbStatements.getLogsBeforeId.all(
+          params.id,
+          this.startupLogId,
+        );
         if (logs.length === 0) {
           return noLogsFound;
         }
@@ -238,16 +239,9 @@ export class DataManager implements IDataManager {
         return noLogsFound;
       }
     }
-
-    if (this._getLogsAfterId === null) {
-      this.logger.error(
-        `Unable to get logs after ID: _getLogsAfterId is null`,
-        true,
-      );
-      return noLogsFound;
-    }
+    //AFTER:
     try {
-      const logs = this._getLogsAfterId.all(params.id);
+      const logs = this.dbStatements.getLogsAfterId.all(params.id);
       if (logs.length === 0) {
         return noLogsFound;
       }
@@ -270,30 +264,76 @@ export class DataManager implements IDataManager {
       );
       return [];
     }
-    if (this._getLatestLogs === null) {
-      console.error(`Unable to get latest logs: _getLatestLogs is null`);
+    if (this.dbStatements === null) {
+      console.error(`Unable to get latest logs: dbStatements is null`);
       return [];
     }
     try {
-      return this._getLatestLogs.all(this.startupLogId);
+      return this.dbStatements.getLatestLogs.all(this.startupLogId);
     } catch (err) {
       console.error(`Unable to get latest logs: ${err}`);
       return [];
     }
   }
 
+  downloadLogs({ from, to }: DownloadLogsOptions): DownloadLogsResult {
+    const serverError: DownloadLogsResult = {
+      success: false,
+      statusCode: 500,
+      message: "Internal server error",
+    };
+    if (this.checkAndWarnIfNotRunning("download logs")) {
+      return serverError;
+    }
+    if (this.dbStatements === null) {
+      this.logger.error(`Unable to get logs: dbStatements is null`);
+      return serverError;
+    }
+
+    if (from !== null && to !== null && from > to) {
+      return {
+        success: false,
+        statusCode: 400,
+        message: "Invalid log date range: from is after to",
+      };
+    }
+
+    const logs =
+      to !== null
+        ? this.dbStatements.getAllLogsBetweenTimes.all(from ?? 0, to)
+        : this.dbStatements.getAllLogsAfterTime.all(from ?? 0);
+
+    if (logs.length === 0) {
+      return {
+        success: false,
+        statusCode: 404,
+        message: "No logs found",
+      };
+    }
+    const areLogsTruncated = logs.length === MAX_LOG_EXPORT_ROWS + 1;
+
+    return {
+      success: true,
+      logText: this.createLogsText(
+        logs.slice(0, MAX_LOG_EXPORT_ROWS),
+        areLogsTruncated,
+      ),
+      filename: "logs.txt",
+    };
+  }
+
   //This assumes the first log in the queue is the startup log:
   private drainLogQueue(): void {
-    if (this._insertLog === null) {
+    if (this.dbStatements === null) {
       console.error(
-        `[DataManager]: Unable to drain log queue: _insertLog is null`,
+        `[DataManager]: Unable to drain log queue: dbStatements is null`,
       );
       return;
     }
     let i = 0;
     for (const entry of this.logQueue) {
       try {
-        const { lastInsertRowid } = this._insertLog.run(
+        const { lastInsertRowid } = this.dbStatements.insertLog.run(
           entry.level,
           entry.message,
           entry.toAdminPanel,
@@ -348,26 +388,24 @@ export class DataManager implements IDataManager {
       );           
     `);
 
-    this._upsertData = this.db.prepare(`
+    this.dbStatements = {
+      upsertData: this.db.prepare(`
       INSERT INTO app_state (key, json, updated_at)
       VALUES (?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET
         json = excluded.json,
         updated_at = excluded.updated_at;
-    `);
-
-    this._getData = this.db.prepare(`
+    `),
+      getData: this.db.prepare(`
       SELECT json
       FROM app_state
       WHERE key = ?
-    `);
-
-    this._insertLog = this.db.prepare(`
+    `),
+      insertLog: this.db.prepare(`
       INSERT INTO logs (level, message, to_admin_panel, context, created_at)
       VALUES (?, ?, ?, ?, ?)
-    `);
-
-    this._getLatestLogs = this.db.prepare(`
+    `),
+      getLatestLogs: this.db.prepare(`
       SELECT
         id,
         level,
@@ -379,11 +417,10 @@ export class DataManager implements IDataManager {
       AND id >= ?
       ORDER BY id DESC
       LIMIT ${LOG_PAGE_SIZE}
-    `);
-
-    // Fetch one extra row (LOG_PAGE_SIZE + 1) so we can tell whether another page of logs exists.
-    // The extra row should only be used for pagination state, not displayed.
-    this._getLogsBeforeId = this.db.prepare(`
+    `),
+      // Fetch one extra row (LOG_PAGE_SIZE + 1) so we can tell whether another page of logs exists.
+      // The extra row should only be used for pagination state, not displayed.
+      getLogsBeforeId: this.db.prepare(`
       SELECT
         id,
         level,
@@ -396,9 +433,8 @@ export class DataManager implements IDataManager {
       AND id >= ?
       ORDER BY id DESC
       LIMIT ${LOG_PAGE_SIZE + 1}
-    `);
-
-    this._getLogsAfterId = this.db.prepare(`
+    `),
+      getLogsAfterId: this.db.prepare(`
       SELECT
         id,
         level,
@@ -410,9 +446,8 @@ export class DataManager implements IDataManager {
       AND id > ?
       ORDER BY id ASC
       LIMIT ${LOG_PAGE_SIZE + 1}
-    `);
-
-    this._deleteOldLogs = this.db.prepare(`
+    `),
+      deleteOldLogs: this.db.prepare(`
       DELETE FROM logs
       WHERE id NOT IN (
         SELECT id
@@ -420,7 +455,33 @@ export class DataManager implements IDataManager {
         ORDER BY id DESC
         LIMIT ?
       )
-    `);
+    `),
+      getAllLogsBetweenTimes: this.db.prepare(`
+       SELECT
+        id,
+        level,
+        message,
+        context,
+        created_at AS createdAt
+      FROM logs
+      WHERE created_at >= ?
+      AND created_at <= ?
+      ORDER BY id ASC
+      LIMIT ${MAX_LOG_EXPORT_ROWS + 1}
+    `),
+      getAllLogsAfterTime: this.db.prepare(`
+       SELECT
+        id,
+        level,
+        message,
+        context,
+        created_at AS createdAt
+      FROM logs
+      WHERE created_at >= ?
+      ORDER BY id ASC
+      LIMIT ${MAX_LOG_EXPORT_ROWS + 1}
+    `),
+    };
   }
 
   private queueStartupLog(): void {
@@ -435,12 +496,12 @@ export class DataManager implements IDataManager {
 
   private pruneOldLogs(): void {
     //console.error so as not to cause infinite loop:
-    if (this._deleteOldLogs === null) {
-      console.error("Unable to prune old logs: _deleteOldLogs is null");
+    if (this.dbStatements === null) {
+      console.error("Unable to prune old logs: dbStatements is null");
       return;
     }
     try {
-      this._deleteOldLogs.run(MAX_LOG_ROWS);
+      this.dbStatements.deleteOldLogs.run(MAX_LOG_ROWS);
       this.logsInsertedSincePrune = 0;
     } catch (err) {
       console.error(`Unable to prune old logs: ${err}`);
@@ -455,6 +516,22 @@ export class DataManager implements IDataManager {
       this.adminLogUpdateTimeout = null;
       this.activeHandlers.onAdminLogUpdate(this.getLatestLogs());
     }, ADMIN_LOG_UPDATE_INTERVAL_MS);
+  }
+
+  private createLogsText(logs: LogRow[], areLogsTruncated: boolean): string {
+    const header = [
+      `${APP_NAME} Log Export`,
+      `Generated: ${getPrettyTimestamp(new Date())}`,
+      `Rows: ${logs.length}${areLogsTruncated ? " (maximum export limit reached)" : ""}`,
+      "",
+    ].join("\n");
+    const body = logs
+      .map((log) => {
+        const timestamp = getPrettyTimestamp(new Date(log.createdAt));
+        return `[${timestamp}] [${log.level}] [${log.context}] ${log.message}`;
+      })
+      .join("\n\n");
+    return `${header}${body}`;
   }
 
   private checkAndWarnIfNotRunning(

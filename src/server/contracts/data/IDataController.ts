@@ -13,6 +13,8 @@ import type {
 import type {
   AudioData,
   AudioPopulateData,
+  DownloadLogsOptions,
+  DownloadLogsResult,
   NetworkData,
   NetworkPopulateData,
 } from "../../types/index.js";
@@ -60,6 +62,7 @@ export interface IDataController {
   ) => void;
   getLogs: (params: GetLogsParams) => LogRowsInfo;
   getLatestLogs: () => LogRow[];
+  downloadLogs: (options: DownloadLogsOptions) => DownloadLogsResult;
 
   softLoginUser: (
     sessionToken: string | null,
@@ -102,4 +105,6 @@ export interface IDataController {
   applyAdminUsersChangeRequest: (
     request: AdminUsersChangeRequest,
   ) => Promise<AccountAdminUsersApplyResult>;
+
+  validateAdminSessionToken: (sessionToken: string) => boolean;
 }

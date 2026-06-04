@@ -26,7 +26,12 @@ import type {
 } from "../contracts/index.js";
 //Constants:
 import type { NetworkData, NetworkPopulateData } from "../types/NetworkData.js";
-import type { AudioData, AudioPopulateData } from "../types/index.js";
+import type {
+  AudioData,
+  AudioPopulateData,
+  DownloadLogsOptions,
+  DownloadLogsResult,
+} from "../types/index.js";
 
 export class DataController implements IDataController {
   private handlers: DataHandlers | null = null;
@@ -127,6 +132,10 @@ export class DataController implements IDataController {
     return this.dataManager.getLatestLogs();
   }
 
+  downloadLogs(options: DownloadLogsOptions): DownloadLogsResult {
+    return this.dataManager.downloadLogs(options);
+  }
+
   softLoginUser(
     sessionToken: string | null,
     loginCredentials: LoginCredentials,
@@ -213,6 +222,10 @@ export class DataController implements IDataController {
     request: AdminUsersChangeRequest,
   ): Promise<AccountAdminUsersApplyResult> {
     return this.accountManager.applyAdminUsersChangeRequest(request);
+  }
+
+  validateAdminSessionToken(sessionToken: string): boolean {
+    return this.adminAccountManager.validateSessionToken(sessionToken);
   }
 
   private bindListeners(): void {

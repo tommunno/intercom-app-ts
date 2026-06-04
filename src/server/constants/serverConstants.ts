@@ -1,9 +1,6 @@
 //Set to true and run tail -f dev_matrix_view.txt in terminal to see a live updating view of crosspoints
 export const ENABLE_DEV_MATRIX_VIEW = false;
 
-//Global:
-export const APP_NAME = "WebCom";
-
 //Web Server:
 export const DEFAULT_HTTP_PORT = 4321;
 export const DEFAULT_HTTPS_PORT = 4322;
@@ -41,6 +38,7 @@ export const DEFAULT_TURN_SERVER_IP = "127.0.0.1";
 
 //Logs:
 export const MAX_LOG_ROWS = 10_000;
+export const MAX_LOG_EXPORT_ROWS = 10_000; //Max number of rows exported as a text file for an admin to download
 export const LOGS_BETWEEN_PRUNES = 500;
 export const ADMIN_LOG_UPDATE_INTERVAL_MS = 500;
 export const CONSOLE_LOGGING_ENABLED = false;

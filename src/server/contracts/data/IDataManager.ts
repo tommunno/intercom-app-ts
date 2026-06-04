@@ -7,6 +7,8 @@ import type {
 import type {
   DataKey,
   DataPayloadMap,
+  DownloadLogsOptions,
+  DownloadLogsResult,
   NetworkPopulateData,
 } from "../../types/index.js";
 
@@ -40,4 +42,5 @@ export interface IDataManager {
   ) => void;
   getLogs: (params: GetLogsParams) => LogRowsInfo;
   getLatestLogs: () => LogRow[];
+  downloadLogs: (options: DownloadLogsOptions) => DownloadLogsResult;
 }

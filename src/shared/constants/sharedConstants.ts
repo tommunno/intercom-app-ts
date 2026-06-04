@@ -1,5 +1,8 @@
 import type { SharedRtcIceServer } from "../types/index.js";
 
+//Global:
+export const APP_NAME = "WebCom";
+
 //Acount:
 export const MAX_NUM_USERS = 64;
 export const DEFAULT_NUM_USERS = 16;

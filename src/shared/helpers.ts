@@ -112,3 +112,17 @@ export function getPrettyTimestamp(date: Date): string {
 
   return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}.${millis}`;
 }
+
+export function getTimestampFromDateTimeLocal(value: string): number | null {
+  if (value === "") return null;
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return null;
+  return timestamp;
+}
+
+export function getDateTimeLocalFromDate(date: Date): string {
+  const localDate = new Date(
+    date.getTime() - date.getTimezoneOffset() * 60_000,
+  );
+  return localDate.toISOString().slice(0, 16);
+}
