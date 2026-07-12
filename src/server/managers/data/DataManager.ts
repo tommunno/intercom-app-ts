@@ -24,7 +24,9 @@ import {
 //Constants:
 import {
   ADMIN_LOG_UPDATE_INTERVAL_MS,
+  DATABASE_BACKUP_INTERVAL_MS,
   LOGS_BETWEEN_PRUNES,
+  MAX_DATABASE_BACKUPS,
   MAX_LOG_EXPORT_ROWS,
   MAX_LOG_ROWS,
 } from "../../constants/serverConstants.js";
@@ -38,6 +40,8 @@ import fs from "node:fs";
 import "dotenv/config";
 import Database from "better-sqlite3";
 import { getPrettyTimestamp } from "../../../shared/helpers.js";
+import { runMigrations } from "../../database/runMigrations.js";
+import { validateDatabase } from "../../database/validateDatabase.js";
 
 export class DataManager implements IDataManager {
   private status: ManagerStatus = "IDLE";
@@ -54,6 +58,9 @@ export class DataManager implements IDataManager {
   }[] = [];
   private adminLogUpdateTimeout: NodeJS.Timeout | null = null;
   private startupLogId: number = 1;
+  private dbPath: string | null = null;
+  private databaseBackupInterval: NodeJS.Timeout | null = null;
+  private databaseBackupInProgress = false;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "DataManager" });
@@ -81,6 +88,7 @@ export class DataManager implements IDataManager {
     this.queueStartupLog();
     this.drainLogQueue();
     this.pruneOldLogs();
+    this.startAutomaticDatabaseBackups();
   }
 
   setHandlers(handlers: DataManagerHandlers): void {
@@ -368,25 +376,13 @@ export class DataManager implements IDataManager {
   private ensureDatabase(): void {
     const dataDir = path.join(process.cwd(), "data");
     fs.mkdirSync(dataDir, { recursive: true });
-    const dbPath = path.join(dataDir, "app.db");
+    this.dbPath = path.join(dataDir, "app.db");
 
-    this.db = new Database(dbPath);
-
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS app_state (
-        key TEXT PRIMARY KEY,
-        json TEXT NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS logs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        level TEXT NOT NULL,
-        message TEXT NOT NULL,
-        to_admin_panel INTEGER NOT NULL,
-        context TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      );           
-    `);
+    this.db = new Database(this.dbPath);
+    this.db.pragma("foreign_keys = ON");
+    this.db.pragma("journal_mode = WAL");
+    runMigrations(this.db);
+    validateDatabase(this.db);
 
     this.dbStatements = {
       upsertData: this.db.prepare(`
@@ -532,6 +528,94 @@ export class DataManager implements IDataManager {
       })
       .join("\n\n");
     return `${header}${body}`;
+  }
+
+  private startAutomaticDatabaseBackups(): void {
+    if (this.databaseBackupInterval !== null) {
+      return;
+    }
+
+    // Make one backup on startup.
+    void this.createDatabaseBackup();
+
+    this.databaseBackupInterval = setInterval(() => {
+      void this.createDatabaseBackup();
+    }, DATABASE_BACKUP_INTERVAL_MS);
+  }
+
+  private async createDatabaseBackup(): Promise<void> {
+    if (this.databaseBackupInProgress) {
+      this.logger.warn(
+        "Skipping database backup because another backup is already running",
+      );
+      return;
+    }
+
+    if (this.db === null || this.dbPath === null) {
+      this.logger.error(
+        "Unable to create database backup: database is not initialized",
+        true,
+      );
+      return;
+    }
+
+    this.databaseBackupInProgress = true;
+
+    const backupDirectory = path.join(path.dirname(this.dbPath), "backups");
+    fs.mkdirSync(backupDirectory, { recursive: true });
+
+    const timestamp = new Date()
+      .toISOString()
+      .replaceAll(":", "-")
+      .replace(/\.\d{3}Z$/, "Z");
+
+    const backupPath = path.join(backupDirectory, `app-${timestamp}.db`);
+
+    try {
+      await this.db.backup(backupPath);
+      this.deleteOldDatabaseBackups(backupDirectory);
+
+      this.logger.info(`Database backup created: ${path.basename(backupPath)}`);
+    } catch (err) {
+      // Remove a partially created destination, if one exists.
+      try {
+        fs.rmSync(backupPath, { force: true });
+      } catch {
+        // Nothing useful to do here.
+      }
+
+      this.logger.error(`Unable to create database backup: ${err}`, true);
+    } finally {
+      this.databaseBackupInProgress = false;
+    }
+  }
+
+  private deleteOldDatabaseBackups(backupDirectory: string): void {
+    try {
+      const backups = fs
+        .readdirSync(backupDirectory, { withFileTypes: true })
+        .filter(
+          (entry) =>
+            entry.isFile() &&
+            entry.name.startsWith("app-") &&
+            entry.name.endsWith(".db"),
+        )
+        .map((entry) => {
+          const fullPath = path.join(backupDirectory, entry.name);
+
+          return {
+            fullPath,
+            modifiedAt: fs.statSync(fullPath).mtimeMs,
+          };
+        })
+        .sort((a, b) => b.modifiedAt - a.modifiedAt);
+
+      for (const backup of backups.slice(MAX_DATABASE_BACKUPS)) {
+        fs.rmSync(backup.fullPath);
+      }
+    } catch (err) {
+      this.logger.error(`Unable to prune old database backups: ${err}`, true);
+    }
   }
 
   private checkAndWarnIfNotRunning(

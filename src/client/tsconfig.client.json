@@ -9,6 +9,7 @@
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
+    //Todo: Technically, module here should be esnext:
     "module": "nodenext",
     "target": "esnext",
     "types": [],

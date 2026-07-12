@@ -17,7 +17,8 @@
     "watch:client": "npx webpack --watch --mode development",
     "watch:server-node": "node --watch dist/server/main.js",
     "watch": "concurrently -n \"TS-S, WP-C, APP\" -c \"blue,green,magenta\" \"npm run watch:server-tsc\" \"npm run watch:client\" \"npm run watch:server-node\"",
-    "start": "node dist/server/main.js"
+    "start": "node dist/server/main.js",
+    "migrate:make": "node scripts/makeMigration.js"
   },
   "workspaces": [
     "audio-engine"
@@ -51,6 +52,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "live-server": "^1.2.2",
+    "prettier": "^3.8.3",
     "rimraf": "^6.1.2",
     "ts-loader": "^9.5.4",
     "typescript": "^5.9.3",

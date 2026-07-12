@@ -11,6 +11,10 @@ export const GENERATED_KEY_FILE = "generated-server.key";
 export const GENERATED_CERT_FILE = "generated-server.cert";
 export const WEB_SERVER_DIR = "public";
 
+//Database:
+export const DATABASE_BACKUP_INTERVAL_MS = 24 * 60 * 60 * 1000;
+export const MAX_DATABASE_BACKUPS = 7;
+
 //AccountManager:
 export const SESSION_DURATION_MS = 604_800_000; //7 * 24 * 60 * 60 * 1000 = 7 days
 export const SESSION_CLEANUP_INTERVAL_MS = 900_000; //15 * 60 * 1000 = 15 mins

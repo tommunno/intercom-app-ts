@@ -28,3 +28,4 @@ export * from "./DownloadLogsOptions.js";
 export * from "./DownloadLogsResult.js";
 export * from "./wrtcShimTypes.js";
 export * from "./databaseTypes.js";
+export * from "./Migration.js";
