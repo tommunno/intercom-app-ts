@@ -1,6 +1,5 @@
 import { dataIsType } from "../../../shared/helpers.js";
 import type {
-  AdminInputGainsInfo,
   AdminSoundcardsInfo,
   ManagerStatus,
 } from "../../../shared/types/index.js";
@@ -224,9 +223,27 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
   }
 
-  //Still need to fill in:
-  getAdminInputGainsInfo(): AdminInputGainsInfo {
-    return {};
+  updateInputGains(gains: number[]): boolean {
+    const notRunning = this.checkAndWarnIfNotRunning("update input gains");
+    if (notRunning) return false;
+    if (gains.length < this._config.numTotalChannels) {
+      this.logger.error(
+        `Unable to update input gains: only ${gains.length} gains provided. Expected a maximum of ${this._config.numTotalChannels}`,
+        true,
+      );
+      return false;
+    }
+    try {
+      this.engine.setInputGains(gains.slice(0, this._config.numTotalChannels));
+    } catch (error) {
+      this.logger.error(
+        "Unable to update input gains: audio engine error",
+        true,
+        error,
+      );
+      return false;
+    }
+    return true;
   }
 
   getAdminSoundcardsInfo(): AdminSoundcardsInfo {

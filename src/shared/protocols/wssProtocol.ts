@@ -1,6 +1,7 @@
 //Helpers:
 import { dataIsObject, dataIsType } from "../helpers.js";
 import type {
+  AdminInputGainChangeRequest,
   AdminLoginResponse,
   AdminPartylinesChangeRequest,
   AdminPopup,
@@ -34,6 +35,7 @@ import {
   dataIsAdminPartylinesChangeRequest,
   dataIsAdminPopup,
   dataIsLogPageDirection,
+  dataIsAdminInputGainChangeRequest,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -54,6 +56,7 @@ export const WSS_UPSTREAM = {
   ADMIN_USER_LOGOUT: "ADMIN_USER_LOGOUT",
   ADMIN_SOUNDCARD_CHANGE_REQUEST: "ADMIN_SOUNDCARD_CHANGE_REQUEST",
   ADMIN_LOGS_PAGE_REQUEST: "ADMIN_LOGS_PAGE_REQUEST",
+  ADMIN_INPUT_GAIN_CHANGE_REQUEST: "ADMIN_INPUT_GAIN_CHANGE_REQUEST",
 } as const;
 
 //For messages being received by the client talkback panel:
@@ -105,6 +108,8 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST]:
     dataIsWssAdminSoundcardChangeRequest,
   [WSS_UPSTREAM.ADMIN_LOGS_PAGE_REQUEST]: dataIsWssAdminLogsPageRequest,
+  [WSS_UPSTREAM.ADMIN_INPUT_GAIN_CHANGE_REQUEST]:
+    dataIsWssAdminInputGainChangeRequest,
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: dataIsWssHeartbeatRequest,
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: dataIsWssUserLoginResponse,
   [WSS_DOWNSTREAM_PANEL.USER_FORCE_LOGOUT]: dataIsWssUserForceLogout,
@@ -145,6 +150,7 @@ type PayloadMap = {
     direction: LogPageDirection;
     id: number;
   };
+  [WSS_UPSTREAM.ADMIN_INPUT_GAIN_CHANGE_REQUEST]: AdminInputGainChangeRequest;
   [WSS_DOWNSTREAM_PANEL.HEARTBEAT_REQUEST]: HeartbeatRequestPayload;
   [WSS_DOWNSTREAM_PANEL.USER_LOGIN_RESPONSE]: {
     success: boolean;
@@ -269,6 +275,12 @@ export function dataIsWssAdminLogsPageRequest(
     dataIsLogPageDirection(data.direction) &&
     dataIsType("safeIntegerNum", data.id)
   );
+}
+
+export function dataIsWssAdminInputGainChangeRequest(
+  data: unknown,
+): data is WssPayloads[typeof WSS_UPSTREAM.ADMIN_INPUT_GAIN_CHANGE_REQUEST] {
+  return dataIsAdminInputGainChangeRequest(data);
 }
 
 //DOWNSTREAM PANEL:

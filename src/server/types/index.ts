@@ -26,6 +26,7 @@ export * from "./DisallowedPlsInfo.js";
 export * from "./TailProcessKeyParams.js";
 export * from "./DownloadLogsOptions.js";
 export * from "./DownloadLogsResult.js";
+export * from "./InputGainInfo.js";
 export * from "./wrtcShimTypes.js";
 export * from "./databaseTypes.js";
 export * from "./Migration.js";

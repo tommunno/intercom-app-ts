@@ -1,5 +1,7 @@
 import type {
   AdminAudioConfigInfo,
+  AdminInputGainChangeRequest,
+  AdminInputGainsInfo,
   AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminUsersChangeRequest,
@@ -50,6 +52,7 @@ export interface AudioMatrixSaveSnapshot {
 
 export interface AudioMatrixHandlers {
   onCrosspointChange: (crosspointChange: CrosspointChange) => void;
+  onInputGainsChange: (gains: number[]) => boolean;
 }
 
 export type AudioAdminUsersValidationResult =
@@ -65,6 +68,10 @@ export type AudioAdminPartylinesProcessResult =
   | {
       success: true;
     }
+  | { success: false; message: string };
+
+export type AudioAdminInputGainChangeResult =
+  | { success: true }
   | { success: false; message: string };
 
 export interface IAudioMatrixManager {
@@ -97,8 +104,12 @@ export interface IAudioMatrixManager {
     allResolvedAPls: AllResolvedAPls,
   ) => AudioAdminUsersApplyResult;
   processAdminPartylinesChangeRequest: (
-    changeRequest: AdminPartylinesChangeRequest,
+    request: AdminPartylinesChangeRequest,
   ) => AudioAdminPartylinesProcessResult;
+  processAdminInputGainChangeRequest: (
+    request: AdminInputGainChangeRequest,
+  ) => AudioAdminInputGainChangeResult;
+  getAdminInputGainsInfo: () => AdminInputGainsInfo;
   getSaveSnapshot: () => AudioMatrixSaveSnapshot | null;
 
   status: ManagerStatus;

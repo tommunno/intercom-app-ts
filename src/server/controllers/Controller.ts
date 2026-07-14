@@ -58,6 +58,8 @@ export class Controller implements IController {
     ADMIN_SOUNDCARD_CHANGE_REQUEST:
       this.handleAdminSoundcardChangeRequest.bind(this),
     ADMIN_LOGS_PAGE_REQUEST: this.handleAdminLogsPageRequest.bind(this),
+    ADMIN_INPUT_GAIN_CHANGE_REQUEST:
+      this.handleAdminInputGainChangeRequest.bind(this),
   };
   constructor(
     private audioController: IAudioController,
@@ -476,6 +478,7 @@ export class Controller implements IController {
     const loggingInfo: AdminLoggingInfo = {
       latestLogs: this.dataController.getLatestLogs(),
     };
+
     const adminSnapshot: AdminSnapshot = {
       webServerInfo,
       inputGainsInfo,
@@ -591,11 +594,11 @@ export class Controller implements IController {
     this.dataController.saveAudioData(this.audioController.getSaveSnapshot());
   }
 
-  private async handleAdminPartylinesChangeRequest(
+  private handleAdminPartylinesChangeRequest(
     changeRequest: WssPayloads[typeof WSS_UPSTREAM.ADMIN_PARTYLINES_CHANGE_REQUEST],
     clientId: string,
     _: SessionTokens,
-  ): Promise<void> {
+  ): void {
     const loggedIn = this.isAdminClientIdLoggedIn(
       clientId,
       "Ignored admin partylines change request",
@@ -632,11 +635,11 @@ export class Controller implements IController {
     this.dataController.saveAudioData(this.audioController.getSaveSnapshot());
   }
 
-  private async handleAdminUserLogout(
+  private handleAdminUserLogout(
     { userId }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_USER_LOGOUT],
     clientId: string,
     _: SessionTokens,
-  ): Promise<void> {
+  ): void {
     const loggedIn = this.isAdminClientIdLoggedIn(
       clientId,
       "Ignored admin user logout request",
@@ -646,13 +649,13 @@ export class Controller implements IController {
     this.dataController.saveAccountData();
   }
 
-  private async handleAdminSoundcardChangeRequest(
+  private handleAdminSoundcardChangeRequest(
     {
       soundcardId,
     }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_SOUNDCARD_CHANGE_REQUEST],
     clientId: string,
     _: SessionTokens,
-  ): Promise<void> {
+  ): void {
     const loggedIn = this.isAdminClientIdLoggedIn(
       clientId,
       "Ignored admin soundcard change request",
@@ -670,11 +673,11 @@ export class Controller implements IController {
     this.dataController.saveAudioData(this.audioController.getSaveSnapshot());
   }
 
-  private async handleAdminLogsPageRequest(
+  private handleAdminLogsPageRequest(
     { direction, id }: WssPayloads[typeof WSS_UPSTREAM.ADMIN_LOGS_PAGE_REQUEST],
     clientId: string,
     _: SessionTokens,
-  ): Promise<void> {
+  ): void {
     const loggedIn = this.isAdminClientIdLoggedIn(
       clientId,
       "Ignored admin logs page request",
@@ -689,6 +692,39 @@ export class Controller implements IController {
         },
       },
       [clientId],
+    );
+  }
+
+  private handleAdminInputGainChangeRequest(
+    request: WssPayloads[typeof WSS_UPSTREAM.ADMIN_INPUT_GAIN_CHANGE_REQUEST],
+    clientId: string,
+    _: SessionTokens,
+  ): void {
+    const loggedIn = this.isAdminClientIdLoggedIn(
+      clientId,
+      "Ignored admin input gain change request",
+    );
+    if (!loggedIn) return;
+    const result =
+      this.audioController.processAdminInputGainChangeRequest(request);
+    if (!result.success) {
+      this.networkController.sendWssMessage(
+        "ADMIN_POPUP",
+        {
+          type: "error",
+          title: result.message,
+          message: "",
+        },
+        [clientId],
+      );
+      return;
+    }
+    this.networkController.sendWssMessage(
+      "ADMIN_UPDATE",
+      {
+        inputGainsInfo: this.audioController.getAdminInputGainsInfo(),
+      },
+      this.dataController.getLoggedInAdminClientIds(),
     );
   }
 

@@ -9,5 +9,8 @@ export const HEARTBEAT_TIMEOUT_MS = 10000;
 //WebRtc:
 export const PANEL_WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;
 
-//Gui:
+//Panel Gui:
 export const MOMENTARY_KEY_PRESS_TIME_MS = 200;
+
+//Setup Gui:
+export const INPUT_GAIN_CHANGE_DEBOUNCE_INTERVAL = 500;

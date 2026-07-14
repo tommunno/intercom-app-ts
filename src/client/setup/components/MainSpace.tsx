@@ -1,7 +1,7 @@
 import { Banners } from "./layout/Banners.jsx";
 import { OptionBar } from "./layout/OptionBar.jsx";
 import { WebServerSection } from "./sections/WebServerSection.jsx";
-import { LevelMetersSection } from "./sections/LevelMetersSection.jsx";
+import { LevelMetersSection } from "./sections/level-meters-section/LevelMetersSection.jsx";
 import { UsersSection } from "./sections/users-section/UsersSection.jsx";
 import { PlsSection } from "./sections/pls-section/PlsSection.jsx";
 import { ConfigSection } from "./sections/ConfigSection.jsx";

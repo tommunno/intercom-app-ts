@@ -379,7 +379,7 @@ Napi::Value setInputGains(const Napi::CallbackInfo &info)
 
         if (gainsArray.Length() != expectedSize)
         {
-            Napi::RangeError::New(env, "Gains array length must match number inputs. Expected " + std::to_string(expectedSize) + " but got " + std::to_string(gainsArray.Length())).ThrowAsJavaScriptException();
+            Napi::RangeError::New(env, "Gains array length must match number of inputs. Expected " + std::to_string(expectedSize) + " but got " + std::to_string(gainsArray.Length())).ThrowAsJavaScriptException();
             return env.Undefined();
         }
 

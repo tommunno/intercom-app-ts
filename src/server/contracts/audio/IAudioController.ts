@@ -1,5 +1,6 @@
 import type {
   AdminAudioConfigInfo,
+  AdminInputGainChangeRequest,
   AdminInputGainsInfo,
   AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
@@ -18,6 +19,7 @@ import type {
   TrackAndStream,
 } from "../../types/index.js";
 import type {
+  AudioAdminInputGainChangeResult,
   AudioAdminPartylinesProcessResult,
   AudioAdminUsersApplyResult,
   AudioAdminUsersValidationResult,
@@ -64,6 +66,7 @@ export interface IAudioController {
     audioLossDetected: boolean;
     soundcardDevicesErr: boolean;
   };
+  getAdminInputGainsInfo: () => AdminInputGainsInfo;
   validateAdminUsersChangeRequest: (
     request: AdminUsersChangeRequest,
   ) => AudioAdminUsersValidationResult;
@@ -73,4 +76,7 @@ export interface IAudioController {
   processAdminPartylinesChangeRequest: (
     request: AdminPartylinesChangeRequest,
   ) => AudioAdminPartylinesProcessResult;
+  processAdminInputGainChangeRequest: (
+    request: AdminInputGainChangeRequest,
+  ) => AudioAdminInputGainChangeResult;
 }

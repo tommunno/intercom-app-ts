@@ -1,11 +1,27 @@
-import { dataIsObject } from "../helpers.js";
+import { dataIsObject, dataIsType } from "../helpers.js";
+import { dataIsMatrixPortType, type MatrixPortType } from "./MatrixPortType.js";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty interface here for future additions
-export interface AdminInputGainsInfo {}
+export interface AdminInputGainInfo {
+  id: number;
+  gain: number;
+  type: MatrixPortType;
+}
 
-//Add in validation here!:
+export type AdminInputGainsInfo = AdminInputGainInfo[];
+
+export function dataIsAdminInputGainInfo(
+  data: unknown,
+): data is AdminInputGainsInfo {
+  return (
+    dataIsObject(data) &&
+    dataIsType("safeIntegerNum", data.id) &&
+    dataIsType("safeIntegerNum", data.gain) &&
+    dataIsMatrixPortType(data.type)
+  );
+}
+
 export function dataIsAdminInputGainsInfo(
   data: unknown,
 ): data is AdminInputGainsInfo {
-  return dataIsObject(data);
+  return Array.isArray(data) && data.every(dataIsAdminInputGainInfo);
 }

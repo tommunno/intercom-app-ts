@@ -1,5 +1,8 @@
 import type {
   AdminAudioConfigInfo,
+  AdminInputGainChangeRequest,
+  AdminInputGainInfo,
+  AdminInputGainsInfo,
   AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminUsersChangeRequest,
@@ -11,6 +14,7 @@ import type {
   PlNameInfo,
 } from "../../../shared/types/index.js";
 import type {
+  AudioAdminInputGainChangeResult,
   AudioAdminPartylinesProcessResult,
   AudioAdminUsersApplyResult,
   AudioAdminUsersValidationResult,
@@ -39,8 +43,10 @@ import {
   DEFAULT_NUM_PARTYLINES,
   DEFAULT_NUM_SOUNDCARD_CHANNELS,
   DEFAULT_NUM_USERS,
+  MAX_INPUT_GAIN,
   MAX_NUM_PARTYLINES,
   MAX_PARTYLINE_NAME_LENGTH,
+  MIN_INPUT_GAIN,
 } from "../../../shared/constants/sharedConstants.js";
 import { devLogCrosspoints, getRemovedSetItems } from "../../serverHelpers.js";
 
@@ -68,6 +74,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
   private numPorts: number = 0;
   private partylines: IPartyline[] = [];
   private outputPorts: IOutputPort[] = [];
+  private inputGains: AdminInputGainInfo[] = [];
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: this.context });
@@ -98,9 +105,11 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (snapshot) {
       this.createPartylines(config.plNames, snapshot.partylineSnapshots);
       this.createOutputPorts();
+      this.createInputGains();
     } else {
       this.createPartylines(config.plNames);
       this.createOutputPorts();
+      this.createInputGains();
     }
 
     this._status = "POPULATED";
@@ -117,6 +126,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     void this.activeHandlers;
     this._status = "RUNNING";
     this.updateOutputCrosspoints();
+    this.updateInputGains(this.inputGains);
   }
 
   //Return no snapshot if AudioMatrix is already stopped
@@ -470,6 +480,49 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return { success: true };
   }
 
+  processAdminInputGainChangeRequest({
+    id,
+    gain,
+  }: AdminInputGainChangeRequest): AudioAdminInputGainChangeResult {
+    const result = this.checkAndWarnIfNotRunning(
+      "process admin input gain change request",
+    );
+    if (result) {
+      return {
+        success: false,
+        message: "Internal server error",
+      };
+    }
+
+    if (gain < MIN_INPUT_GAIN || gain > MAX_INPUT_GAIN) {
+      return { success: false, message: `Input gain ${gain} is invalid` };
+    }
+    const newInputGains = this.inputGains.map((el) => ({ ...el }));
+    const info = newInputGains.find((el) => el.id === id);
+    if (!info) {
+      return { success: false, message: `No input gain for id ${id} exists` };
+    }
+    info.gain = gain;
+    const success = this.updateInputGains(newInputGains);
+    if (!success) {
+      return {
+        success: false,
+        message: `Internal server error: unable to update input gain`,
+      };
+    }
+    this.inputGains = newInputGains;
+    return { success: true };
+  }
+
+  getAdminInputGainsInfo(): AdminInputGainsInfo {
+    const result = this.checkAndWarnIfNotRunning("get input gains info");
+    if (result) return [];
+
+    return this.inputGains
+      .filter((el) => el.id >= 0 && el.id < this._config.numUsers)
+      .map((el) => ({ ...el }));
+  }
+
   getSaveSnapshot(): AudioMatrixSaveSnapshot | null {
     const result = this.checkAndWarnIfNotRunning("get save snapshot");
     if (result) {
@@ -786,6 +839,14 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
   }
 
+  private createInputGains(): void {
+    this.inputGains = Array.from({ length: this.numPorts }, (_, i) => ({
+      id: i,
+      gain: 0,
+      type: i < this._config.numUsers ? "USER" : "SOUNDCARD",
+    }));
+  }
+
   private getPlTalks(plNum: number): ReadonlySet<number> | null {
     const pl = this.partylines[plNum];
     if (!pl) {
@@ -809,6 +870,12 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     changes.forEach((change) => {
       this.activeHandlers.onCrosspointChange(change);
     });
+  }
+
+  private updateInputGains(inputGainInfos: AdminInputGainInfo[]): boolean {
+    return this.activeHandlers.onInputGainsChange(
+      inputGainInfos.map((el) => el.gain),
+    );
   }
 
   private resolveAllowedPlsInfos(infos: AllowedPlsInfo[]): AllowedPlsSetInfo[] {

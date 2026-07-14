@@ -113,12 +113,12 @@ If any of these values are missing or invalid, the app will fall back to its def
   - no valid SSL certificate files are present
   - audio loss is detected
 - Application logging with database storage, automatic cleanup, live admin viewing, and downloadable log exports
+- User input gain control (not persistent yet)
 
 ## What is still to be implemented
 
 - TURN server configuration
 - Input level meters for each user
-- User input gain control
 - Global intercom settings, including the number of users, partylines, and soundcard channels
 - Troubleshooting options such as restarting the Audio Engine and TURN server from the GUI
 - Admin credential configuration

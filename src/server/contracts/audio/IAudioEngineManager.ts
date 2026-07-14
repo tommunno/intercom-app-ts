@@ -1,5 +1,4 @@
 import type {
-  AdminInputGainsInfo,
   AdminSoundcardsInfo,
   ManagerStatus,
 } from "../../../shared/types/index.js";
@@ -52,7 +51,7 @@ export interface IAudioEngineManager {
   setChannelRouted: (channelNum: number, routed: boolean) => boolean;
   pushAudio: (channelNum: number, samples: Int16Array) => void;
   updateCrosspoint: (crosspointChange: CrosspointChange) => boolean;
-  getAdminInputGainsInfo: () => AdminInputGainsInfo;
+  updateInputGains: (gains: number[]) => boolean;
   getAdminSoundcardsInfo: () => AdminSoundcardsInfo;
   status: ManagerStatus;
   config: AudioEngineConfig;

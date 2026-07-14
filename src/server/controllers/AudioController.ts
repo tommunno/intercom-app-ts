@@ -1,5 +1,7 @@
 //Types:
 import type {
+  AdminInputGainChangeRequest,
+  AdminInputGainsInfo,
   AdminPartylinesChangeRequest,
   AdminPartylinesInfo,
   AdminSoundcardsInfo,
@@ -12,6 +14,7 @@ import type {
 } from "../../shared/types/index.js";
 import type {
   AudioAdminInfos,
+  AudioAdminInputGainChangeResult,
   AudioAdminPartylinesProcessResult,
   AudioAdminUsersApplyResult,
   AudioAdminUsersValidationResult,
@@ -201,7 +204,7 @@ export class AudioController implements IAudioController {
   }
 
   getAdminInfos(): AudioAdminInfos {
-    const inputGainsInfo = this.audioEngineManager.getAdminInputGainsInfo();
+    const inputGainsInfo = this.audioMatrixManager.getAdminInputGainsInfo();
     const partylinesInfo = this.audioMatrixManager.getAdminPartylinesInfo();
     const soundcardsInfo = this.audioEngineManager.getAdminSoundcardsInfo();
     const audioConfigInfo = this.audioMatrixManager.getAdminAudioConfigInfo();
@@ -230,6 +233,10 @@ export class AudioController implements IAudioController {
     return this.audioEngineManager.getAdminAudioBannersInfo();
   }
 
+  getAdminInputGainsInfo(): AdminInputGainsInfo {
+    return this.audioMatrixManager.getAdminInputGainsInfo();
+  }
+
   validateAdminUsersChangeRequest(
     request: AdminUsersChangeRequest,
   ): AudioAdminUsersValidationResult {
@@ -250,6 +257,12 @@ export class AudioController implements IAudioController {
     return this.audioMatrixManager.processAdminPartylinesChangeRequest(request);
   }
 
+  processAdminInputGainChangeRequest(
+    request: AdminInputGainChangeRequest,
+  ): AudioAdminInputGainChangeResult {
+    return this.audioMatrixManager.processAdminInputGainChangeRequest(request);
+  }
+
   //Private methods:
   private get activeHandlers() {
     if (!this.handlers)
@@ -264,6 +277,7 @@ export class AudioController implements IAudioController {
     });
     this.audioMatrixManager.setHandlers({
       onCrosspointChange: (c) => this.handleMatrixCrosspointChange(c),
+      onInputGainsChange: (g) => this.handleMatrixInputGainsChange(g),
     });
     this.tailManager.setHandlers({
       onKeyPress: (p, k) => this.handleTailManagerKeyPress(p, k),
@@ -417,6 +431,10 @@ export class AudioController implements IAudioController {
     ) {
       this.audioEngineManager.updateCrosspoint(change);
     }
+  }
+
+  private handleMatrixInputGainsChange(gains: number[]): boolean {
+    return this.audioEngineManager.updateInputGains(gains);
   }
 
   //TailManager:
