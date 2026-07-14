@@ -103,7 +103,7 @@ If any of these values are missing or invalid, the app will fall back to its def
   - passwords
   - allowed PLs (partylines)
   - partyline names
-  - user input gain control (not persistent yet)
+  - user input gain control
   - user input level meters
 - Remote user logout from the setup page
 - Soundcard device selection, with hot-plugging support still to be improved

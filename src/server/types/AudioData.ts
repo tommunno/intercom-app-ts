@@ -1,7 +1,9 @@
 import {
   dataIsArrayOfPlNameInfos,
   type PlNameInfo,
-} from "../../shared/types/PlNameInfo.js";
+  dataIsAdminInputGainsInfo,
+  type AdminInputGainsInfo,
+} from "../../shared/types/index.js";
 import {
   dataIsArrayOfAllowedPlsInfos,
   type AllowedPlsInfo,
@@ -11,6 +13,7 @@ import {
   dataIsType,
   dataIsTypeAOrB,
 } from "../../shared/helpers.js";
+import {} from "../../shared/types/index.js";
 
 //This is what we get from the DataManager. numUsers cannot be included, because we will get that from the AccountManager (it is important that the AudioController shadows the AccountManager when it comes to the number of users):
 export interface AudioData {
@@ -19,6 +22,7 @@ export interface AudioData {
   requestedSoundcardId?: number;
   allowedPlsInfos?: AllowedPlsInfo[];
   plNames?: PlNameInfo[];
+  inputGains?: AdminInputGainsInfo;
 }
 
 //This is what we pass into the AudioController during the populate stage. numUsers is now mandatory:
@@ -29,6 +33,7 @@ export interface AudioPopulateData {
   requestedSoundcardId?: number;
   allowedPlsInfos?: AllowedPlsInfo[];
   plNames?: PlNameInfo[];
+  inputGains?: AdminInputGainsInfo;
 }
 
 export function dataIsAudioData(data: unknown): data is AudioData {
@@ -44,6 +49,8 @@ export function dataIsAudioData(data: unknown): data is AudioData {
     (dataIsArrayOfAllowedPlsInfos(data.allowedPlsInfos) ||
       dataIsType("undefined", data.allowedPlsInfos)) &&
     (dataIsArrayOfPlNameInfos(data.plNames) ||
-      dataIsType("undefined", data.plNames))
+      dataIsType("undefined", data.plNames)) &&
+    (dataIsAdminInputGainsInfo(data.inputGains) ||
+      dataIsType("undefined", data.inputGains))
   );
 }

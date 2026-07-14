@@ -71,10 +71,17 @@ export class AudioController implements IAudioController {
 
   getSaveSnapshot(): AudioData | null {
     const audioMatrixSnap = this.audioMatrixManager.getSaveSnapshot();
-    if (!audioMatrixSnap) return null;
-    const audioEngineSnap = this.audioEngineManager.getSaveSnapshot();
-    if (!audioEngineSnap) return null;
-    return { ...audioMatrixSnap, ...audioEngineSnap };
+    const audioEngineSnap =
+      this.audioEngineManager.status === "RUNNING"
+        ? this.audioEngineManager.getSaveSnapshot()
+        : null;
+    if (audioMatrixSnap && audioEngineSnap) {
+      return { ...audioMatrixSnap, ...audioEngineSnap };
+    }
+    if (audioMatrixSnap) {
+      return audioMatrixSnap;
+    }
+    return audioEngineSnap;
   }
 
   private buildAudioEnginePopulateConfig(
@@ -95,7 +102,12 @@ export class AudioController implements IAudioController {
     data: AudioPopulateData,
     engineConfig: AudioEngineConfig,
   ): AudioMatrixPopulateConfig {
-    const { numPartylines: numPl, allowedPlsInfos: aPlsInfos, plNames } = data;
+    const {
+      numPartylines: numPl,
+      allowedPlsInfos: aPlsInfos,
+      plNames,
+      inputGains,
+    } = data;
     const { requestedNumSoundcardChannels: rNumSC, numUsers } = engineConfig;
     const conf: AudioMatrixPopulateConfig = {
       numUsers,
@@ -105,6 +117,7 @@ export class AudioController implements IAudioController {
     if (numPl !== undefined) conf.numPartylines = numPl;
     if (aPlsInfos !== undefined) conf.allowedPlsInfos = aPlsInfos;
     if (plNames !== undefined) conf.plNames = plNames;
+    if (inputGains !== undefined) conf.inputGains = inputGains;
     return conf;
   }
 
@@ -157,7 +170,7 @@ export class AudioController implements IAudioController {
     if (this.webRtcMediaBridge.status !== "RUNNING") {
       this.logger.warn(
         `Will not add RX track for userId ${userId}: the WebRtcMediaBridge is not running.`,
-        true,
+        false,
       );
       return false;
     }
@@ -168,7 +181,7 @@ export class AudioController implements IAudioController {
     if (this.webRtcMediaBridge.status !== "RUNNING") {
       this.logger.warn(
         `Will not remove RX track for userId ${userId}: the WebRtcMediaBridge is not running.`,
-        true,
+        false,
       );
       return false;
     }
@@ -177,9 +190,9 @@ export class AudioController implements IAudioController {
 
   getTxTrackAndStream(userId: number): TrackAndStream | null {
     if (this.webRtcMediaBridge.status !== "RUNNING") {
-      this.logger.error(
-        `Can not get TX track and stream for userId ${userId}: the WebRtcMediaBridge is not running.`,
-        true,
+      this.logger.warn(
+        `Will not get TX track and stream for userId ${userId}: the WebRtcMediaBridge is not running.`,
+        false,
       );
       return null;
     }
@@ -356,7 +369,11 @@ export class AudioController implements IAudioController {
       requestedSoundcardId: rSCId,
     } = engineConfig;
 
-    const { numPartylines, allowedPlsInfos: aPlsInfosSets } = matrixConfig;
+    const {
+      numPartylines,
+      allowedPlsInfos: aPlsInfosSets,
+      inputGains,
+    } = matrixConfig;
 
     const allowedPlsInfos: AllowedPlsInfo[] = [];
     aPlsInfosSets.forEach((info) => {
@@ -371,6 +388,7 @@ export class AudioController implements IAudioController {
       requestedNumSoundcardChannels,
       numPartylines,
       allowedPlsInfos,
+      inputGains,
     };
     if (rSCId !== null) {
       audioPopulateData.requestedSoundcardId = rSCId;
@@ -440,7 +458,11 @@ export class AudioController implements IAudioController {
   }
 
   private handleMatrixInputGainsChange(gains: number[]): boolean {
-    return this.audioEngineManager.updateInputGains(gains);
+    // Guard: only apply input gains when the engine is running
+    if (this.audioEngineManager.status === "RUNNING") {
+      return this.audioEngineManager.updateInputGains(gains);
+    }
+    return false;
   }
 
   //TailManager:

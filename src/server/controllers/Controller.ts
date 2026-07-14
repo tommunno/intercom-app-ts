@@ -736,6 +736,7 @@ export class Controller implements IController {
       },
       this.dataController.getLoggedInAdminClientIds(),
     );
+    this.dataController.saveAudioData(this.audioController.getSaveSnapshot());
   }
 
   //Handle WebRtc:

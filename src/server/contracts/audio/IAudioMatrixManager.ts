@@ -25,6 +25,7 @@ export interface AudioMatrixConfig {
   numSoundcardChannels: number;
   numPartylines: number;
   allowedPlsInfos: AllowedPlsSetInfo[];
+  inputGains: AdminInputGainsInfo;
 }
 
 export interface AudioMatrixPopulateConfig {
@@ -33,6 +34,7 @@ export interface AudioMatrixPopulateConfig {
   numPartylines?: number;
   allowedPlsInfos?: AllowedPlsInfo[];
   plNames?: PlNameInfo[];
+  inputGains?: AdminInputGainsInfo;
 }
 
 export interface AudioMatrixSnapshot {
@@ -48,6 +50,7 @@ export interface AudioMatrixSaveSnapshot {
   numPartylines?: number;
   allowedPlsInfos?: AllowedPlsInfo[];
   plNames?: PlNameInfo[];
+  inputGains?: AdminInputGainsInfo;
 }
 
 export interface AudioMatrixHandlers {

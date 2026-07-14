@@ -257,6 +257,7 @@ export class AudioEngineManager implements IAudioEngineManager {
   getAdminSoundcardsInfo(): AdminSoundcardsInfo {
     const notRunning = this.checkAndWarnIfNotRunning(
       "get admin soundcards info",
+      false,
     );
     if (notRunning) return [];
     return this.devices
@@ -608,12 +609,16 @@ export class AudioEngineManager implements IAudioEngineManager {
     return this.handlers;
   }
 
-  private checkAndWarnIfNotRunning(action: string): boolean {
+  private checkAndWarnIfNotRunning(
+    action: string,
+    toAdminPanel: boolean = true,
+  ): boolean {
     if (this._status !== "RUNNING") {
       this.logger.error(
         `Unable to ${action} because the status is ${this._status}`,
-        true,
+        toAdminPanel,
       );
+
       return true;
     }
     return false;

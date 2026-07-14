@@ -21,7 +21,10 @@ export interface TailHandlers {
 }
 
 //TailManager shadows the AudioMatrixConfig, but will ask the AudioMatrixManager about the allowedPlsInfos whenever it needs to know, because allowedPlsInfos changes dynamically
-export type TailConfig = Omit<AudioMatrixConfig, "allowedPlsInfos">;
+export type TailConfig = Omit<
+  AudioMatrixConfig,
+  "allowedPlsInfos" | "inputGains"
+>;
 
 //An array of TailInfos for each port. A TailInfo for each partyline:
 export type TailSnapshot = TailInfo[][];

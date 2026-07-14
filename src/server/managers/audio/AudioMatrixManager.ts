@@ -59,6 +59,14 @@ const BLANK_AUDIO_MATRIX_CONFIG: AudioMatrixConfig = {
     //The blank config gives the user access to the first partyline (we don't know how many partylines there are yet, but we can guarantee that 0 exists)
     allowedPls: new Set([0]),
   })),
+  inputGains: Array.from(
+    { length: DEFAULT_NUM_USERS + DEFAULT_NUM_SOUNDCARD_CHANNELS },
+    (_, i) => ({
+      id: i,
+      gain: 0,
+      type: i < DEFAULT_NUM_USERS ? "USER" : "SOUNDCARD",
+    }),
+  ),
 };
 
 export class AudioMatrixManager implements IAudioMatrixManager {
@@ -70,11 +78,11 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     allowedPlsInfos: this.copyAllowedPlsInfos(
       BLANK_AUDIO_MATRIX_CONFIG.allowedPlsInfos,
     ),
+    inputGains: BLANK_AUDIO_MATRIX_CONFIG.inputGains.map((el) => ({ ...el })),
   };
   private numPorts: number = 0;
   private partylines: IPartyline[] = [];
   private outputPorts: IOutputPort[] = [];
-  private inputGains: AdminInputGainInfo[] = [];
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: this.context });
@@ -105,11 +113,9 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     if (snapshot) {
       this.createPartylines(config.plNames, snapshot.partylineSnapshots);
       this.createOutputPorts();
-      this.createInputGains();
     } else {
       this.createPartylines(config.plNames);
       this.createOutputPorts();
-      this.createInputGains();
     }
 
     this._status = "POPULATED";
@@ -126,7 +132,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     void this.activeHandlers;
     this._status = "RUNNING";
     this.updateOutputCrosspoints();
-    this.updateInputGains(this.inputGains);
+    this.updateInputGains(this._config.inputGains);
   }
 
   //Return no snapshot if AudioMatrix is already stopped
@@ -494,10 +500,14 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       };
     }
 
-    if (gain < MIN_INPUT_GAIN || gain > MAX_INPUT_GAIN) {
+    if (
+      !Number.isFinite(gain) ||
+      gain < MIN_INPUT_GAIN ||
+      gain > MAX_INPUT_GAIN
+    ) {
       return { success: false, message: `Input gain ${gain} is invalid` };
     }
-    const newInputGains = this.inputGains.map((el) => ({ ...el }));
+    const newInputGains = this._config.inputGains.map((el) => ({ ...el }));
     const info = newInputGains.find((el) => el.id === id);
     if (!info) {
       return { success: false, message: `No input gain for id ${id} exists` };
@@ -510,7 +520,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
         message: `Internal server error: unable to update input gain`,
       };
     }
-    this.inputGains = newInputGains;
+    this._config.inputGains = newInputGains;
     return { success: true };
   }
 
@@ -518,7 +528,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     const result = this.checkAndWarnIfNotRunning("get input gains info");
     if (result) return [];
 
-    return this.inputGains
+    return this._config.inputGains
       .filter((el) => el.id >= 0 && el.id < this._config.numUsers)
       .map((el) => ({ ...el }));
   }
@@ -536,11 +546,13 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       id: pl.id,
       name: pl.name,
     }));
+    const inputGains = this._config.inputGains.map((el) => ({ ...el }));
 
     return {
       numPartylines: this._config.numPartylines,
       allowedPlsInfos,
       plNames,
+      inputGains,
     };
   }
 
@@ -603,6 +615,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     return {
       ...this._config,
       allowedPlsInfos: this.copyAllowedPlsInfos(this._config.allowedPlsInfos),
+      inputGains: this._config.inputGains.map((el) => ({ ...el })),
     };
   }
 
@@ -642,6 +655,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
 
     this.numPorts = this._config.numUsers + this._config.numSoundcardChannels;
+    this._config.inputGains = this.createInputGains(config.inputGains);
   }
 
   //Returns true if successful
@@ -839,12 +853,65 @@ export class AudioMatrixManager implements IAudioMatrixManager {
     }
   }
 
-  private createInputGains(): void {
-    this.inputGains = Array.from({ length: this.numPorts }, (_, i) => ({
-      id: i,
+  private createInputGains(
+    inputGains?: AdminInputGainsInfo,
+  ): AdminInputGainsInfo {
+    if (inputGains === undefined) {
+      return this.createNewInputGains();
+    }
+    if (inputGains.length !== new Set(inputGains.map((info) => info.id)).size) {
+      this.logger.warn(`inputGains contains duplicate IDs`, true);
+    }
+    const newInputGains: AdminInputGainsInfo = [];
+    const gainIdsNotFound: number[] = [];
+    const gainIdsWithInvalidData: number[] = [];
+    for (let i = 0; i < this.numPorts; i++) {
+      const foundInputGain = inputGains.find((info) => info.id === i);
+      if (!foundInputGain) {
+        gainIdsNotFound.push(i);
+        newInputGains.push(this.createNewInputGain(i));
+        continue;
+      }
+      if (
+        (i < this._config.numUsers && foundInputGain.type !== "USER") ||
+        (i >= this._config.numUsers && foundInputGain.type !== "SOUNDCARD") ||
+        !Number.isFinite(foundInputGain.gain) ||
+        foundInputGain.gain < MIN_INPUT_GAIN ||
+        foundInputGain.gain > MAX_INPUT_GAIN
+      ) {
+        gainIdsWithInvalidData.push(i);
+        newInputGains.push(this.createNewInputGain(i));
+        continue;
+      }
+      newInputGains.push({ ...foundInputGain });
+    }
+    if (gainIdsNotFound.length > 0) {
+      this.logger.warn(
+        `No input gains found for IDs ${formatList(gainIdsNotFound)}`,
+        true,
+      );
+    }
+    if (gainIdsWithInvalidData.length > 0) {
+      this.logger.warn(
+        `Invalid data for gains with IDs ${formatList(gainIdsWithInvalidData)}`,
+        true,
+      );
+    }
+    return newInputGains;
+  }
+
+  private createNewInputGains(): AdminInputGainsInfo {
+    return Array.from({ length: this.numPorts }, (_, i) =>
+      this.createNewInputGain(i),
+    );
+  }
+
+  private createNewInputGain(id: number): AdminInputGainInfo {
+    return {
+      id,
       gain: 0,
-      type: i < this._config.numUsers ? "USER" : "SOUNDCARD",
-    }));
+      type: id < this._config.numUsers ? "USER" : "SOUNDCARD",
+    };
   }
 
   private getPlTalks(plNum: number): ReadonlySet<number> | null {
@@ -975,6 +1042,7 @@ export class AudioMatrixManager implements IAudioMatrixManager {
       allowedPlsInfos: this.copyAllowedPlsInfos(
         BLANK_AUDIO_MATRIX_CONFIG.allowedPlsInfos,
       ),
+      inputGains: BLANK_AUDIO_MATRIX_CONFIG.inputGains.map((el) => ({ ...el })),
     };
     this.numPorts = 0;
     this.partylines = [];
