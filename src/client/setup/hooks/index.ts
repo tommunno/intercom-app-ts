@@ -9,3 +9,4 @@ export * from "./useDialogBox.js";
 export * from "./useBannersInfo.js";
 export * from "./useLoggingInfo.js";
 export * from "./useInputGainsInfo.js";
+export * from "./useLevelInfos.js";

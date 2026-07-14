@@ -24,6 +24,7 @@ import type {
   AudioAdminUsersApplyResult,
   AudioAdminUsersValidationResult,
 } from "./IAudioMatrixManager.js";
+import type { AudioLevelInfos } from "../../../shared/types/index.js";
 
 export interface AudioAdminInfos {
   inputGainsInfo: AdminInputGainsInfo;
@@ -40,6 +41,7 @@ export interface AudioHandlers {
   onAudioInfoUpdate: (userId: number, audioInfo: AudioInfo) => void;
   onAudioRestart: () => void;
   onAudioLossDetectedChange: () => void;
+  onLevelMeters: (inputLevels: AudioLevelInfos) => void;
 }
 
 export interface IAudioController {

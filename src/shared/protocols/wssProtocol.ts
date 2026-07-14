@@ -8,6 +8,7 @@ import type {
   AdminUpdate,
   AdminUsersChangeRequest,
   AdminUsersLoggedInUpdate,
+  AudioLevelInfos,
   LogPageDirection,
 } from "../types/index.js";
 //Types:
@@ -36,6 +37,7 @@ import {
   dataIsAdminPopup,
   dataIsLogPageDirection,
   dataIsAdminInputGainChangeRequest,
+  dataIsArrayOfAudioLevelInfos,
 } from "../types/index.js";
 
 //UPSTREAM AND DOWNSTREAM MESSAGE TYPES:
@@ -78,6 +80,7 @@ export const WSS_DOWNSTREAM_SETUP = {
   ADMIN_UPDATE: "ADMIN_UPDATE",
   ADMIN_USERS_LOGGED_IN_UPDATE: "ADMIN_USERS_LOGGED_IN_UPDATE",
   ADMIN_POPUP: "ADMIN_POPUP",
+  ADMIN_LEVEL_METERS: "ADMIN_LEVEL_METERS",
 } as const;
 
 export type WssUpstream = (typeof WSS_UPSTREAM)[keyof typeof WSS_UPSTREAM];
@@ -126,6 +129,7 @@ export const WSS_PAYLOAD_VALIDATORS = {
   [WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE]:
     dataIsWssAdminUsersLoggedInUpdate,
   [WSS_DOWNSTREAM_SETUP.ADMIN_POPUP]: dataIsWssAdminPopup,
+  [WSS_DOWNSTREAM_SETUP.ADMIN_LEVEL_METERS]: dataIsWssAdminLevelMeters,
 } satisfies WssPayloadValidators;
 
 type WssPayloadValidators = {
@@ -172,6 +176,7 @@ type PayloadMap = {
   [WSS_DOWNSTREAM_SETUP.ADMIN_UPDATE]: AdminUpdate;
   [WSS_DOWNSTREAM_SETUP.ADMIN_USERS_LOGGED_IN_UPDATE]: AdminUsersLoggedInUpdate;
   [WSS_DOWNSTREAM_SETUP.ADMIN_POPUP]: AdminPopup;
+  [WSS_DOWNSTREAM_SETUP.ADMIN_LEVEL_METERS]: AudioLevelInfos;
 };
 
 export type WssPayloads = {
@@ -370,4 +375,10 @@ export function dataIsWssAdminPopup(
   data: unknown,
 ): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_POPUP] {
   return dataIsAdminPopup(data);
+}
+
+export function dataIsWssAdminLevelMeters(
+  data: unknown,
+): data is WssPayloads[typeof WSS_DOWNSTREAM_SETUP.ADMIN_LEVEL_METERS] {
+  return dataIsArrayOfAudioLevelInfos(data);
 }

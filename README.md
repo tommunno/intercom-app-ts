@@ -103,6 +103,8 @@ If any of these values are missing or invalid, the app will fall back to its def
   - passwords
   - allowed PLs (partylines)
   - partyline names
+  - user input gain control (not persistent yet)
+  - user input level meters
 - Remote user logout from the setup page
 - Soundcard device selection, with hot-plugging support still to be improved
 - Web Server status display, including live CPU and memory usage
@@ -113,12 +115,10 @@ If any of these values are missing or invalid, the app will fall back to its def
   - no valid SSL certificate files are present
   - audio loss is detected
 - Application logging with database storage, automatic cleanup, live admin viewing, and downloadable log exports
-- User input gain control (not persistent yet)
 
 ## What is still to be implemented
 
 - TURN server configuration
-- Input level meters for each user
 - Global intercom settings, including the number of users, partylines, and soundcard channels
 - Troubleshooting options such as restarting the Audio Engine and TURN server from the GUI
 - Admin credential configuration

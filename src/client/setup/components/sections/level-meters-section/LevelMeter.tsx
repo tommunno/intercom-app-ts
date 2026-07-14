@@ -1,16 +1,97 @@
+import type { AudioLevelInfo } from "../../../../../shared/types/index.js";
 import type { NamedInputGainInfo } from "../../../types/NamedInputGainsInfo.js";
+import { useEffect, useState, Fragment, useRef } from "react";
+import {
+  LEVEL_METER_DECAY_PER_FRAME,
+  LEVEL_METER_LOWEST_VISUAL_LEVEL,
+} from "../../../../shared/constants/clientConstants.js";
 
 interface LevelMeterProps {
   inputGainInfo: NamedInputGainInfo;
   isSelected: boolean;
   onSelect: (inputGainInfo: NamedInputGainInfo) => void;
+  levelInfo: AudioLevelInfo | null;
 }
+
+interface Led {
+  dbfs: number;
+  label: string | null;
+}
+
+const leds = [
+  { dbfs: -1, label: null },
+  { dbfs: -1, label: null },
+  { dbfs: -2, label: null },
+  { dbfs: -3, label: null },
+  { dbfs: -4, label: null },
+  { dbfs: -5, label: null },
+  { dbfs: -6, label: null },
+  { dbfs: -7, label: null },
+  { dbfs: -8, label: null },
+  { dbfs: -9, label: null },
+  { dbfs: -10, label: "-10" },
+  { dbfs: -11, label: null },
+  { dbfs: -12, label: null },
+  { dbfs: -13, label: null },
+  { dbfs: -14, label: null },
+  { dbfs: -15, label: null },
+  { dbfs: -16, label: null },
+  { dbfs: -17, label: null },
+  { dbfs: -18, label: "-18" },
+  { dbfs: -20, label: null },
+  { dbfs: -22, label: null },
+  { dbfs: -24, label: null },
+  { dbfs: -26, label: null },
+  { dbfs: -28, label: null },
+  { dbfs: -32, label: "-32" },
+  { dbfs: -36, label: null },
+  { dbfs: -40, label: null },
+  { dbfs: -44, label: null },
+  { dbfs: -48, label: null },
+  { dbfs: -52, label: null },
+  { dbfs: -56, label: null },
+  { dbfs: -60, label: "-60" },
+] as const satisfies readonly Led[];
+const redMin = -10;
+const yellowMin = -18;
 
 export function LevelMeter({
   inputGainInfo,
   isSelected,
   onSelect,
+  levelInfo,
 }: LevelMeterProps) {
+  const [visualLevel, setVisualLevel] = useState<number>(
+    LEVEL_METER_LOWEST_VISUAL_LEVEL,
+  );
+  const targetLevelRef = useRef<number | null>(levelInfo?.rmsDb ?? null);
+
+  useEffect(() => {
+    targetLevelRef.current = levelInfo?.rmsDb ?? null;
+  }, [levelInfo]);
+
+  useEffect(() => {
+    let animationFrameId: number;
+
+    function animateLevelMeterDecay(): void {
+      animationFrameId = requestAnimationFrame(animateLevelMeterDecay);
+      setVisualLevel((prevVisualLevel) => {
+        if (targetLevelRef.current === null) {
+          return LEVEL_METER_LOWEST_VISUAL_LEVEL;
+        }
+        return Math.max(
+          targetLevelRef.current,
+          prevVisualLevel - LEVEL_METER_DECAY_PER_FRAME,
+        );
+      });
+    }
+    animateLevelMeterDecay();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
   return (
     <div
       className={`level-meter-container${isSelected ? " selected" : ""}`}
@@ -18,70 +99,15 @@ export function LevelMeter({
       onClick={() => onSelect(inputGainInfo)}
     >
       <div className="level-meter">
-        <div className="level-meter-led red" data-dbfs="-1"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-1"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-2"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-3"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-4"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-5"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-6"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-7"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-8"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-9"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led red" data-dbfs="-10"></div>
-        <div className="level-meter-value">-10</div>
-        <div className="level-meter-led yellow" data-dbfs="-11"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led yellow" data-dbfs="-12"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led yellow" data-dbfs="-13"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led yellow" data-dbfs="-14"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led yellow" data-dbfs="-15"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led yellow" data-dbfs="-16"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led yellow" data-dbfs="-17"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led yellow" data-dbfs="-18"></div>
-        <div className="level-meter-value">-18</div>
-        <div className="level-meter-led green" data-dbfs="-20"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-22"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-24"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-26"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-28"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-32"></div>
-        <div className="level-meter-value">-32</div>
-        <div className="level-meter-led green" data-dbfs="-36"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-40"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-44"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-48"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-52"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-56"></div>
-        <div className="level-meter-value"></div>
-        <div className="level-meter-led green" data-dbfs="-60"></div>
-        <div className="level-meter-value">-60</div>
+        {leds.map((led, i) => (
+          <Fragment key={i}>
+            <div
+              className={`level-meter-led ${led.dbfs >= redMin ? "red" : led.dbfs >= yellowMin ? "yellow" : "green"}${led.dbfs < visualLevel ? " on" : ""}`}
+              data-dbfs={String(led.dbfs)}
+            ></div>
+            <div className="level-meter-value">{led.label ?? ""}</div>
+          </Fragment>
+        ))}
       </div>
       <div className="level-meter-label">{inputGainInfo.name}</div>
       <div

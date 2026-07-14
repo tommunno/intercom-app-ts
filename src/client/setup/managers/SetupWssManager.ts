@@ -126,7 +126,10 @@ export class SetupWssManager implements ISetupWssManager {
         //Now we can safely destructure these
         const { type, payload } = json;
 
-        if (type !== "ADMIN_HEARTBEAT_REQUEST") {
+        if (
+          type !== "ADMIN_HEARTBEAT_REQUEST" &&
+          type !== "ADMIN_LEVEL_METERS"
+        ) {
           this.logger.info(`Message type: ${type}`);
         }
 
@@ -147,7 +150,7 @@ export class SetupWssManager implements ISetupWssManager {
       return;
     }
 
-    if (type !== "ADMIN_HEARTBEAT_REQUEST") {
+    if (type !== "ADMIN_HEARTBEAT_REQUEST" && type !== "ADMIN_LEVEL_METERS") {
       this.logger.success(`Message payload valid for type: ${type}`);
     }
 

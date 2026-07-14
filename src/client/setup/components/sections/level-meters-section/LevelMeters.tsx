@@ -1,3 +1,4 @@
+import { useLevelInfos } from "../../../hooks/useLevelInfos.js";
 import type {
   NamedInputGainInfo,
   NamedInputGainsInfo,
@@ -15,6 +16,8 @@ export function LevelMeters({
   selectedInputGainInfo,
   onLevelMeterSelect,
 }: LevelMetersProps) {
+  const [levelInfos] = useLevelInfos();
+
   return (
     <div className="level-meters">
       {inputGainsInfo.map((info) => (
@@ -23,6 +26,7 @@ export function LevelMeters({
           inputGainInfo={info}
           isSelected={selectedInputGainInfo?.id === info.id}
           onSelect={onLevelMeterSelect}
+          levelInfo={levelInfos[info.id] ?? null}
         />
       ))}
     </div>

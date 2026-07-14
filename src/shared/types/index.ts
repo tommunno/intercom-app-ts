@@ -48,3 +48,4 @@ export * from "./LogRowsInfo.js";
 export * from "./LogsPosition.js";
 export * from "./DownloadLogsQuery.js";
 export * from "./MatrixPortType.js";
+export * from "./AudioLevelInfo.js";

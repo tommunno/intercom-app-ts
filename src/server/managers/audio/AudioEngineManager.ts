@@ -23,7 +23,10 @@ import type {
 
 //Native binding:
 import engine, { type AudioEngine, type PortAudioDevice } from "audio-engine";
-import { AUDIO_LOSS_DETECTION_TIME_MS } from "../../constants/serverConstants.js";
+import {
+  AUDIO_LOSS_DETECTION_TIME_MS,
+  LEVEL_METERS_INTERVAL_MS,
+} from "../../constants/serverConstants.js";
 
 const BLANK_AUDIO_ENGINE_CONFIG: AudioEngineConfig = {
   numUsers: DEFAULT_NUM_USERS,
@@ -52,6 +55,9 @@ export class AudioEngineManager implements IAudioEngineManager {
   private audioLossDetected: boolean = false;
   private audioLossDetectionTimerId: ReturnType<typeof setInterval> | null =
     null;
+  //Level Meters:
+  private levelMetersIntervalId: ReturnType<typeof setInterval> | null = null;
+  private levelMetersErr: boolean = false;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AudioEngineManager" });
@@ -102,6 +108,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     void this.activeHandlers;
     this.addAudioCallback();
     this.startAudioLossDetection();
+    this.startLevelMeters();
     this._status = "RUNNING";
   }
 
@@ -124,6 +131,7 @@ export class AudioEngineManager implements IAudioEngineManager {
       }
     }
 
+    this.stopLevelMeters();
     this.stopAudioLossDetection();
     this.resetRuntimeFields();
 
@@ -552,6 +560,34 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
   }
 
+  private startLevelMeters(): void {
+    if (this.levelMetersIntervalId !== null) return;
+    this.levelMetersIntervalId = setInterval(
+      () => this.processLevelMeters(),
+      LEVEL_METERS_INTERVAL_MS,
+    );
+  }
+
+  private processLevelMeters(): void {
+    try {
+      const inputLevels = this.engine
+        .getInputLevelInfos()
+        .slice(0, this._config.numUsers);
+      this.activeHandlers.onLevelMeters(inputLevels);
+      this.levelMetersErr = false;
+    } catch (error) {
+      if (this.levelMetersErr) return;
+      this.levelMetersErr = true;
+      this.logger.error("Error processing level meters", true, error);
+    }
+  }
+
+  private stopLevelMeters(): void {
+    if (this.levelMetersIntervalId === null) return;
+    clearInterval(this.levelMetersIntervalId);
+    this.levelMetersIntervalId = null;
+  }
+
   private resetRuntimeFields(): void {
     this._config = { ...BLANK_AUDIO_ENGINE_CONFIG };
     this.device = null;
@@ -562,6 +598,8 @@ export class AudioEngineManager implements IAudioEngineManager {
     this.soundcardDevicesErr = false;
     this.audioLossDetected = false;
     this.audioLossDetectionTimerId = null;
+    this.levelMetersIntervalId = null;
+    this.levelMetersErr = false;
   }
 
   private get activeHandlers(): AudioEngineHandlers {

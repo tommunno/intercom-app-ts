@@ -1,3 +1,4 @@
+import type { AudioLevelInfos } from "../../../shared/types/index.js";
 import type {
   AdminSoundcardsInfo,
   ManagerStatus,
@@ -35,6 +36,7 @@ export type DeviceValidResponse =
 export interface AudioEngineHandlers {
   onAudio: (buffer: Buffer) => void;
   onAudioLossDetectedChange: (lossDetected: boolean) => void;
+  onLevelMeters: (inputLevels: AudioLevelInfos) => void;
 }
 
 export interface AudioEngineSaveSnapshot {

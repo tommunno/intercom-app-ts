@@ -11,6 +11,7 @@ import type {
   AdminSnapshot,
   AdminUsersInfo,
   AudioInfo,
+  AudioLevelInfos,
   AuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
@@ -95,6 +96,7 @@ export class Controller implements IController {
       onAudioInfoUpdate: (u, a) => this.handleAudioInfoUpdate(u, a),
       onAudioRestart: () => this.handleAudioRestart(),
       onAudioLossDetectedChange: () => this.handleAudioLossDetectedChange(),
+      onLevelMeters: (i) => this.handleLevelMeters(i),
     });
 
     this.networkController.setHandlers({
@@ -234,6 +236,14 @@ export class Controller implements IController {
     this.networkController.sendWssMessage(
       "ADMIN_UPDATE",
       { bannersInfo: this.audioController.getAdminAudioBannersInfo() },
+      this.dataController.getLoggedInAdminClientIds(),
+    );
+  }
+
+  private handleLevelMeters(inputLevels: AudioLevelInfos): void {
+    this.networkController.sendWssMessage(
+      "ADMIN_LEVEL_METERS",
+      inputLevels,
       this.dataController.getLoggedInAdminClientIds(),
     );
   }

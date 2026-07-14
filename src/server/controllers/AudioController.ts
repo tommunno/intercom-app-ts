@@ -8,6 +8,7 @@ import type {
   AdminUsersChangeRequest,
   AllResolvedAPls,
   AudioInfo,
+  AudioLevelInfos,
   KeyPressInfo,
   KeyType,
   MergedPartylineInfo,
@@ -274,6 +275,7 @@ export class AudioController implements IAudioController {
     this.audioEngineManager.setHandlers({
       onAudio: (b) => this.handleEngineAudio(b),
       onAudioLossDetectedChange: () => this.handleAudioLossDetectedChange(),
+      onLevelMeters: (i) => this.handleLevelMeters(i),
     });
     this.audioMatrixManager.setHandlers({
       onCrosspointChange: (c) => this.handleMatrixCrosspointChange(c),
@@ -416,6 +418,10 @@ export class AudioController implements IAudioController {
 
   private handleAudioLossDetectedChange(): void {
     this.activeHandlers.onAudioLossDetectedChange();
+  }
+
+  private handleLevelMeters(inputLevels: AudioLevelInfos): void {
+    this.activeHandlers.onLevelMeters(inputLevels);
   }
 
   //AudioMatrixManager:
