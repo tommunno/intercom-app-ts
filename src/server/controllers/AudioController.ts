@@ -289,6 +289,7 @@ export class AudioController implements IAudioController {
       onAudio: (b) => this.handleEngineAudio(b),
       onAudioLossDetectedChange: () => this.handleAudioLossDetectedChange(),
       onLevelMeters: (i) => this.handleLevelMeters(i),
+      onTalkDetection: (i) => this.handleAudioTalkDetection(i),
     });
     this.audioMatrixManager.setHandlers({
       onCrosspointChange: (c) => this.handleMatrixCrosspointChange(c),
@@ -440,6 +441,10 @@ export class AudioController implements IAudioController {
 
   private handleLevelMeters(inputLevels: AudioLevelInfos): void {
     this.activeHandlers.onLevelMeters(inputLevels);
+  }
+
+  private handleAudioTalkDetection(_inputsTalking: Set<number>): void {
+    // console.log("Inputs talking:", _inputsTalking);
   }
 
   //AudioMatrixManager:

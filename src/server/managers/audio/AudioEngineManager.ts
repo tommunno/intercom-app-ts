@@ -22,10 +22,16 @@ import type {
 } from "../../contracts/index.js";
 
 //Native binding:
-import engine, { type AudioEngine, type PortAudioDevice } from "audio-engine";
+import engine, {
+  type AudioEngine,
+  type LevelInfo,
+  type PortAudioDevice,
+} from "audio-engine";
 import {
   AUDIO_LOSS_DETECTION_TIME_MS,
   LEVEL_METERS_INTERVAL_MS,
+  TALK_DETECTION_THRESHOLD_DBFS,
+  TALK_DETECTION_WINDOW_SIZE,
 } from "../../constants/serverConstants.js";
 
 const BLANK_AUDIO_ENGINE_CONFIG: AudioEngineConfig = {
@@ -58,6 +64,10 @@ export class AudioEngineManager implements IAudioEngineManager {
   //Level Meters:
   private levelMetersIntervalId: ReturnType<typeof setInterval> | null = null;
   private levelMetersErr: boolean = false;
+  //Talk Detection:
+  //An array for each input, holding a history of the last few Peak dBs for each user (amount stored determined by TALK_DETECTION_WINDOW_SIZE):
+  private peakDbHistories: number[][] = [];
+  private talkDetectionIndex: number = 0;
 
   constructor(private logger: ILogger) {
     this.logger = this.logger.child({ context: "AudioEngineManager" });
@@ -83,6 +93,7 @@ export class AudioEngineManager implements IAudioEngineManager {
     }
     const configSuccess = this.setConfig(config);
     this.createPushAudioChannelErrs();
+    this.createPeakDbHistories();
     if (configSuccess) {
       this._config.isReady = this.createEngine();
     }
@@ -571,10 +582,11 @@ export class AudioEngineManager implements IAudioEngineManager {
 
   private processLevelMeters(): void {
     try {
-      const inputLevels = this.engine
-        .getInputLevelInfos()
-        .slice(0, this._config.numUsers);
-      this.activeHandlers.onLevelMeters(inputLevels);
+      const inputLevels = this.engine.getInputLevelInfos();
+      this.calculateTalkDetection(inputLevels);
+      this.activeHandlers.onLevelMeters(
+        inputLevels.slice(0, this._config.numUsers),
+      );
       this.levelMetersErr = false;
     } catch (error) {
       if (this.levelMetersErr) return;
@@ -589,6 +601,41 @@ export class AudioEngineManager implements IAudioEngineManager {
     this.levelMetersIntervalId = null;
   }
 
+  private createPeakDbHistories(): void {
+    this.peakDbHistories = Array.from(
+      { length: this._config.numTotalChannels },
+      () => [],
+    );
+  }
+
+  private calculateTalkDetection(inputLevels: LevelInfo[]): void {
+    inputLevels.forEach((inputLevel, i) => {
+      const peakDbsForInput = this.peakDbHistories[i];
+      if (!peakDbsForInput) return;
+      peakDbsForInput.push(inputLevel.peakDb);
+    });
+    this.talkDetectionIndex++;
+
+    if (this.talkDetectionIndex >= TALK_DETECTION_WINDOW_SIZE) {
+      const inputsTalking = new Set<number>();
+      this.peakDbHistories.forEach((peakDbsForInput, i) => {
+        for (const db of peakDbsForInput) {
+          if (db >= TALK_DETECTION_THRESHOLD_DBFS) {
+            inputsTalking.add(i);
+            break;
+          }
+        }
+      });
+      this.activeHandlers.onTalkDetection(inputsTalking);
+
+      //Clear the arrays for the next window:
+      for (const peakDbsForInput of this.peakDbHistories) {
+        peakDbsForInput.length = 0;
+      }
+      this.talkDetectionIndex = 0;
+    }
+  }
+
   private resetRuntimeFields(): void {
     this._config = { ...BLANK_AUDIO_ENGINE_CONFIG };
     this.device = null;
@@ -601,6 +648,8 @@ export class AudioEngineManager implements IAudioEngineManager {
     this.audioLossDetectionTimerId = null;
     this.levelMetersIntervalId = null;
     this.levelMetersErr = false;
+    this.peakDbHistories = [];
+    this.talkDetectionIndex = 0;
   }
 
   private get activeHandlers(): AudioEngineHandlers {

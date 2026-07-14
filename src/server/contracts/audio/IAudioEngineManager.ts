@@ -37,6 +37,7 @@ export interface AudioEngineHandlers {
   onAudio: (buffer: Buffer) => void;
   onAudioLossDetectedChange: (lossDetected: boolean) => void;
   onLevelMeters: (inputLevels: AudioLevelInfos) => void;
+  onTalkDetection: (inputsTalking: Set<number>) => void;
 }
 
 export interface AudioEngineSaveSnapshot {

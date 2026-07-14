@@ -36,6 +36,10 @@ export const AUDIO_LOSS_DETECTION_TIME_MS = 4000;
 //Level Meters:
 export const LEVEL_METERS_INTERVAL_MS = 100;
 
+//Talk Detection:
+export const TALK_DETECTION_WINDOW_SIZE = 5;
+export const TALK_DETECTION_THRESHOLD_DBFS = -20;
+
 //WebRtc:
 export const WEB_RTC_DISCONNECT_TIMEOUT_MS = 5000;
 
