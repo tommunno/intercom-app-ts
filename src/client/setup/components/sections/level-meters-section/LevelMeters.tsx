@@ -26,7 +26,7 @@ export function LevelMeters({
           inputGainInfo={info}
           isSelected={selectedInputGainInfo?.id === info.id}
           onSelect={onLevelMeterSelect}
-          levelInfo={levelInfos[info.id] ?? null}
+          rmsDb={levelInfos[info.id]?.rmsDb ?? null}
         />
       ))}
     </div>

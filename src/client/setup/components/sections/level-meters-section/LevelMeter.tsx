@@ -1,6 +1,5 @@
-import type { AudioLevelInfo } from "../../../../../shared/types/index.js";
 import type { NamedInputGainInfo } from "../../../types/NamedInputGainsInfo.js";
-import { useEffect, useState, Fragment, useRef } from "react";
+import { useEffect, useState, Fragment, useRef, memo } from "react";
 import {
   LEVEL_METER_DECAY_PER_FRAME,
   LEVEL_METER_LOWEST_VISUAL_LEVEL,
@@ -10,7 +9,7 @@ interface LevelMeterProps {
   inputGainInfo: NamedInputGainInfo;
   isSelected: boolean;
   onSelect: (inputGainInfo: NamedInputGainInfo) => void;
-  levelInfo: AudioLevelInfo | null;
+  rmsDb: number | null;
 }
 
 interface Led {
@@ -55,20 +54,21 @@ const leds = [
 const redMin = -10;
 const yellowMin = -18;
 
-export function LevelMeter({
+//memo just in order to ensure all level meters aren't being re-rendered every time new levelInfos arrive in the parent (ie every 10th of a second):
+export const LevelMeter = memo(function LevelMeter({
   inputGainInfo,
   isSelected,
   onSelect,
-  levelInfo,
+  rmsDb,
 }: LevelMeterProps) {
   const [visualLevel, setVisualLevel] = useState<number>(
     LEVEL_METER_LOWEST_VISUAL_LEVEL,
   );
-  const targetLevelRef = useRef<number | null>(levelInfo?.rmsDb ?? null);
+  const targetLevelRef = useRef<number | null>(rmsDb);
 
   useEffect(() => {
-    targetLevelRef.current = levelInfo?.rmsDb ?? null;
-  }, [levelInfo]);
+    targetLevelRef.current = rmsDb;
+  }, [rmsDb]);
 
   useEffect(() => {
     let animationFrameId: number;
@@ -95,7 +95,6 @@ export function LevelMeter({
   return (
     <div
       className={`level-meter-container${isSelected ? " selected" : ""}`}
-      data-uid="0"
       onClick={() => onSelect(inputGainInfo)}
     >
       <div className="level-meter">
@@ -117,4 +116,4 @@ export function LevelMeter({
       </div>
     </div>
   );
-}
+});
