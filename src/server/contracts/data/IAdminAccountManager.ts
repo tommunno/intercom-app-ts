@@ -2,6 +2,7 @@ import type {
   AdminAuthResult,
   HeartbeatRequestPayload,
   LoginCredentials,
+  ManagerStatus,
 } from "../../../shared/types/index.js";
 import type { AdminAccountData } from "../../types/index.js";
 
@@ -33,4 +34,5 @@ export interface IAdminAccountManager {
   getLoggedInClientIds: () => string[];
   validateSessionToken: (sessionToken: string) => boolean;
   getSaveSnapshot: () => AdminAccountData | null;
+  status: ManagerStatus;
 }

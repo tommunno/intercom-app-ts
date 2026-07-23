@@ -37,7 +37,7 @@ import {
 import bcrypt from "bcrypt";
 
 export class AdminAccountManager implements IAdminAccountManager {
-  private status: ManagerStatus = "IDLE";
+  private _status: ManagerStatus = "IDLE";
   private handlers: AdminAccountHandlers | null = null;
   private username: string = DEFAULT_ADMIN_USERNAME;
   private passwordHash: string | null = null;
@@ -54,42 +54,42 @@ export class AdminAccountManager implements IAdminAccountManager {
   }
 
   init(): void {
-    if (this.status !== "IDLE") {
+    if (this._status !== "IDLE") {
       throw new Error(
-        `Cannot initialize the AdminAccountManager whilst its status is ${this.status}`,
+        `Cannot initialize the AdminAccountManager whilst its status is ${this._status}`,
       );
     }
-    this.status = "INITIALIZED";
+    this._status = "INITIALIZED";
   }
 
   async populate(data: AdminAccountData): Promise<void> {
-    if (this.status !== "INITIALIZED") {
+    if (this._status !== "INITIALIZED") {
       throw new Error(
-        `Cannot populate the AdminAccountManager whilst its status is ${this.status}`,
+        `Cannot populate the AdminAccountManager whilst its status is ${this._status}`,
       );
     }
     await this.setCredentials(data.username, data.passwordHash);
     this.setSessionTokenInfos(data.sessionTokenInfos);
-    this.status = "POPULATED";
+    this._status = "POPULATED";
   }
 
   start(): void {
-    if (this.status !== "POPULATED") {
+    if (this._status !== "POPULATED") {
       throw new Error(
-        `Cannot start the AdminAccountManager whilst its status is ${this.status}`,
+        `Cannot start the AdminAccountManager whilst its status is ${this._status}`,
       );
     }
     // Trigger the check to ensure we are ready to roll
     void this.activeHandlers;
     this.startHeartbeat();
     this.startSessionCleanup();
-    this.status = "RUNNING";
+    this._status = "RUNNING";
   }
 
   stop(): void {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       this.logger.error(
-        `Cannot stop the AdminAccountManager whilst its status is ${this.status}`,
+        `Cannot stop the AdminAccountManager whilst its status is ${this._status}`,
       );
       return;
     }
@@ -99,7 +99,7 @@ export class AdminAccountManager implements IAdminAccountManager {
     this.loggedInClients.clear();
     this.stopHeartbeat();
     this.stopSessionCleanup();
-    this.status = "IDLE";
+    this._status = "IDLE";
   }
 
   setHandlers(handlers: AdminAccountHandlers): void {
@@ -230,6 +230,10 @@ export class AdminAccountManager implements IAdminAccountManager {
       passwordHash: this.passwordHash,
       sessionTokenInfos,
     };
+  }
+
+  get status(): ManagerStatus {
+    return this._status;
   }
 
   private hardLogin(clientId: string, sessionToken: string): AdminAuthResult {
@@ -480,9 +484,9 @@ export class AdminAccountManager implements IAdminAccountManager {
   }
 
   private checkAndWarnIfNotRunning(action: string): AdminAuthResult | null {
-    if (this.status !== "RUNNING") {
+    if (this._status !== "RUNNING") {
       this.logger.error(
-        `Unable to ${action} because the status is ${this.status}`,
+        `Unable to ${action} because the status is ${this._status}`,
       );
       return {
         success: false,
